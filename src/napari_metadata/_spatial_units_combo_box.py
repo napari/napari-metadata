@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, Dict
 
-from pint import Unit, UnitRegistry
+from pint import Unit
 from qtpy.QtWidgets import QComboBox
 
-from napari_metadata._model import coerce_extra_metadata
+from napari_metadata._model import coerce_extra_metadata, get_pint_ureg
 from napari_metadata._space_units import SpaceUnits
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ class SpatialUnitsComboBox(QComboBox):
         super().__init__()
         self._viewer = viewer
         self.addItems(SpaceUnits.names())
-        self._unit_registry: UnitRegistry = UnitRegistry()
+        self._unit_registry: UnitRegistry = get_pint_ureg
         self._PINT_TO_SPACE_UNIT: Dict[Unit, SpaceUnits] = {
             self._unit_registry.nanometer: SpaceUnits.NANOMETER,
             self._unit_registry.micron: SpaceUnits.MICROMETER,

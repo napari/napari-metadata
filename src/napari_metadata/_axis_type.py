@@ -4,10 +4,9 @@ from typing import List, Optional
 
 class AxisType(Enum):
     """Supported axis types."""
-
     SPACE = auto()
     TIME = auto()
-    CHANNEL = auto()
+    STRING = auto()
 
     def __str__(self) -> str:
         return self.name.lower()
