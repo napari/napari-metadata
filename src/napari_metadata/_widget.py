@@ -54,6 +54,139 @@ if TYPE_CHECKING:
     from napari.layers import Layer
     from napari.utils.notifications import show_info
 
+class GeneralMetadataComponent(Protocol):
+    _component_name: str
+    _napari_viewer: "ViewerModel"
+    _component_qlabel: QLabel
+
+    """All general metadata components should pass the napari viewer and the main widget (This is the MetaDataWidget that isn't declared until later... SOMEBODY
+    SHOULD MAKE A PROTOCOL FOR THIS....). This is to make sure that the components can call methods from the MetaDataWidget in case they need to interact between components."""
+    def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget) -> None: ...
+    
+    """I am suggesting the load_entries method to update/load anything that the component needs to display the information."""
+    def load_entries(self, layer: "Layer | None" = None) -> None: ...
+
+    """ This method returns the dictionary that will be used to populate the general metadata QGridLayout.
+    It requires you to input the type of layout, either horizontal or vertical, with vertical set to default. 
+    It should return a dictionary with the name of the entries as keys (They'll be set in bold capital letters) and a tuple with the corresponding
+    QWidget, the row span, the column span, the calling method as a string or none if there's no method """
+    def get_entries_dict(self, layout_mode: str) ->  dict[str, tuple[QWidget, int, int, str]]: ...
+
+    """ This method returns a boolean that will determine if the entry is to the left or below the name of the entry. """
+    def get_under_label(self, layout_mode: str) -> bool: ...
+
+GENERAL_METADATA_DICT: dict[str, type[GeneralMetadataComponent]] = {}
+
+def _general_metadata_component(_setting_class: type[GeneralMetadataComponent]) -> type[GeneralMetadataComponent]:
+    GENERAL_METADATA_DICT[_setting_class.__name__] = _setting_class
+    return _setting_class
+
+@_general_metadata_component
+class LayerNameComponent():
+    _component_name: str
+    _napari_viewer: "ViewerModel"
+    _main_widget: QWidget
+    _component_qlabel: QLabel
+    _under_label: bool
+
+    _layer_name_line_edit: QLineEdit
+
+    def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget) -> None:
+        self._napari_viewer = napari_viewer
+        
+        component_qlabel: QLabel = QLabel("Layer Name:")
+        component_qlabel.setStyleSheet("font-weight: bold;") # type: ignore
+        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._component_qlabel = component_qlabel
+        
+
+        self._layer_name_line_edit = QLineEdit()
+        self._component_name = "LayerName"
+
+    def load_entries(self, layer: "Layer | None" = None) -> None:
+        active_layer: "Layer | None" = None
+        if layer is not None:
+            active_layer = layer
+        else:
+            active_layer = get_active_layer(self._napari_viewer) # type: ignore
+        if active_layer is None:
+            self._layer_name_line_edit.setText("None selected") # type: ignore
+            return
+        self._layer_name_line_edit.setText(active_layer.name) # type: ignore
+
+    def get_entries_dict(self, layout_mode: str = "vertical") -> dict[str, tuple[QWidget, int, int, str]]:
+        returning_dict: dict[str, tuple[QWidget, int, int, str]] = {}
+        if layout_mode == "vertical":
+            returning_dict["LayerName"] = (self._layer_name_line_edit, 1, 2, "_on_name_line_changed") # type: ignore
+        else:
+            returning_dict["LayerName"] = (self._layer_name_line_edit, 1, 3, "_on_name_line_changed") # type: ignore
+        return returning_dict 
+
+    def get_under_label(self, layout_mode: str = "vertical") -> bool:
+        if layout_mode == "vertical":
+            return True
+        else:
+            return False
+
+@_general_metadata_component
+class LayerShapeComponent():
+    _component_name: str
+    _napari_viewer: "ViewerModel"
+    _main_widget: QWidget
+    _component_qlabel: QLabel
+    _under_label: bool
+
+    _layer_shape_label: QLabel
+
+    def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget) -> None:
+        self._napari_viewer = napari_viewer
+
+        component_qlabel: QLabel = QLabel("Layer Shape:")
+        component_qlabel.setStyleSheet("font-weight: bold;") # type: ignore
+        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._component_qlabel = component_qlabel 
+
+
+        shape_label: QLabel = QLabel()
+        shape_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._layer_shape_label = shape_label
+        
+        self._component_name = "LayerShape"
+
+    def load_entries(self, layer: "Layer | None" = None) -> None:
+        active_layer: "Layer | None" = None
+        if layer is not None:
+            active_layer = layer
+        else:
+            active_layer = get_active_layer(self._napari_viewer) # type: ignore
+        if active_layer is None:
+            self._layer_shape_label.setText("None selected") # type: ignore
+            return
+        self._layer_shape_label.setText(str(get_layer_data_shape(active_layer))) # type: ignore
+
+    def get_entries_dict(self, layout_mode: str = "vertical") -> dict[str, tuple[QWidget, int, int, str]]:
+        returning_dict: dict[str, tuple[QWidget, int, int, str]] = {}
+        if layout_mode == "vertical":
+            returning_dict["LayerShape"] = (self._layer_shape_label, 1, 1, "") # type: ignore
+        else:
+            returning_dict["LayerShape"] = (self._layer_shape_label, 1, 2, "") # type: ignore
+        return returning_dict
+
+    def get_under_label(self, layout_mode: str = "vertical") -> bool:
+        return False
+
+class FileGeneralMetadata():
+    _napari_viewer: "ViewerModel"
+    _main_widget: QWidget
+    _file_metadata_components_dict: dict[str, GeneralMetadataComponent]
+
+    def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget) -> None:
+        self._napari_viewer = napari_viewer
+        self._main_widget = main_widget
+        self._file_metadata_components_dict: dict[str, GeneralMetadataComponent] = {
+            name: cls(self._napari_viewer, self._main_widget) for name, cls in GENERAL_METADATA_DICT.items() # type: ignore
+        }
+
 class FileMetadataWidget(QWidget):
 
     _widget_parent: QWidget | None
@@ -1159,7 +1292,7 @@ class CollapsibleHorizontalBox(QWidget):
 
 # CHANGED_WIDGET_TYPE(Carlos Rodriguez): I changed the widget type from QStackWidget to QWidget since the only implementation at the moment was flipping between editable and not editable metadata and setting the editable widget form enabled to disabled should be enough 
 class MetadataWidget(QWidget):
-    
+
     _selected_layer: "Layer | None"
     _inheritance_layer: "Layer | None"
     _stored_inheritances: dict[str, list[bool]] | None
@@ -1177,10 +1310,11 @@ class MetadataWidget(QWidget):
     _current_orientation: str
     _active_listeners: bool
     _already_shown: bool
-    
+
     def __init__(self, napari_viewer: "ViewerModel"):
         super().__init__()
         self._viewer = napari_viewer
+        self._napari_viewer = napari_viewer
         self._selected_layer = None
         self._inheritance_layer = None
         self._stored_inheritances = None
@@ -1205,6 +1339,15 @@ class MetadataWidget(QWidget):
         self._stacked_layout.setContentsMargins(0, 0, 0, 0)
         self._stacked_layout.setSpacing(3)
 
+        self._general_metadata_instance = FileGeneralMetadata(napari_viewer, self)
+        self._connect_file_general_metadata_components()
+        self._vert_file_general_metadata_container: QWidget = QWidget()
+        self._vert_file_general_metadata_layout: QGridLayout = QGridLayout()
+        self._vert_file_general_metadata_container.setLayout(self._vert_file_general_metadata_layout)
+        self._hori_file_general_metadata_container: QWidget = QWidget()
+        self._hori_file_general_metadata_layout: QGridLayout = QGridLayout()
+        self._hori_file_general_metadata_container.setLayout(self._hori_file_general_metadata_layout)
+
         self._vertical_file_metadata_widget: FileMetadataWidget = FileMetadataWidget(napari_viewer)
         self._vertical_editable_widget: EditableMetadataWidget = EditableMetadataWidget(napari_viewer)
         self._vertical_editable_widget._set_vertical_mode() # type: ignore
@@ -1225,7 +1368,8 @@ class MetadataWidget(QWidget):
         self._stacked_layout.addWidget(vertical_container)
 
         self._collapsible_vertical_file_metadata: CollapsibleVerticalBox = CollapsibleVerticalBox("File metadata")
-        self._collapsible_vertical_file_metadata.setContentWidget(self._vertical_file_metadata_widget) # type: ignore
+        # self._collapsible_vertical_file_metadata.setContentWidget(self._vertical_file_metadata_widget) # type: ignore
+        self._collapsible_vertical_file_metadata.setContentWidget(self._vert_file_general_metadata_container) # type: ignore
         self._collapsible_vertical_editable_metadata: CollapsibleVerticalBox = CollapsibleVerticalBox("Axes metadata")
         self._collapsible_vertical_editable_metadata.setContentWidget(self._vertical_editable_widget) # type: ignore
         self._collapsible_vertical_inheritance: CollapsibleVerticalBox = CollapsibleVerticalBox("Inheritance")
@@ -1242,7 +1386,8 @@ class MetadataWidget(QWidget):
         self._stacked_layout.addWidget(horizontal_container)
 
         self._collapsible_horizontal_file_metadata: CollapsibleHorizontalBox = CollapsibleHorizontalBox("File metadata")
-        self._collapsible_horizontal_file_metadata.setContentWidget(self._horizontal_file_metadata_widget) # type: ignore
+        # self._collapsible_horizontal_file_metadata.setContentWidget(self._horizontal_file_metadata_widget) # type: ignore
+        self._collapsible_horizontal_file_metadata.setContentWidget(self._hori_file_general_metadata_container) # type: ignore
         self._collapsible_horizontal_editable_metadata: CollapsibleHorizontalBox = CollapsibleHorizontalBox("Axes metadata")
         self._collapsible_horizontal_editable_metadata.setContentWidget(self._horizontal_editable_widget) # type: ignore
         self._collapsible_horizontal_inheritance: CollapsibleHorizontalBox = CollapsibleHorizontalBox("Inheritance")
@@ -1281,12 +1426,11 @@ class MetadataWidget(QWidget):
     def _on_selected_layer_name_changed(self) -> None:
         if self._selected_layer is None:
             return
-        vert_file_meta: FileMetadataWidget = self._vertical_file_metadata_widget
-        hiro_file_meta: FileMetadataWidget = self._horizontal_file_metadata_widget
-        if vert_file_meta._active_listeners:
-            vert_file_meta._layer_name_QLineEdit.setText(self._selected_layer.name)
-        if hiro_file_meta._active_listeners:
-            hiro_file_meta._layer_name_QLineEdit.setText(self._selected_layer.name)
+        general_metadata_instance: FileGeneralMetadata = self._general_metadata_instance
+        general_metadata_components: dict[str, FileGeneralMetadataComponent] = general_metadata_instance._file_metadata_components_dict # type: ignore
+        general_metadata_component: GeneralMetadataComponent
+        for general_metadata_component in general_metadata_components.values():
+            general_metadata_component.load_entries()
 
     def _disconnect_layer_params(self, layer: "Layer") -> None:
         layer.events.name.disconnect(self._on_selected_layer_name_changed)
@@ -1402,7 +1546,145 @@ class MetadataWidget(QWidget):
 
         self.setMinimumSize(50, 50)
 
+    def _reset_layout(self, layout: QLayout | None) -> None:
+        if layout is None:
+            return
+        while layout.count():
+            item: QLayoutItem | None = layout.takeAt(0)
+            if item is not None:
+                item_widget: QWidget | None = item.widget()
+                if item_widget is None:
+                    removing_second_layout: QLayout | None = item.layout()
+                    if removing_second_layout is not None:
+                        self._reset_layout(removing_second_layout)
+                else:
+                    item_widget.setParent(None)
+
+    def _set_file_general_metadata_orientation(self, orientation: str) -> None:
+
+        starting_row: int = 0
+        starting_column: int = 0
+        current_row: int  = starting_row
+
+        vert_file_layout: QGridLayout = self._vert_file_general_metadata_layout
+        hori_file_layout: QGridLayout = self._hori_file_general_metadata_layout
+
+        file_general_meta_instance: FileGeneralMetadata = self._general_metadata_instance
+        components_dict = file_general_meta_instance._file_metadata_components_dict # type: ignore
+
+        if orientation == "vertical":
+
+            self._reset_layout(hori_file_layout)
+
+            for name in components_dict.keys():
+
+                current_column: int = starting_column
+
+                total_row_spans: int = 0
+                total_column_spans: int = 0
+
+                general_component: GeneralMetadataComponent = components_dict[name]
+
+                general_component_qlabel: QLabel = general_component._component_qlabel
+                vert_file_layout.addWidget(general_component_qlabel, current_row, current_column, 1, 1)
+                
+
+                general_component.load_entries()
+                entries_dict: dict[str, tuple[QWidget, int, int, str]] = general_component.get_entries_dict(orientation)
+
+                if general_component.get_under_label(orientation):
+                    current_row += 1
+                else:
+                    current_column += 1
+
+                total_row_spans += 1
+
+                for entry_name in entries_dict.keys():
+                    entry_widget: QWidget = entries_dict[entry_name][0]
+                    row_span: int = entries_dict[entry_name][1]
+                    column_span: int = entries_dict[entry_name][2]
+                    method_name: str = entries_dict[entry_name][3]
+
+                    vert_file_layout.addWidget(entry_widget, current_row, current_column, row_span, column_span)
+                    print(f"Added widget at row {current_row} and column {current_column} with row span {row_span} and column span {column_span}")
+                    current_row += row_span
+        else:
+
+            self._reset_layout(vert_file_layout)
+
+            for name in components_dict.keys():
+
+                current_column: int = starting_column
+
+                total_row_spans: int = 0
+                total_column_spans: int = 0
+
+                general_component: GeneralMetadataComponent = components_dict[name] # type: ignore
+
+                general_component_qlabel: QLabel = general_component._component_qlabel # type: ignore
+                hori_file_layout.addWidget(general_component_qlabel, current_row, current_column, 1, 1) # type: ignore
+
+                general_component.load_entries()
+                entries_dict: dict[str, tuple[QWidget, int, int, str]] = general_component.get_entries_dict(orientation) # type: ignore
+
+                if general_component.get_under_label(orientation):
+                    current_row += 1
+                else:
+                    current_column += 1
+
+                total_row_spans += 1
+
+                for entry_name in entries_dict.keys():
+                    entry_widget: QWidget = entries_dict[entry_name][0]
+                    row_span: int = entries_dict[entry_name][1]
+                    column_span: int = entries_dict[entry_name][2]
+                    method_name: str = entries_dict[entry_name][3]
+
+                    hori_file_layout.addWidget(entry_widget, current_row, current_column, row_span, column_span)
+                    current_row += row_span
+
+        for vert_file_layout_row in range(vert_file_layout.rowCount()):
+            vert_file_layout.setRowStretch(vert_file_layout_row, 1)
+        for vert_file_layout_column in range(vert_file_layout.columnCount()):
+            vert_file_layout.setColumnStretch(vert_file_layout_column, 1)
+        for hori_file_layout_row in range(hori_file_layout.rowCount()):
+            hori_file_layout.setRowStretch(hori_file_layout_row, 1)
+        for hori_file_layout_column in range(hori_file_layout.columnCount()):
+            hori_file_layout.setColumnStretch(hori_file_layout_column, 1)
+
+    def _connect_file_general_metadata_components(self) -> None:
+
+        file_general_meta_instance: FileGeneralMetadata = self._general_metadata_instance
+        components_dict = file_general_meta_instance._file_metadata_components_dict # type: ignore
+
+        for name in components_dict.keys():
+            general_component: GeneralMetadataComponent = components_dict[name] # type: ignore
+            entries_dict: dict[str, tuple[QWidget, int, int, str]] = general_component.get_entries_dict(self._current_orientation)
+            for entry_name in entries_dict.keys():
+                entry_widget: QWidget = entries_dict[entry_name][0]
+                method_name: str = entries_dict[entry_name][3]
+                if method_name == "":
+                    continue
+                if isinstance(entry_widget, QLineEdit):
+                    entry_line_edit: QLineEdit = cast(QLineEdit, entry_widget)
+                    entry_line_edit.textEdited.connect(getattr(self, method_name))
+
+    def _on_name_line_changed(self, text: str) -> None:
+        sender_line_edit: QLineEdit = cast(QLineEdit, self.sender())
+        active_layer: "Layer | None" = get_active_layer(self._napari_viewer) # type: ignore
+        if active_layer is None:
+            sender_line_edit.setText("No layer selected")
+            return
+        if text == active_layer.name:
+            return
+        active_layer.name = text
+
     def _set_layout_type(self, layout_type: str) -> None:
+
+        if layout_type == "vertical":
+            self._set_file_general_metadata_orientation("vertical")
+        else: 
+            self._set_file_general_metadata_orientation("horizontal")
 
         current_layout: QStackedLayout = self._stacked_layout
         number_of_widgets: int = current_layout.count()
