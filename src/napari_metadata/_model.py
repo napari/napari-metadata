@@ -123,6 +123,18 @@ def get_layer_data_dtype(layer: "Layer | None") -> str:
         return str(layer_data[0].dtype)
     return "Unknown"
 
+def get_layer_source_path(layer: "Layer | None") -> str:
+    if layer is None:
+        return ""
+    if layer.source.path is None:
+        return ""
+    return layer.source.path
+
+def get_layer_dimensions(layer: "Layer | None") -> int:
+    if layer is None:
+        return 0
+    return layer.ndim
+
 def get_active_layer(viewer: "ViewerModel") -> "Layer | None":
     return viewer.layers.selection.active
 
