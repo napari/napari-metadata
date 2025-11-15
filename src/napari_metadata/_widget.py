@@ -664,10 +664,7 @@ class AxisTranslations():
             return
 
         layer_translates = get_axes_translations(self._napari_viewer, active_layer) # type: ignore
-        print("")
-        print("Loading translates", layer_translates)
         for i in range(len(layer_translates)):
-            print(f"Setting the spinbox {i} to {layer_translates[i]}")
             with QSignalBlocker(self._translation_spinbox_tuple[i]):
                 self._translation_spinbox_tuple[i].setValue(layer_translates[i])
 
@@ -925,11 +922,8 @@ class AxisUnits():
         setting_unit_combobox_tuple: tuple[QComboBox, ...] = ()
         setting_inherit_checkbox_tuple: tuple[QCheckBox, ...] = _get_checkbox_tuple(layer)
         layer_units: Tuple[pint.Unit, ...] = get_axes_units(self._napari_viewer, layer) # type: ignore
-        print(f"The loaded units are: {layer_units}")
         for i in range(layer_dimensions):
             setting_unit_string: str = str(layer_units[i])
-            print("")
-            print(f"The loaded string unit is: {setting_unit_string}")
             setting_type_combobox: QComboBox = QComboBox()
             setting_type_combobox.addItems(AxisType.names())
             setting_unit_combobox: QComboBox = QComboBox()
@@ -2728,7 +2722,7 @@ class MetadataWidget(QWidget):
         inheritance_layer_dims: str = self._inheritance_layer.ndim
         current_layer_dims = current_layer.ndim
         if inheritance_layer_dims != current_layer_dims:
-            print("Inheritance layer must have same number of dimensions as current layer")
+            show_info("Inheritance layer must have same number of dimensions as current layer")
             return
         inheritance_axes_labels = get_axes_labels(self._viewer, self._inheritance_layer)
         inheritance_translation = get_axes_translations(self._viewer, self._inheritance_layer)
@@ -2928,7 +2922,6 @@ class MetadataWidget(QWidget):
                 unit_pint = unit_registry(unit_string).units # type: ignore
             setting_units_list.append(unit_pint)
         set_active_layer_axes_units(self._napari_viewer, setting_units_list) # type: ignore
-        print(f"The axes units are: {get_axes_units(self._napari_viewer, self._selected_layer)}")
 
     def _on_unit_combobox_changed(self) -> None:
         unit_axis_component: MetadataComponent = self._axis_metadata_instance._axis_metadata_components_dict["AxisUnits"] # type: ignore
@@ -2955,9 +2948,6 @@ class MetadataWidget(QWidget):
                 unit_pint = unit_registry(unit_string).units # type: ignore
             setting_units_list.append(unit_pint)
         set_active_layer_axes_units(self._napari_viewer, setting_units_list) # type: ignore
-
-
-
 
     #def _remove_dock_widget(self) -> None:
     #    # To constrain our implementation and for testing, we only want
