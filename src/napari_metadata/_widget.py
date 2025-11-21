@@ -1,7 +1,8 @@
+from napari import Viewer
+import napari
 import pint
 
-from copy import deepcopy
-from typing import TYPE_CHECKING, Optional, Sequence, cast, Tuple, List, Protocol
+from typing import TYPE_CHECKING, cast, Tuple, List, Protocol
 
 from qtpy.QtCore import Qt, QObject, QRect, QSignalBlocker, QSize
 from qtpy.QtGui import QShowEvent, QPainter, QFontMetrics
@@ -31,8 +32,6 @@ from qtpy.QtWidgets import (
 )
 
 from napari_metadata._model import (
-    coerce_extra_metadata,
-    is_metadata_equal_to_original,
     get_active_layer,
     get_layer_data_shape,
     get_layer_data_dtype,
@@ -1404,379 +1403,41 @@ class AxesUnits():
     def get_checkboxes_list(self) -> list[QCheckBox]:
         return [self._entries_dict[i]["InheritCheckBox"][2] for i in range(len(self._entries_dict))]
 
-class EditableMetadataWidget(QWidget):
-    
-    _widget_parent: QWidget | None
-    _current_layout: QGridLayout
+class AxesInheritance():
 
-    _layout: QGridLayout
-    _layout_mode: str
+    _napari_viewer: "ViewerModel"
+    _main_widget: QWidget
 
-    _active_listeners: bool
+    _inheritance_layer_label: QLabel
+    _layer_name_scroll_area: QScrollArea
 
-    _editable_axes_components: dict[str, AxisComponent]
+    def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget | None = None):
+        self._napari_viewer = napari_viewer
+        self._main_widget = main_widget
 
-    def __init__(self, viewer: "ViewerModel", parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._current_layout = QGridLayout()
-        self._viewer = viewer
-        self._selected_layer = None
-        self._widget_parent = parent
-        layout = QGridLayout()
-        self._layout = layout
-        self.setLayout(layout)
-        self._active_listeners = False
-        self._layout_mode = "none"
-
-        self._editable_axes_components = {
-            name: cls(self._viewer) for name, cls in AXES_ENTRIES_DICT.items()
-        }
-
-#region previous code
-# TODO: (Carlos Rodriguez) This is the previous code that was used for the widget but it's no longer used for it. It is still referenced in other places so I can't delete it yet
-
-    def set_selected_layer(self, layer: Optional["Layer"]) -> None:
-        if layer == self._selected_layer:
-            return
-        if self._selected_layer is not None:
-            self._selected_layer.events.name.disconnect(
-                self._on_selected_layer_name_changed
-            )
-            self._selected_layer.events.scale.disconnect(
-                self._update_restore_enabled
-            )
-            self._selected_layer.events.translate.disconnect(
-                self._update_restore_enabled
-            )
-
-        if layer is not None:
-            self._spatial_units.set_selected_layer(layer)
-            self._axes_widget.set_selected_layer(layer)
-            self.name.setText(layer.name)
-            layer.events.name.connect(self._on_selected_layer_name_changed)
-            layer.events.scale.connect(self._update_restore_enabled)
-            layer.events.translate.connect(self._update_restore_enabled)
-            extras = coerce_extra_metadata(self._viewer, layer)
-            time_unit = str(extras.get_time_unit())
-            self._temporal_units.setCurrentText(time_unit)
-
-        self._spacing_widget.set_selected_layer(layer)
-
-        self._selected_layer = layer
-        self._update_restore_enabled()
-
-    def _add_attribute_row(self, name: str, widget: QWidget) -> None:
-        layout = self._attribute_widget.layout()
-        row = layout.rowCount()
-        label = QLabel(name)
-        label.setBuddy(widget)
-        layout.addWidget(label, row, 0)
-        layout.addWidget(widget, row, 1)
-
-    def _on_selected_layer_name_changed(self, event) -> None:
-        self.name.setText(event.source.name)
-
-    def _on_name_changed(self) -> None:
-        if self._selected_layer is not None:
-            self._selected_layer.name = self.name.text()
-        self._update_restore_enabled()
-
-    def _on_spatial_units_changed(self) -> None:
-        unit = SpaceUnits.from_name(self._spatial_units.currentText())
-        if unit is None:
-            unit = SpaceUnits.NONE
-        for layer in self._viewer.layers:
-            extras = coerce_extra_metadata(self._viewer, layer)
-            extras.set_space_unit(unit)
-        self._update_restore_enabled()
-
-    def _on_temporal_units_changed(self) -> None:
-        unit = TimeUnits.from_name(self._temporal_units.currentText())
-        if unit is None:
-            unit = TimeUnits.NONE
-        for layer in self._viewer.layers:
-            extras = coerce_extra_metadata(self._viewer, layer)
-            extras.set_time_unit(unit)
-        self._update_restore_enabled()
-
-    def _on_restore_clicked(self) -> None:
-        assert self._selected_layer is not None
-        layer = self._selected_layer
-        extras = coerce_extra_metadata(self._viewer, layer)
-        if original := extras.original:
-            extras.axes = list(deepcopy(original.axes))
-            if name := original.name:
-                layer.name = name
-            if scale := original.scale:
-                layer.scale = scale
-            if translate := original.translate:
-                layer.translate = translate
-            self._spatial_units.set_selected_layer(layer)
-            self._axes_widget.set_selected_layer(layer)
-            time_unit = str(extras.get_time_unit())
-            self._temporal_units.setCurrentText(time_unit)
-
-    def _update_restore_enabled(self) -> None:
-        enabled = not is_metadata_equal_to_original(self._selected_layer)
-        self._restore_defaults.setEnabled(enabled)
-
-#endregion
-
-    def _set_active_listeners(self, active: bool) -> None:
-        self._active_listeners = active
-
-    def _set_vertical_mode(self) -> None:
-        self._layout_mode = "vertical"
-        self._update_active_layer()
-
-    def _set_horizontal_mode(self) -> None:
-        self._layout_mode = "horizontal"
-        self._update_active_layer()
-
-    def _update_active_layer(self) -> None:
-        if self._layout_mode != "horizontal" and self._layout_mode != "vertical":
-            return
-        self._reset_layout(self.layout())
-        layer: "Layer | None" = get_active_layer(self._viewer)
-        if layer is None:
-            return
-        current_row = 0
-        current_column = 0
-        editable_comp_name: str
-        list_of_connections: List[Tuple[QWidget, str]] = []
-        max_column_vert_spans: int = 0
-        max_row_hori_spans: int = 0
-        vert_separator_rows: List[int] = []
-        hori_separator_columns: List[int] = []
-        for editable_comp_class_name in self._editable_axes_components.keys():
-            self._editable_axes_components[editable_comp_class_name].load_entries()
-            editable_comp_name: str = self._editable_axes_components[editable_comp_class_name]._axis_component_name # type: ignore
-            rows_and_column_spans: dict[str, int] | None = self._editable_axes_components[editable_comp_class_name].get_rows_and_column_spans()
-            editable_comp_entries: dict[int, dict[str, tuple[int, int, QWidget, str | None]]] = self._editable_axes_components[editable_comp_class_name].get_entries_dict()
-            appending_q_label = QLabel(editable_comp_name)
-            appending_q_label.setStyleSheet("font-weight: bold")
-            if self._layout_mode == "vertical":
-                appending_q_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-                self._layout.addWidget(appending_q_label, current_row, 0, rows_and_column_spans["row_span"], 1)
-                current_individual_widget_row = current_row
-                for axis_number in editable_comp_entries:
-                    current_individual_widget_column = 1
-                    max_row_span = 1
-                    for axis_element_name in editable_comp_entries[axis_number]:
-                        adding_widget: QWidget = editable_comp_entries[axis_number][axis_element_name][2]
-                        if isinstance(adding_widget, QLabel):
-                            label_widget: QLabel = cast(QLabel, adding_widget)
-                            label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                        self._layout.addWidget(adding_widget, current_individual_widget_row, current_individual_widget_column, editable_comp_entries[axis_number][axis_element_name][0], editable_comp_entries[axis_number][axis_element_name][1])
-                        callin_string = editable_comp_entries[axis_number][axis_element_name][3]
-                        if callin_string is not None:
-                            list_of_connections.append((adding_widget, callin_string))
-                        current_individual_widget_column += editable_comp_entries[axis_number][axis_element_name][1]
-                        if editable_comp_entries[axis_number][axis_element_name][0] > max_row_span:
-                            max_row_span = editable_comp_entries[axis_number][axis_element_name][0]
-                    current_individual_widget_row += max_row_span
-                    if current_individual_widget_column > max_column_vert_spans:
-                        max_column_vert_spans = current_individual_widget_column
-                if editable_comp_class_name != list(self._editable_axes_components.keys())[-1]:
-                    vert_separator_rows.append(current_row + rows_and_column_spans["row_span"])
-                current_row += rows_and_column_spans["row_span"] + 1
-
-            else:
-                appending_q_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                appending_q_label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-                self._layout.addWidget(appending_q_label, 0, current_column, 1, rows_and_column_spans["column_span"])
-                
-                current_individual_widget_row = 1
-                
-                max_axis_col_span = 0
-
-                max_axis_row_span = 0
-
-                for axis_number in editable_comp_entries:
-                    
-                    current_individual_widget_column = current_column
-                    axis_element_max_row_span = 0
-
-                    current_axis_col_span = 0
-                    
-                    for axis_element_name in editable_comp_entries[axis_number]:
-                        
-                        # if axis_element_name == "AxisIndex" and editable_comp_class_name != list(self._editable_axes_components.keys())[0]:
-                        #     continue
-                        adding_widget: QWidget = editable_comp_entries[axis_number][axis_element_name][2]
-                        if isinstance(adding_widget, QLabel):
-                            label_widget: QLabel = cast(QLabel, adding_widget)
-                            label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                        
-                        self._layout.addWidget(adding_widget, current_individual_widget_row, current_individual_widget_column, editable_comp_entries[axis_number][axis_element_name][0], editable_comp_entries[axis_number][axis_element_name][1])
-
-                        current_axis_col_span += editable_comp_entries[axis_number][axis_element_name][1]
-
-                        callin_string = editable_comp_entries[axis_number][axis_element_name][3]
-                        if callin_string is not None:
-                            list_of_connections.append((adding_widget, callin_string))
-                        
-                        if editable_comp_entries[axis_number][axis_element_name][1] > axis_element_max_row_span:
-                            axis_element_max_row_span = editable_comp_entries[axis_number][axis_element_name][1]
-                        current_individual_widget_column += editable_comp_entries[axis_number][axis_element_name][1]
-
-                        if axis_element_name == list(editable_comp_entries[axis_number].keys())[-1] and current_individual_widget_column not in hori_separator_columns:
-                            hori_separator_columns.append(current_individual_widget_column)
-
-                    if current_axis_col_span > max_axis_col_span:
-                        max_axis_col_span = current_axis_col_span
-
-                    current_individual_widget_row += axis_element_max_row_span
-                
-                if max_axis_row_span > max_row_hori_spans:
-                    max_row_hori_spans = max_axis_row_span
-
-                current_column += max_axis_col_span + 1
-
-        if self._layout_mode == "vertical":
-            for row in vert_separator_rows:
-                vert_separator = QFrame()
-                vert_separator.setFrameShape(QFrame.HLine)
-                vert_separator.setFrameShadow(QFrame.Sunken)
-                vert_separator.setStyleSheet("background-color: grey;")
-                self._layout.addWidget(vert_separator, row, 0, 1, max_column_vert_spans)
-
-            num_of_columns: int  = self._layout.columnCount()
-            for col in range(num_of_columns):
-                self._layout.setColumnStretch(col, 1)
-            num_of_rows: int = self._layout.rowCount()
-            for row in range(num_of_rows):
-                self._layout.setRowStretch(row, 1)
-
-        else:
-            hori_separator_columns = hori_separator_columns[:-1]
-            for col in hori_separator_columns:
-                hori_separator = QFrame()
-                hori_separator.setFrameShape(QFrame.VLine)
-                hori_separator.setFrameShadow(QFrame.Sunken)
-                hori_separator.setStyleSheet("background-color: grey;")
-                self._layout.addWidget(hori_separator, 0, col, max_row_hori_spans, 1, Qt.AlignmentFlag.AlignHCenter)
-                self._layout.setColumnStretch(col, 1)
-
-            num_of_columns: int  = self._layout.columnCount()
-            for col in range(num_of_columns):
-                self._layout.setColumnStretch(col, 1)
-            num_of_rows: int = self._layout.rowCount()
-            for row in range(num_of_rows):
-                self._layout.setRowStretch(row, 1)
-
-        self._update_widget_axes_labels()
-
-        for widget, callin_string in list_of_connections:
-            if isinstance(widget, QLineEdit):
-                setting_qline_edit: QLineEdit = widget
-                calling_method_string: str = callin_string
-                calling_method = getattr(self, calling_method_string)
-                setting_qline_edit.textEdited.connect(calling_method)
-            if isinstance(widget, QComboBox):
-                setting_qcombo_box: QComboBox = widget
-                calling_method_string: str = callin_string
-                calling_method = getattr(self, calling_method_string)
-                setting_qcombo_box.currentIndexChanged.connect(calling_method)
-            if isinstance(widget, QDoubleSpinBox):
-                setting_qspin_box: QDoubleSpinBox = widget
-                calling_method_string: str = callin_string
-                calling_method = getattr(self, calling_method_string)
-                setting_qspin_box.valueChanged.connect(calling_method)
-            if isinstance(widget, QCheckBox):
-                setting_qcheck_box: QCheckBox = widget
-                calling_method_string: str = callin_string
-                calling_method = getattr(self, calling_method_string)
-                setting_qcheck_box.stateChanged.connect(calling_method)
-    
-    def _on_axes_label_changed(self) -> None:
-        current_layer: "Layer | None" = get_active_layer(self._viewer)
-        if current_layer is None:
-            return
-        axes_labels_instance: AxesLabels = self._editable_axes_components["AxesLabels"]
-        setting_labels: Tuple[str, ...] = tuple(axes_labels_instance._entries_dict[i]["AxisLabel"][2].text() for i in range(len(axes_labels_instance._entries_dict)))
-        set_active_layer_axes_labels(self._viewer, setting_labels)
-        self._update_widget_axes_labels()
-
-    def _update_widget_axes_labels(self) -> None:
-        layer_labels_tuple: Tuple[str, ...] = get_axes_labels(self._viewer)
-        if len(layer_labels_tuple) == 0:
-            return
-        for axes_component in self._editable_axes_components:
-            if axes_component == "AxesLabels":
-                continue
-            axes_component_instance: AxisComponent = self._editable_axes_components[axes_component]
-            axes_component_entries_dict: dict[int, dict[str, tuple[int, int, QWidget, str | None]]] = axes_component_instance.get_entries_dict()
-            for axis_number in axes_component_entries_dict:
-                axis_index_widget: QLineEdit = axes_component_entries_dict[axis_number]["AxisIndex"][2]
-                axis_index_widget.setText(layer_labels_tuple[axis_number])
-
-    def _on_axes_unit_changed(self) -> None:
-        current_layer: "Layer | None" = get_active_layer(self._viewer)
-        if current_layer is None:
-            return
-        axes_units_instance: AxesUnits = self._editable_axes_components["AxesUnits"]
-        setting_units_strings: list = [axes_units_instance._entries_dict[i]["AxisUnit"][2].currentText() for i in range(len(axes_units_instance._entries_dict))]
-        set_active_layer_axes_units(self._viewer, tuple(setting_units_strings))
-        axes_units_instance._update_types()
-
-    def _on_axes_type_changed(self) -> None:
-        current_layer: "Layer | None" = get_active_layer(self._viewer)
-        if current_layer is None:
-            return
-        axes_units_instance: AxesUnits = self._editable_axes_components["AxesUnits"]
-        axes_units_instance._set_types()
-        axes_units_strings: list = [axes_units_instance._entries_dict[i]["AxisUnit"][2].currentText() for i in range(len(axes_units_instance._entries_dict))]
-        set_active_layer_axes_units(self._viewer, tuple(axes_units_strings))
-
-    def _on_axes_scale_changed(self) -> None:
-        current_layer: "Layer | None" = get_active_layer(self._viewer)
-        if current_layer is None:
-            return
-        axes_scales_instance: AxesScales = self._editable_axes_components["AxesScales"]
-        setting_scales: Tuple[float, ...] = tuple(axes_scales_instance._entries_dict[i]["AxisScale"][2].value() for i in range(len(axes_scales_instance._entries_dict)))
-        for current_scale in setting_scales:
-            if current_scale <= 0.0:
-                return
-        set_active_layer_axes_scales(self._viewer, setting_scales)
-
-    def _on_axes_translate_changed(self) -> None:
-        current_layer: "Layer | None" = get_active_layer(self._viewer)
-        if current_layer is None:
-            return
-        axes_translations_instance: AxesTranslations = self._editable_axes_components["AxesTranslations"]
-        setting_translations: Tuple[float, ...] = tuple(axes_translations_instance._entries_dict[i]["AxisTranslate"][2].value() for i in range(len(axes_translations_instance._entries_dict)))
-        set_active_layer_axes_translations(self._viewer, setting_translations)
-
-    def _reset_layout(self, layout: "QLayout | None" = None) -> None:
-        if layout is None:
-            return
-        while layout.count():
-            item: QLayoutItem | None = layout.takeAt(0)
-            if item is not None:
-                item_widget: QWidget | None = item.widget()
-                if item_widget is None:
-                    removing_second_layout: QLayout | None = item.layout()
-                    if removing_second_layout is not None:
-                        self._reset_layout(removing_second_layout)
-                else:
-                    item_widget.deleteLater()
+        self._inheritance_layer_label = QLabel("Inheriting from layer")
+        self._inheritance_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._inheritance_layer_label.setStyleSheet("font-weight: bold;")
+        self._inheritance_layer_name = QLabel("None selected")
+        self._inheritance_layer_name.setWordWrap(False)
         
-    def _on_checkbox_state_changed(self) -> None:
-        current_layer: "Layer | None" = get_active_layer(self._viewer)
-        if current_layer is None:
-            return
-        self.parent().parent().parent().parent()._editable_checkbox_state_changed(self._layout_mode) # type: ignore
+        label_container = QWidget()
+        label_layout = QHBoxLayout(label_container)
+        label_layout.setContentsMargins(0, 0, 0, 0)
+        label_layout.addWidget(self._inheritance_layer_name)
+        label_layout.addStretch(1)
+        
+        self._layer_name_scroll_area = QScrollArea()
+        self._layer_name_scroll_area.setWidgetResizable(True)
+        self._layer_name_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._layer_name_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._layer_name_scroll_area.setFrameShape(QFrame.NoFrame) # type: ignore
+        self._layer_name_scroll_area.setWidget(label_container) 
 
-    def _get_checkboxes_dict(self) -> dict[str, list[QCheckBox]]:
-        returning_dict: dict[str, list[QCheckBox]] = {}
-        for editable_comp_class_name in self._editable_axes_components.keys():
-            editable_component: AxisComponent = self._editable_axes_components[editable_comp_class_name]
-            returning_dict[editable_comp_class_name] = editable_component.get_checkboxes_list()
-        return returning_dict
+        self._inheritance_select_layer_button = QPushButton("Set current layer")
+        self._inheritance_apply_button = QPushButton("Apply")
 
-    def _get_axes_components_names(self) -> list[str]:
-        return list(self._editable_axes_components.keys())
+
 
 class InheritanceWidget(QWidget):
 
@@ -1985,12 +1646,6 @@ class MetadataWidget(QWidget):
     _horizontal_layout: QHBoxLayout | None
     _no_layer_label: QLabel
     _widget_parent: QObject | None
-    _vertical_file_metadata_widget: FileMetadataWidget
-    _vertical_editable_widget: EditableMetadataWidget
-    _vertical_inheritance_widget: InheritanceWidget
-    _horizontal_file_metadata_widget: FileMetadataWidget
-    _horizontal_editable_widget: EditableMetadataWidget
-    _horizontal_inheritance_widget: InheritanceWidget
     _current_orientation: str
     _active_listeners: bool
     _already_shown: bool
@@ -2045,33 +1700,26 @@ class MetadataWidget(QWidget):
         self._hori_axis_metadata_layout: QGridLayout = QGridLayout()
         self._hori_axis_metadata_container.setLayout(self._hori_axis_metadata_layout)
 
-        self._vertical_file_metadata_widget: FileMetadataWidget = FileMetadataWidget(napari_viewer)
-        self._vertical_editable_widget: EditableMetadataWidget = EditableMetadataWidget(napari_viewer)
-        self._vertical_editable_widget._set_vertical_mode() # type: ignore
-        self._vertical_inheritance_widget: InheritanceWidget = InheritanceWidget(napari_viewer)
+        self._inheritance_instance = AxesInheritance(napari_viewer, self)
 
-        self._horizontal_file_metadata_widget: FileMetadataWidget = FileMetadataWidget(napari_viewer)
-        self._horizontal_editable_widget: EditableMetadataWidget = EditableMetadataWidget(napari_viewer)
-        self._horizontal_editable_widget._set_horizontal_mode() # type: ignore
-        self._horizontal_inheritance_widget: InheritanceWidget = InheritanceWidget(napari_viewer)
-
-        self._connect_file_metadata_widgets()
-        self._connect_inheritance_widgets()
-        self._viewer.layers.events.connect(self._check_inheritance_layer)
-
+        self._vert_inheritance_container: QWidget = QWidget()
+        self._vert_inhertiance_layout: QGridLayout = QGridLayout()
+        self._vert_inheritance_container.setLayout(self._vert_inhertiance_layout)
+        self._hori_inheritance_container: QWidget = QWidget()
+        self._hori_inheritance_layout: QGridLayout = QGridLayout()
+        self._hori_inheritance_container.setLayout(self._hori_inheritance_layout)
+        
         vertical_container: QWidget = QWidget()
         vertical_container.container_orientation = "vertical"
         vertical_container.setLayout(self._vertical_layout)
         self._stacked_layout.addWidget(vertical_container)
 
         self._collapsible_vertical_file_metadata: CollapsibleVerticalBox = CollapsibleVerticalBox("File metadata")
-        # self._collapsible_vertical_file_metadata.setContentWidget(self._vertical_file_metadata_widget) # type: ignore
         self._collapsible_vertical_file_metadata.setContentWidget(self._vert_file_general_metadata_container) # type: ignore
         self._collapsible_vertical_editable_metadata: CollapsibleVerticalBox = CollapsibleVerticalBox("Axes metadata")
-        # self._collapsible_vertical_editable_metadata.setContentWidget(self._vertical_editable_widget) # type: ignore
         self._collapsible_vertical_editable_metadata.setContentWidget(self._vert_axis_metadata_container) # type: ignore
-        self._collapsible_vertical_inheritance: CollapsibleVerticalBox = CollapsibleVerticalBox("Inheritance")
-        self._collapsible_vertical_inheritance.setContentWidget(self._vertical_inheritance_widget) # type: ignore
+        self._collapsible_vertical_inheritance: CollapsibleVerticalBox = CollapsibleVerticalBox("Axes Inheritance")
+        self._collapsible_vertical_inheritance.setContentWidget(self._vert_inheritance_container) # type: ignore
 
         self._vertical_layout.addWidget(self._collapsible_vertical_file_metadata)
         self._vertical_layout.addWidget(self._collapsible_vertical_editable_metadata)
@@ -2084,13 +1732,11 @@ class MetadataWidget(QWidget):
         self._stacked_layout.addWidget(horizontal_container)
 
         self._collapsible_horizontal_file_metadata: CollapsibleHorizontalBox = CollapsibleHorizontalBox("File metadata")
-        # self._collapsible_horizontal_file_metadata.setContentWidget(self._horizontal_file_metadata_widget) # type: ignore
         self._collapsible_horizontal_file_metadata.setContentWidget(self._hori_file_general_metadata_container) # type: ignore
         self._collapsible_horizontal_editable_metadata: CollapsibleHorizontalBox = CollapsibleHorizontalBox("Axes metadata")
-        # self._collapsible_horizontal_editable_metadata.setContentWidget(self._horizontal_editable_widget) # type: ignore
         self._collapsible_horizontal_editable_metadata.setContentWidget(self._hori_axis_metadata_container) # type: ignore
         self._collapsible_horizontal_inheritance: CollapsibleHorizontalBox = CollapsibleHorizontalBox("Inheritance")
-        self._collapsible_horizontal_inheritance.setContentWidget(self._horizontal_inheritance_widget) # type: ignore
+        self._collapsible_horizontal_inheritance.setContentWidget(self._hori_inheritance_container) # type: ignore
 
         self._horizontal_layout.addWidget(self._collapsible_horizontal_file_metadata)
         self._horizontal_layout.addWidget(self._collapsible_horizontal_editable_metadata)
@@ -2109,25 +1755,12 @@ class MetadataWidget(QWidget):
 
         self.setLayout(self._stacked_layout)
 
-        # self._layout.addWidget(self._no_layer_label)
-
-        # self._editable_widget = EditableMetadataWidget(napari_viewer)
-        # self._layout.addWidget(self._editable_widget)
-
-        # self._viewer.layers.selection.events.active.connect(
-        #     self._on_selected_layers_changed
-        # )
-
-        # self._on_selected_layers_changed()
-
-        # self._layout.addStretch(1)
-
     def _on_selected_layer_name_changed(self) -> None:
         if self._selected_layer is None:
             return
         general_metadata_instance: FileGeneralMetadata = self._general_metadata_instance
-        general_metadata_components: dict[str, FileGeneralMetadataComponent] = general_metadata_instance._file_metadata_components_dict # type: ignore
-        general_metadata_component: GeneralMetadataComponent
+        general_metadata_components: dict[str, MetadataComponent] = general_metadata_instance._file_metadata_components_dict # type: ignore
+        general_metadata_component: MetadataComponent
         for general_metadata_component in general_metadata_components.values():
             general_metadata_component.load_entries()
 
@@ -2149,24 +1782,6 @@ class MetadataWidget(QWidget):
         else:
             self._connect_layer_params(layer)
             self._selected_layer = layer
-
-        editable_vert: EditableMetadataWidget = self._vertical_editable_widget
-        editable_vert._set_active_listeners(False)
-        editable_vert._update_active_layer()
-        editable_vert._set_active_listeners(True)
-        editable_hori: EditableMetadataWidget = self._horizontal_editable_widget
-        editable_hori._set_active_listeners(False)
-        editable_hori._update_active_layer()
-        editable_hori._set_active_listeners(True)
-
-        file_meta_vert: FileMetadataWidget = self._vertical_file_metadata_widget
-        file_meta_vert._set_active_listeners(False)
-        file_meta_vert._set_layer(self._selected_layer)
-        file_meta_vert._set_active_listeners(True)
-        file_meta_hori: FileMetadataWidget = self._horizontal_file_metadata_widget
-        file_meta_hori._set_active_listeners(False)
-        file_meta_hori._set_layer(self._selected_layer)
-        file_meta_hori._set_active_listeners(True)
 
         self._update_orientation()
 
@@ -2219,9 +1834,6 @@ class MetadataWidget(QWidget):
         return "horizontal"
 
     def _update_orientation(self) -> None:
-        self._store_inheritances()
-        self._vertical_editable_widget._update_active_layer()
-        self._horizontal_editable_widget._update_active_layer()
         if not self._active_listeners:
             return
         self._active_listeners = False
@@ -2231,7 +1843,6 @@ class MetadataWidget(QWidget):
             required_orientation = "no_layer"
         if required_orientation == self._current_orientation:
             self._active_listeners = True
-            self._restore_inheritances()
             return
         elif required_orientation == "vertical":
             self._set_layout_type("vertical")
@@ -2240,8 +1851,6 @@ class MetadataWidget(QWidget):
         else: 
             self._set_layout_type("no_layer")
         self._active_listeners = True
-
-        self._restore_inheritances()
 
         self.setMinimumSize(50, 50)
 
@@ -2386,8 +1995,6 @@ class MetadataWidget(QWidget):
 
                 current_column: int = starting_column
 
-                total_row_spans: int = 0
-                total_column_spans: int = 0
 
                 #This is the instance of the Axis Protocol
                 axis_component: MetadataComponent = components_dict[name] # type: ignore
@@ -2578,6 +2185,28 @@ class MetadataWidget(QWidget):
             hori_axis_layout.setColumnStretch(starting_column-2, 1)
             hori_axis_layout.parentWidget().updateGeometry()
 
+    def _set_inheritance_orientation(self, orientation: str) -> None:
+
+        vert_inheritance_layout: QGridLayout = self._vert_inhertiance_layout
+        vert_inheritance_layout.setVerticalSpacing(8)
+        hori_inheritance_layout: QGridLayout = self._hori_inheritance_layout
+
+        inheritance_instance: AxesInheritance = self._inheritance_instance
+
+        setting_layout: QGridLayout | None = None
+
+        if orientation == "vertical":
+            self._reset_layout(vert_inheritance_layout)
+            setting_layout = vert_inheritance_layout
+        else:
+            self._reset_layout(hori_inheritance_layout)
+            setting_layout = hori_inheritance_layout
+
+        setting_layout.addWidget(inheritance_instance._inheritance_layer_label)
+        setting_layout.addWidget(inheritance_instance._layer_name_scroll_area)
+        setting_layout.addWidget(inheritance_instance._inheritance_select_layer_button)
+        setting_layout.addWidget(inheritance_instance._inheritance_apply_button)
+
     def _connect_file_general_metadata_components(self) -> None:
 
         file_general_meta_instance: FileGeneralMetadata = self._general_metadata_instance
@@ -2595,10 +2224,6 @@ class MetadataWidget(QWidget):
                     entry_line_edit: QLineEdit = cast(QLineEdit, entry_widget)
                     entry_line_edit.textEdited.connect(getattr(self, method_name))
 
-    def _connect_axis_metadata_components(self) -> None:
-
-        axis_general_meta_instance: AxisComponent
-
     def _on_name_line_changed(self, text: str) -> None:
         sender_line_edit: QLineEdit = cast(QLineEdit, self.sender())
         active_layer: "Layer | None" = get_active_layer(self._napari_viewer) # type: ignore
@@ -2614,9 +2239,11 @@ class MetadataWidget(QWidget):
         if layout_type == "vertical":
             self._set_general_metadata_orientation("vertical")
             self._set_axis_metadata_orientation("vertical")
+            self._set_inheritance_orientation("vertical")
         elif layout_type == "horizontal": 
             self._set_general_metadata_orientation("horizontal")
             self._set_axis_metadata_orientation("horizontal")
+            self._set_inheritance_orientation("horizontal")
 
         current_layout: QStackedLayout = self._stacked_layout
         number_of_widgets: int = current_layout.count()
@@ -2799,27 +2426,6 @@ class MetadataWidget(QWidget):
                 stored_inheritances[axes_component].append(checkbox.isChecked())
         self._stored_inheritances = stored_inheritances
 
-    def _restore_inheritances(self) -> None:
-        if self._store_inheritances is None:
-            return
-        check_boxes_dict: dict[str, dict[str, list[QCheckBox]]] = {
-            "hori":{},
-            "vert":{}
-        }
-        check_boxes_dict["hori"] = self._horizontal_editable_widget._get_checkboxes_dict()
-        check_boxes_dict["vert"] = self._vertical_editable_widget._get_checkboxes_dict()
-
-        first_axes_component: str = list(check_boxes_dict["hori"].keys())[0]
-        length_of_checkboxes_list: int = len(check_boxes_dict["hori"][first_axes_component])
-        if length_of_checkboxes_list != len(self._stored_inheritances[first_axes_component]):
-            return
-
-        for layout_mode in check_boxes_dict.keys():
-            for axes_component in check_boxes_dict[layout_mode].keys():
-                for checkbox_index, checkbox in enumerate(check_boxes_dict[layout_mode][axes_component]):
-                    with QSignalBlocker(checkbox):
-                        checkbox.setChecked(self._stored_inheritances[axes_component][checkbox_index])
-
     def connect_axis_components(self, component: MetadataComponent) -> None:
 
         component_entries: dict[int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]] = component.get_entries_dict("vertical") # type: ignore
@@ -2948,11 +2554,3 @@ class MetadataWidget(QWidget):
                 unit_pint = unit_registry(unit_string).units # type: ignore
             setting_units_list.append(unit_pint)
         set_active_layer_axes_units(self._napari_viewer, setting_units_list) # type: ignore
-
-    #def _remove_dock_widget(self) -> None:
-    #    # To constrain our implementation and for testing, we only want
-    #    # the type of _viewer to be ViewerModel and not Viewer.
-    #    # This works around that typing information.
-    #    if window := getattr(self._viewer, "window", None):
-    #        window.remove_dock_widget(self)
-
