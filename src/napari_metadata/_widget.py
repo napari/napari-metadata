@@ -1411,9 +1411,13 @@ class AxesInheritance():
     _inheritance_layer_label: QLabel
     _layer_name_scroll_area: QScrollArea
 
+    inheritance_layer: "Layer | None"
+
     def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget | None = None):
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
+
+        self.inheritance_layer = None
 
         self._inheritance_layer_label = QLabel("Inheriting from layer")
         self._inheritance_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -1434,10 +1438,29 @@ class AxesInheritance():
         self._layer_name_scroll_area.setFrameShape(QFrame.NoFrame) # type: ignore
         self._layer_name_scroll_area.setWidget(label_container) 
 
-        self._inheritance_select_layer_button = QPushButton("Set current layer")
+        set_layer_button: QPushButton = QPushButton("Set current layer")
+        set_layer_button.clicked.connect(self._set_current_layer_to_inheritance)
+        self._inheritance_select_layer_button = set_layer_button
+
+        apply_inheritance_button: QPushButton = QPushButton("Apply")
+        apply_inheritance_button.clicked.connect(self._apply_inheritance)
         self._inheritance_apply_button = QPushButton("Apply")
 
+    def _set_current_layer_to_inheritance(self) -> None:
+        current_layer = get_active_layer(self._napari_viewer) # type: ignore
+        if current_layer == self.inheritance_layer:
+            return
+        if current_layer is None:
+            self._inheritance_layer_name.setText("None selected")
+        else:
+            layer_name = current_layer.name
+            self._inheritance_layer_name.setText(layer_name)
+            self.inheritance_layer = current_layer
 
+    def _apply_inheritance(self) -> None:
+        if self.inheritance_layer is None:
+            return
+        self._main_widget.apply_inheritance_to_current_layer(self.inheritance_layer) # type: ignore 
 
 class InheritanceWidget(QWidget):
 
@@ -2554,3 +2577,19 @@ class MetadataWidget(QWidget):
                 unit_pint = unit_registry(unit_string).units # type: ignore
             setting_units_list.append(unit_pint)
         set_active_layer_axes_units(self._napari_viewer, setting_units_list) # type: ignore
+
+    def apply_inheritance_to_current_layer(self, template_layer: "Layer") -> None:
+
+        active_layer = get_active_layer(self._napari_viewer)
+        if active_layer is None:
+            return
+        
+        if active_layer.ndim != template_layer.ndim:
+            show_info("Inheritance layer must have same number of dimensions as current layer")
+            return
+
+        template_layer_axes_labels: tuple[str, ...] = get_axes_labels(self._napari_viewer, template_layer)
+        template_layer_axes_translation: tuple[float, ...] = get_axes_translations(self._napari_viewer, template_layer)
+        template_layer_axes_scales: tuple[float, ...] = get_axes_scales(self._napari_viewer, template_layer)
+        template_layer_axes_units: tuple[pint.Unit | str, ...] = get_axes_units(self._napari_viewer, template_layer)
+
