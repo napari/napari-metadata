@@ -101,7 +101,7 @@ def set_active_layer_axes_translations(viewer: "ViewerModel", axes_translations:
     layer: "Layer | None" = get_active_layer(viewer)
     if layer is None:
         return
-    layer.translate = np.array(axes_translations)
+    layer.translate = axes_translations
 
 def get_layer_data_shape(layer: "Layer | None") -> Tuple[int, ...]:
     if layer is None:
