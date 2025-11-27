@@ -1098,9 +1098,13 @@ class AxesInheritance():
     _inheritance_layer_label: QLabel
     _layer_name_scroll_area: QScrollArea
 
+    inheritance_layer: "Layer | None"
+
     def __init__(self, napari_viewer: "ViewerModel", main_widget: QWidget | None = None):
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
+
+        self.inheritance_layer = None
 
         self.inheritance_layer = None
 
