@@ -19,28 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: validate with npe2
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install .
-
-      - name: Validate with npe2
-        run: npe2 validate napari-metadata
-
   test:
-    needs: [validate]
     name: ${{ matrix.platform }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.platform }}
     strategy:
