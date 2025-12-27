@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List, Optional
+from typing import Optional
 
 
 class TimeUnits(Enum):
@@ -22,5 +22,5 @@ class TimeUnits(Enum):
         return None
 
     @classmethod
-    def names(cls) -> List[str]:
+    def names(cls) -> list[str]:
         return [str(m) for m in cls]

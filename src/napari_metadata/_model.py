@@ -2,10 +2,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    List,
     Optional,
     Protocol,
-    Tuple,
     runtime_checkable,
 )
 
@@ -67,21 +65,21 @@ EXTRA_METADATA_KEY = 'napari-metadata-plugin'
 
 @dataclass(frozen=True)
 class OriginalMetadata:
-    axes: Tuple[Axis]
+    axes: tuple[Axis]
     name: Optional[str]
-    scale: Optional[Tuple[float, ...]]
-    translate: Optional[Tuple[float, ...]]
+    scale: Optional[tuple[float, ...]]
+    translate: Optional[tuple[float, ...]]
 
 
 @dataclass
 class ExtraMetadata:
-    axes: List[Axis]
+    axes: list[Axis]
     original: Optional[OriginalMetadata] = None
 
-    def get_axis_names(self) -> Tuple[str, ...]:
+    def get_axis_names(self) -> tuple[str, ...]:
         return tuple(axis.name for axis in self.axes)
 
-    def set_axis_names(self, names: Tuple[str, ...]) -> None:
+    def set_axis_names(self, names: tuple[str, ...]) -> None:
         assert len(self.axes) == len(names)
         for axis, name in zip(self.axes, names, strict=False):
             axis.name = name

@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import List, Optional, Protocol, Tuple
+from typing import Optional, Protocol
 
 from qtpy.QtCore import QSize, Qt, Signal
 from qtpy.QtGui import QDoubleValidator, QValidator
@@ -67,7 +67,7 @@ def readonly_lineedit(text: Optional[str] = None) -> QLineEdit:
 
 
 class GridRow(Protocol):
-    def widgets() -> Tuple[QWidget, ...]: ...
+    def widgets() -> tuple[QWidget, ...]: ...
 
 
 def set_row_visible(row: GridRow, visible: bool) -> None:
@@ -77,7 +77,7 @@ def set_row_visible(row: GridRow, visible: bool) -> None:
 
 def update_num_rows(
     *,
-    rows: List[GridRow],
+    rows: list[GridRow],
     layout: QGridLayout,
     desired_num: int,
     row_factory: Callable[[], GridRow],

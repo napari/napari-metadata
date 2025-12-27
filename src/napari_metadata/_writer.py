@@ -1,6 +1,6 @@
 import os
 from collections.abc import Sequence
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import zarr
@@ -12,8 +12,8 @@ from ._model import EXTRA_METADATA_KEY, Axis
 
 
 def write_image(
-    path: str, data: ArrayLike, attributes: Dict[str, Any]
-) -> List[str]:
+    path: str, data: ArrayLike, attributes: dict[str, Any]
+) -> list[str]:
     # Based on https://ome-zarr.readthedocs.io/en/stable/python.html#writing-ome-ngff-images # noqa
     os.mkdir(path)
 
@@ -63,7 +63,7 @@ def write_image(
     return [path]
 
 
-def axis_to_ome(axis: Axis) -> Dict[str, str]:
+def axis_to_ome(axis: Axis) -> dict[str, str]:
     ome = {
         'name': axis.name,
         'type': str(axis.get_type()),

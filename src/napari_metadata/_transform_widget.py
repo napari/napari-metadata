@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from qtpy.QtWidgets import QGridLayout, QLabel, QLineEdit, QWidget
 
@@ -22,7 +22,7 @@ class TransformRow:
         self.translate = DoubleLineEdit()
         self.translate.setValue(0)
 
-    def widgets(self) -> Tuple[QWidget, ...]:
+    def widgets(self) -> tuple[QWidget, ...]:
         return (self.name, self.spacing, self.translate)
 
 
@@ -33,7 +33,7 @@ class TransformWidget(QWidget):
         super().__init__()
         self._viewer: ViewerModel = viewer
         self._layer: Optional[Layer] = None
-        self._rows: List[TransformRow] = []
+        self._rows: list[TransformRow] = []
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -79,7 +79,7 @@ class TransformWidget(QWidget):
     def _on_viewer_dims_axis_labels_changed(self) -> None:
         self._set_axis_names(self._viewer.dims.axis_labels)
 
-    def _set_axis_names(self, names: Tuple[str, ...]) -> None:
+    def _set_axis_names(self, names: tuple[str, ...]) -> None:
         widgets = self._axis_widgets()
         for name, widget in zip(names, widgets, strict=False):
             widget.name.setText(name)
@@ -106,10 +106,10 @@ class TransformWidget(QWidget):
         translate = tuple(w.translate.value() for w in self._layer_widgets())
         self._layer.translate = translate
 
-    def _axis_widgets(self) -> Tuple[TransformRow, ...]:
+    def _axis_widgets(self) -> tuple[TransformRow, ...]:
         return tuple(self._rows)
 
-    def _layer_widgets(self) -> Tuple[TransformRow, ...]:
+    def _layer_widgets(self) -> tuple[TransformRow, ...]:
         return (
             ()
             if self._layer is None
@@ -129,7 +129,7 @@ class ReadOnlyTransformRow:
         self.spacing: QLineEdit = readonly_lineedit()
         self.translate: QLineEdit = readonly_lineedit()
 
-    def widgets(self) -> Tuple[QWidget, ...]:
+    def widgets(self) -> tuple[QWidget, ...]:
         return (self.name, self.spacing, self.translate)
 
 
@@ -140,7 +140,7 @@ class ReadOnlyTransformWidget(QWidget):
         super().__init__()
         self._viewer: ViewerModel = viewer
         self._layer: Optional[Layer] = None
-        self._rows: List[ReadOnlyTransformRow] = []
+        self._rows: list[ReadOnlyTransformRow] = []
 
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -187,7 +187,7 @@ class ReadOnlyTransformWidget(QWidget):
     def _on_viewer_dims_axis_labels_changed(self) -> None:
         self._set_axis_names(self._viewer.dims.axis_labels)
 
-    def _set_axis_names(self, names: Tuple[str, ...]) -> None:
+    def _set_axis_names(self, names: tuple[str, ...]) -> None:
         for name, row in zip(names, self._rows, strict=False):
             row.name.setText(name)
 
@@ -203,7 +203,7 @@ class ReadOnlyTransformWidget(QWidget):
         for t, r in zip(translate, self._layer_rows(), strict=False):
             r.translate.setText(str(t))
 
-    def _layer_rows(self) -> Tuple[TransformRow, ...]:
+    def _layer_rows(self) -> tuple[TransformRow, ...]:
         return (
             ()
             if self._layer is None

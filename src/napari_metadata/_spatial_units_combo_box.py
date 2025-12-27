@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 from pint import Unit, UnitRegistry
 from qtpy.QtWidgets import QComboBox
@@ -17,7 +17,7 @@ class SpatialUnitsComboBox(QComboBox):
         self._viewer = viewer
         self.addItems(SpaceUnits.names())
         self._unit_registry: UnitRegistry = UnitRegistry()
-        self._PINT_TO_SPACE_UNIT: Dict[Unit, SpaceUnits] = {
+        self._PINT_TO_SPACE_UNIT: dict[Unit, SpaceUnits] = {
             self._unit_registry.nanometer: SpaceUnits.NANOMETER,
             self._unit_registry.micron: SpaceUnits.MICROMETER,
             self._unit_registry.micrometer: SpaceUnits.MICROMETER,

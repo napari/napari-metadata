@@ -40,7 +40,7 @@ import logging
 import warnings
 from collections.abc import Iterator
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 from ome_zarr.io import parse_url
@@ -85,7 +85,9 @@ def napari_get_reader(path: PathLike) -> Optional[ReaderFunction]:
     """
     if isinstance(path, list):
         if len(path) > 1:
-            warnings.warn('more than one path is not currently supported', stacklevel=2)
+            warnings.warn(
+                'more than one path is not currently supported', stacklevel=2
+            )
         path = path[0]
     zarr = parse_url(path)
     if zarr:
@@ -96,8 +98,8 @@ def napari_get_reader(path: PathLike) -> Optional[ReaderFunction]:
 
 
 def transform_properties(
-    props: Optional[Dict[str, Dict]] = None,
-) -> Optional[Dict[str, List]]:
+    props: Optional[dict[str, dict]] = None,
+) -> Optional[dict[str, list]]:
     """
     Transform properties
     Transform a dict of {label_id : {key: value, key2: value2}}
@@ -113,7 +115,7 @@ def transform_properties(
     if props is None:
         return None
 
-    properties: Dict[str, List] = {}
+    properties: dict[str, list] = {}
 
     # First, create lists for all existing keys...
     for _, props_dict in props.items():
@@ -132,7 +134,7 @@ def transform_properties(
 
 
 def transform_scale(
-    node_metadata: Dict, metadata: Dict, channel_axis: Optional[int]
+    node_metadata: dict, metadata: dict, channel_axis: Optional[int]
 ) -> None:
     """
     e.g. transformation is {"scale": [0.2, 0.06, 0.06]}
@@ -154,12 +156,12 @@ def transform_scale(
 
 
 def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
-    def f(*args: Any, **kwargs: Any) -> List[LayerData]:
-        results: List[LayerData] = []
+    def f(*args: Any, **kwargs: Any) -> list[LayerData]:
+        results: list[LayerData] = []
 
         for node in nodes:
-            data: List[Any] = node.data
-            metadata: Dict[str, Any] = {}
+            data: list[Any] = node.data
+            metadata: dict[str, Any] = {}
             if data is None or len(data) < 1:
                 LOGGER.debug('skipping non-data %s', node)
             else:
@@ -183,7 +185,11 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
                     data = data[0]
 
                 # MOD: ensure that name is a list to handle single channel.
-                if (name := node.metadata.get('name')) and channel_axis is None and isinstance(name, str):
+                if (
+                    (name := node.metadata.get('name'))
+                    and channel_axis is None
+                    and isinstance(name, str)
+                ):
                     node.metadata['name'] = [name]
 
                 if node.load(Label):
@@ -265,7 +271,7 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
 
 
 def make_extras(
-    *, metadata: dict, axes: List[Axis], name: Optional[str]
+    *, metadata: dict, axes: list[Axis], name: Optional[str]
 ) -> ExtraMetadata:
     scale = tuple(metadata['scale']) if 'scale' in metadata else None
     translate = (
@@ -283,7 +289,7 @@ def make_extras(
     )
 
 
-def get_axes(metadata: Dict) -> List[Axis]:
+def get_axes(metadata: dict) -> list[Axis]:
     axes = []
     for a in metadata['axes']:
         if axis := get_axis(a):
@@ -302,7 +308,7 @@ def get_axes(metadata: Dict) -> List[Axis]:
     return axes
 
 
-def get_axis(axis: Dict) -> Optional[Axis]:
+def get_axis(axis: dict) -> Optional[Axis]:
     name = axis['name']
     unit = axis.get('unit', 'none')
     axis_type = axis.get('type')

@@ -1,5 +1,3 @@
-from typing import List
-
 import numpy as np
 import pytest
 from napari.layers import Image
@@ -18,7 +16,7 @@ from .._reader import napari_get_reader
 from .._writer import write_image
 
 
-def read_ome_zarr(path: str) -> List[LayerData]:
+def read_ome_zarr(path: str) -> list[LayerData]:
     """Gets the napari reader and uses it to read the file at path.
 
     Returns

@@ -1,6 +1,6 @@
 import os
 from copy import deepcopy
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pooch
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from npe2.types import LayerData
 
 
-def read_ome_zarr_hipsc_mip() -> List['LayerData']:
+def read_ome_zarr_hipsc_mip() -> list['LayerData']:
     """Downloads and reads a multi-channel 3D MIP of hiPSCs from Zenodo [1]_.
 
     Notes
@@ -41,7 +41,7 @@ def read_ome_zarr_hipsc_mip() -> List['LayerData']:
     return reader(zarr_dir)
 
 
-def make_nuclei_md_sample_data() -> List['LayerData']:
+def make_nuclei_md_sample_data() -> list['LayerData']:
     all_data = cells3d()
 
     nuclei_data = all_data[:, 1, :, :]
@@ -66,7 +66,7 @@ def make_nuclei_md_sample_data() -> List['LayerData']:
     ]
 
 
-def make_cells_3d_sample_data() -> List['LayerData']:
+def make_cells_3d_sample_data() -> list['LayerData']:
     all_data = cells3d()
 
     membrane_data = all_data[:, 0, :, :]
@@ -94,10 +94,10 @@ def make_cells_3d_sample_data() -> List['LayerData']:
 def _make_metadata(
     *,
     name: str,
-    scale: Tuple[float, ...],
+    scale: tuple[float, ...],
     colormap: str,
-    axis_names: Tuple[str, ...],
-) -> Dict:
+    axis_names: tuple[str, ...],
+) -> dict:
     axes = [
         SpaceAxis(name=name, unit=SpaceUnits.MICROMETER) for name in axis_names
     ]

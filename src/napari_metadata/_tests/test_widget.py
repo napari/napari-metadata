@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -437,11 +437,11 @@ def axes_widget(widget: MetadataWidget) -> AxesWidget:
     return widget._editable_widget._axes_widget
 
 
-def axis_names(widget: MetadataWidget) -> Tuple[str, ...]:
+def axis_names(widget: MetadataWidget) -> tuple[str, ...]:
     return axes_widget(widget).axis_names()
 
 
-def are_axis_widgets_visible(widget: MetadataWidget) -> Tuple[bool, ...]:
+def are_axis_widgets_visible(widget: MetadataWidget) -> tuple[bool, ...]:
     axes_widget = widget._editable_widget._axes_widget
     return tuple(
         row.name.isVisibleTo(widget) for row in axes_widget.axis_widgets()
@@ -458,7 +458,7 @@ def make_metadata_widget(
 
 def make_viewer_with_one_image_and_widget(
     qtbot: 'QtBot',
-) -> Tuple[ViewerModel, MetadataWidget]:
+) -> tuple[ViewerModel, MetadataWidget]:
     viewer = ViewerModel()
     viewer.add_image(np.empty((4, 3)))
     assert viewer.layers.selection == {viewer.layers[0]}

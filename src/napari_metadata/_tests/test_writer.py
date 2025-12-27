@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import pytest
@@ -29,7 +29,7 @@ def path(tmp_path) -> str:
     return str(tmp_path / 'test.zarr')
 
 
-def read_ome_zarr(path: str) -> Tuple[Sequence[ArrayLike], Dict]:
+def read_ome_zarr(path: str) -> tuple[Sequence[ArrayLike], dict]:
     reader = Reader(parse_url(path))
     nodes = list(reader())
     node = nodes[0]
@@ -38,19 +38,19 @@ def read_ome_zarr(path: str) -> Tuple[Sequence[ArrayLike], Dict]:
     return data, metadata
 
 
-def ome_axis_names(ome_metadata: Dict) -> Tuple[str, ...]:
+def ome_axis_names(ome_metadata: dict) -> tuple[str, ...]:
     return tuple(a['name'] for a in ome_metadata['axes'])
 
 
-def ome_axis_types(ome_metadata: Dict) -> Tuple[Optional[str], ...]:
+def ome_axis_types(ome_metadata: dict) -> tuple[Optional[str], ...]:
     return tuple(a.get('type') for a in ome_metadata['axes'])
 
 
-def ome_axis_units(ome_metadata: Dict) -> Tuple[Optional[str], ...]:
+def ome_axis_units(ome_metadata: dict) -> tuple[Optional[str], ...]:
     return tuple(a.get('unit') for a in ome_metadata['axes'])
 
 
-def ome_transforms(ome_metadata: Dict) -> Tuple[float, ...]:
+def ome_transforms(ome_metadata: dict) -> tuple[float, ...]:
     return ome_metadata['coordinateTransformations'][0]
 
 
