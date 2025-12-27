@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QComboBox, QGridLayout, QLabel, QLineEdit, QWidget
@@ -32,7 +32,7 @@ class AxisRow:
         self.type.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.type.addItems(AxisType.names())
 
-    def widgets(self) -> Tuple[QWidget, ...]:
+    def widgets(self) -> tuple[QWidget, ...]:
         return (self.name, self.type)
 
     def to_axis(
@@ -55,7 +55,7 @@ class AxesWidget(QWidget):
     def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
         self._viewer: ViewerModel = viewer
-        self._rows: List[AxisRow] = []
+        self._rows: list[AxisRow] = []
 
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -95,7 +95,7 @@ class AxesWidget(QWidget):
                 axis = extras.axes[i - ndim_diff]
                 row.type.setCurrentText(str(axis.get_type()))
 
-    def _get_layer_axis_names(self, layer: 'Layer') -> Tuple[str, ...]:
+    def _get_layer_axis_names(self, layer: 'Layer') -> tuple[str, ...]:
         viewer_names = list(self._viewer.dims.axis_labels)
         extras = coerce_extra_metadata(self._viewer, layer)
         layer_names = extras.get_axis_names()
@@ -118,10 +118,10 @@ class AxesWidget(QWidget):
             axis_names = self._viewer.dims.axis_labels[-layer.ndim :]  # noqa
             extras.set_axis_names(axis_names)
 
-    def axis_widgets(self) -> Tuple[AxisRow, ...]:
+    def axis_widgets(self) -> tuple[AxisRow, ...]:
         return tuple(self._rows)
 
-    def axis_names(self) -> Tuple[str, ...]:
+    def axis_names(self) -> tuple[str, ...]:
         return tuple(widget.name.text() for widget in self.axis_widgets())
 
     def _on_axis_name_changed(self) -> None:
@@ -147,7 +147,7 @@ class ReadOnlyAxisRow:
         self.name: QLineEdit = readonly_lineedit()
         self.type: QLineEdit = readonly_lineedit()
 
-    def widgets(self) -> Tuple[QWidget, ...]:
+    def widgets(self) -> tuple[QWidget, ...]:
         return (self.name, self.type)
 
 
@@ -157,7 +157,7 @@ class ReadOnlyAxesWidget(QWidget):
     def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
         self._viewer: ViewerModel = viewer
-        self._rows: List[ReadOnlyAxisRow] = []
+        self._rows: list[ReadOnlyAxisRow] = []
 
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -189,7 +189,7 @@ class ReadOnlyAxesWidget(QWidget):
     def _on_viewer_dims_axis_labels_changed(self) -> None:
         self._set_axis_names(self._viewer.dims.axis_labels)
 
-    def _set_axis_names(self, names: Tuple[str, ...]) -> None:
+    def _set_axis_names(self, names: tuple[str, ...]) -> None:
         names = self._viewer.dims.axis_labels
         assert len(names) == len(self._rows)
         for name, widget in zip(names, self._rows, strict=False):

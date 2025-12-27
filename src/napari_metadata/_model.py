@@ -148,6 +148,4 @@ def is_metadata_equal_to_original(layer: Optional['Layer']) -> bool:
         return False
     if tuple(layer.translate) != extras.original.translate:
         return False
-    if layer.name != extras.original.name:
-        return False
-    return True
+    return layer.name == extras.original.name

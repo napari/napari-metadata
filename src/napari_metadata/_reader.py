@@ -35,6 +35,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import contextlib
 import logging
 import warnings
 from collections.abc import Iterator
@@ -84,7 +85,7 @@ def napari_get_reader(path: PathLike) -> Optional[ReaderFunction]:
     """
     if isinstance(path, list):
         if len(path) > 1:
-            warnings.warn('more than one path is not currently supported')
+            warnings.warn('more than one path is not currently supported', stacklevel=2)
         path = path[0]
     zarr = parse_url(path)
     if zarr:
@@ -115,8 +116,8 @@ def transform_properties(
     properties: Dict[str, List] = {}
 
     # First, create lists for all existing keys...
-    for label_id, props_dict in props.items():
-        for key in props_dict.keys():
+    for _, props_dict in props.items():
+        for key in props_dict:
             properties[key] = []
 
     keys = list(properties.keys())
@@ -154,16 +155,16 @@ def transform_scale(
 
 def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
     def f(*args: Any, **kwargs: Any) -> List[LayerData]:
-        results: List[LayerData] = list()
+        results: List[LayerData] = []
 
         for node in nodes:
             data: List[Any] = node.data
             metadata: Dict[str, Any] = {}
             if data is None or len(data) < 1:
-                LOGGER.debug(f'skipping non-data {node}')
+                LOGGER.debug('skipping non-data %s', node)
             else:
-                LOGGER.debug(f'transforming {node}')
-                LOGGER.debug('node.metadata: %s' % node.metadata)
+                LOGGER.debug('transforming %s', node)
+                LOGGER.debug('node.metadata: %s', node.metadata)
 
                 layer_type: str = 'image'
                 channel_axis = None
@@ -182,9 +183,8 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
                     data = data[0]
 
                 # MOD: ensure that name is a list to handle single channel.
-                if name := node.metadata.get('name'):
-                    if channel_axis is None and isinstance(name, str):
-                        node.metadata['name'] = [name]
+                if (name := node.metadata.get('name')) and channel_axis is None and isinstance(name, str):
+                    node.metadata['name'] = [name]
 
                 if node.load(Label):
                     layer_type = 'labels'
@@ -222,10 +222,8 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
                         # single items (not lists)
                         for x in METADATA_KEYS:
                             if x in node.metadata:
-                                try:
+                                with contextlib.suppress(Exception):
                                     metadata[x] = node.metadata[x][0]
-                                except Exception:
-                                    pass
 
                 # MOD: this plugin provides somewhere to put the axes
                 # and some extra metadata. We create an instance of extra
@@ -233,7 +231,7 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
                 axes = get_axes(node.metadata)
                 if channel_axis is None:
                     if 'metadata' not in metadata:
-                        metadata['metadata'] = dict()
+                        metadata['metadata'] = {}
                     name = metadata.get('name')
                     metadata['metadata'][EXTRA_METADATA_KEY] = make_extras(
                         metadata=metadata,
@@ -244,7 +242,7 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
                     n_channels = (
                         data[0] if isinstance(data, list) else data
                     ).shape[channel_axis]
-                    meta = metadata.get('metadata', dict())
+                    meta = metadata.get('metadata', {})
                     if not isinstance(meta, list):
                         metadata['metadata'] = [deepcopy(meta)] * n_channels
                     name = metadata.get('name')
@@ -258,7 +256,7 @@ def transform(nodes: Iterator[Node]) -> Optional[ReaderFunction]:
                         )
 
                 rv: LayerData = (data, metadata, layer_type)
-                LOGGER.debug(f'Transformed: {rv}')
+                LOGGER.debug('Transformed: %s', rv)
                 results.append(rv)
 
         return results
@@ -297,6 +295,7 @@ def get_axes(metadata: Dict) -> List[Axis]:
             f'Found mixed spatial units: {space_units}. '
             'Using none for all instead.',
             UserWarning,
+            stacklevel=2,
         )
         for axis in space_axes:
             axis.unit = SpaceUnits.NONE

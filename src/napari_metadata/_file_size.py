@@ -37,12 +37,9 @@ def generate_text_for_size(size: Union[int, float], suffix: str = '') -> str:
     str
         formatted text string for the file size
     """
-    if size == 0:
-        order = 0
-    else:
-        order = int(math.log10(size))
+    order = 0 if size == 0 else int(math.log10(size))
 
-    logger.debug(f'order: {order}')
+    logger.debug('order: %s', order)
     if order <= 2:
         text = f'{size:.2f} bytes'
     elif order >= 3 and order < 6:
@@ -120,5 +117,5 @@ def directory_size(path: Union[str, Path]) -> str:
         raise RuntimeError(
             'Path provided is not a directory. Unable to get directory size.'
         )
-    bytes = sum(file.stat().st_size for file in p.rglob('*'))
-    return bytes
+    total_bytes = sum(file.stat().st_size for file in p.rglob('*'))
+    return total_bytes

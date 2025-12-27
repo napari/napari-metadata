@@ -53,13 +53,12 @@ napari-metadata = "napari_metadata:napari.yaml"
 
 [dependency-groups]
 dev = [
-    "napari",
+    "napari[qt]",
     "npe2",
     "pytest",
     "pytest-cov",
     "pytest-qt",
-    "pyqt5",
-    "tox",
+    "tox-uv",
 ]
 
 [tool.setuptools]

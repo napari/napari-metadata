@@ -444,10 +444,7 @@ def axis_names(widget: MetadataWidget) -> Tuple[str, ...]:
 def are_axis_widgets_visible(widget: MetadataWidget) -> Tuple[bool, ...]:
     axes_widget = widget._editable_widget._axes_widget
     return tuple(
-        map(
-            lambda row: row.name.isVisibleTo(widget),
-            axes_widget.axis_widgets(),
-        )
+        row.name.isVisibleTo(widget) for row in axes_widget.axis_widgets()
     )
 
 
