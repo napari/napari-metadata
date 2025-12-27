@@ -43,16 +43,16 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-"Bug Tracker" = "https://github.com/andy-sweet/napari-metadata/issues"
-"Documentation" = "https://github.com/andy-sweet/napari-metadata#README.md"
-"Source Code" = "https://github.com/andy-sweet/napari-metadata"
-"User Support" = "https://github.com/andy-sweet/napari-metadata/issues"
+"Bug Tracker" = "https://github.com/napari/napari-metadata/issues"
+"Documentation" = "https://github.com/napari/napari-metadata#README.md"
+"Source Code" = "https://github.com/napari/napari-metadata"
+"User Support" = "https://github.com/napari/napari-metadata/issues"
 
 [project.entry-points."napari.manifest"]
 napari-metadata = "napari_metadata:napari.yaml"
 
-[project.optional-dependencies]
-testing = [
+[dependency-groups]
+dev = [
     "napari",
     "npe2",
     "pytest",
@@ -73,6 +73,7 @@ where = ["src"]
 
 [tool.setuptools_scm]
 write_to = "src/napari_metadata/_version.py"
+fallback_version = "0.0.1+nogit"
 
 [tool.black]
 line-length = 79
