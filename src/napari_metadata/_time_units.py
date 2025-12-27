@@ -15,7 +15,7 @@ class TimeUnits(Enum):
         return self.name.lower()
 
     @classmethod
-    def from_name(cls, name: str) -> Optional["TimeUnits"]:
+    def from_name(cls, name: str) -> Optional['TimeUnits']:
         for m in cls:
             if str(m) == name:
                 return m

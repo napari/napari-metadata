@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from npe2.types import LayerData
 
 
-def read_ome_zarr_hipsc_mip() -> List["LayerData"]:
+def read_ome_zarr_hipsc_mip() -> List['LayerData']:
     """Downloads and reads a multi-channel 3D MIP of hiPSCs from Zenodo [1]_.
 
     Notes
@@ -29,10 +29,10 @@ def read_ome_zarr_hipsc_mip() -> List["LayerData"]:
        https://doi.org/10.5281/zenodo.7674571
     """
     unzip_dir = pooch.retrieve(
-        url="https://zenodo.org/record/7674571/files/"
-        "20200812-CardiomyocyteDifferentiation14-Cycle1_mip.zarr.zip?"
-        "download=1",
-        known_hash="md5:93722285708d58a36a0a3ee413b2c8a1",
+        url='https://zenodo.org/record/7674571/files/'
+        '20200812-CardiomyocyteDifferentiation14-Cycle1_mip.zarr.zip?'
+        'download=1',
+        known_hash='md5:93722285708d58a36a0a3ee413b2c8a1',
         processor=pooch.Unzip(),
         progressbar=True,
     )
@@ -41,23 +41,23 @@ def read_ome_zarr_hipsc_mip() -> List["LayerData"]:
     return reader(zarr_dir)
 
 
-def make_nuclei_md_sample_data() -> List["LayerData"]:
+def make_nuclei_md_sample_data() -> List['LayerData']:
     all_data = cells3d()
 
     nuclei_data = all_data[:, 1, :, :]
     nuclei_metadata = _make_metadata(
-        name="nuclei",
+        name='nuclei',
         scale=(2, 1, 1),
-        colormap="green",
-        axis_names=("z", "y", "x"),
+        colormap='green',
+        axis_names=('z', 'y', 'x'),
     )
 
     mean_nuclei_data = np.mean(nuclei_data, axis=0)
     mean_nuclei_metadata = _make_metadata(
-        name="nuclei_mean",
+        name='nuclei_mean',
         scale=(1, 1),
-        colormap="blue",
-        axis_names=("y", "x"),
+        colormap='blue',
+        axis_names=('y', 'x'),
     )
 
     return [
@@ -66,23 +66,23 @@ def make_nuclei_md_sample_data() -> List["LayerData"]:
     ]
 
 
-def make_cells_3d_sample_data() -> List["LayerData"]:
+def make_cells_3d_sample_data() -> List['LayerData']:
     all_data = cells3d()
 
     membrane_data = all_data[:, 0, :, :]
     membrane_metadata = _make_metadata(
-        name="membrane",
+        name='membrane',
         scale=(2, 1, 1),
-        colormap="magenta",
-        axis_names=("z", "y", "x"),
+        colormap='magenta',
+        axis_names=('z', 'y', 'x'),
     )
 
     nuclei_data = all_data[:, 1, :, :]
     nuclei_metadata = _make_metadata(
-        name="nuclei",
+        name='nuclei',
         scale=(2, 1, 1),
-        colormap="green",
-        axis_names=("z", "y", "x"),
+        colormap='green',
+        axis_names=('z', 'y', 'x'),
     )
 
     return [
@@ -109,9 +109,9 @@ def _make_metadata(
     )
     extras = ExtraMetadata(axes=axes, original=original)
     return {
-        "name": name,
-        "scale": scale,
-        "colormap": colormap,
-        "blending": "additive",
-        "metadata": {EXTRA_METADATA_KEY: extras},
+        'name': name,
+        'scale': scale,
+        'colormap': colormap,
+        'blending': 'additive',
+        'metadata': {EXTRA_METADATA_KEY: extras},
     }

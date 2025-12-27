@@ -16,7 +16,7 @@ class SpaceUnits(Enum):
         return self.name.lower()
 
     @classmethod
-    def from_name(cls, name: str) -> Optional["SpaceUnits"]:
+    def from_name(cls, name: str) -> Optional['SpaceUnits']:
         for m in cls:
             if str(m) == name:
                 return m

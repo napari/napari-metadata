@@ -42,9 +42,9 @@ class AxisRow:
         time_unit: TimeUnits = TimeUnits.NONE,
     ) -> Axis:
         axis_type = self.type.currentText()
-        if axis_type == "channel":
+        if axis_type == 'channel':
             return ChannelAxis(name=self.name.text())
-        elif axis_type == "time":
+        elif axis_type == 'time':
             return TimeAxis(name=self.name.text(), unit=time_unit)
         return SpaceAxis(name=self.name.text(), unit=space_unit)
 
@@ -52,16 +52,16 @@ class AxisRow:
 class AxesWidget(QWidget):
     """Shows and controls all axes' names and types."""
 
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
-        self._viewer: "ViewerModel" = viewer
+        self._viewer: ViewerModel = viewer
         self._rows: List[AxisRow] = []
 
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(QLabel("Name"), 0, 0)
-        layout.addWidget(QLabel("Type"), 0, 1)
+        layout.addWidget(QLabel('Name'), 0, 0)
+        layout.addWidget(QLabel('Type'), 0, 1)
 
         self.setLayout(layout)
 
@@ -69,7 +69,7 @@ class AxesWidget(QWidget):
             self._on_viewer_dims_axis_labels_changed
         )
 
-    def set_selected_layer(self, layer: "Layer") -> None:
+    def set_selected_layer(self, layer: 'Layer') -> None:
         dims = self._viewer.dims
         update_num_rows(
             rows=self._rows,
@@ -95,7 +95,7 @@ class AxesWidget(QWidget):
                 axis = extras.axes[i - ndim_diff]
                 row.type.setCurrentText(str(axis.get_type()))
 
-    def _get_layer_axis_names(self, layer: "Layer") -> Tuple[str, ...]:
+    def _get_layer_axis_names(self, layer: 'Layer') -> Tuple[str, ...]:
         viewer_names = list(self._viewer.dims.axis_labels)
         extras = coerce_extra_metadata(self._viewer, layer)
         layer_names = extras.get_axis_names()
@@ -111,7 +111,7 @@ class AxesWidget(QWidget):
     def _on_viewer_dims_axis_labels_changed(self) -> None:
         names = self._viewer.dims.axis_labels
         assert len(names) == len(self._rows)
-        for name, row in zip(names, self._rows):
+        for name, row in zip(names, self._rows, strict=False):
             row.name.setText(name)
         for layer in self._viewer.layers:
             extras = coerce_extra_metadata(self._viewer, layer)
@@ -154,22 +154,22 @@ class ReadOnlyAxisRow:
 class ReadOnlyAxesWidget(QWidget):
     """Shows all axes' names and types."""
 
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
-        self._viewer: "ViewerModel" = viewer
+        self._viewer: ViewerModel = viewer
         self._rows: List[ReadOnlyAxisRow] = []
 
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel("Name"), 0, 0)
-        layout.addWidget(QLabel("Type"), 0, 1)
+        layout.addWidget(QLabel('Name'), 0, 0)
+        layout.addWidget(QLabel('Type'), 0, 1)
         self.setLayout(layout)
 
         self._viewer.dims.events.axis_labels.connect(
             self._on_viewer_dims_axis_labels_changed
         )
 
-    def set_selected_layer(self, layer: "Layer") -> None:
+    def set_selected_layer(self, layer: 'Layer') -> None:
         dims = self._viewer.dims
         update_num_rows(
             rows=self._rows,
@@ -192,5 +192,5 @@ class ReadOnlyAxesWidget(QWidget):
     def _set_axis_names(self, names: Tuple[str, ...]) -> None:
         names = self._viewer.dims.axis_labels
         assert len(names) == len(self._rows)
-        for name, widget in zip(names, self._rows):
+        for name, widget in zip(names, self._rows, strict=False):
             widget.name.setText(name)

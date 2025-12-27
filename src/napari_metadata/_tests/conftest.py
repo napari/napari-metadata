@@ -1,5 +1,6 @@
-import pytest
 import numpy as np
+import pytest
+
 
 @pytest.fixture
 def rng() -> np.random.Generator:
@@ -8,4 +9,4 @@ def rng() -> np.random.Generator:
 
 @pytest.fixture
 def path(tmp_path) -> str:
-    return str(tmp_path / "test.zarr")
+    return str(tmp_path / 'test.zarr')

@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional, Protocol, Tuple
+from collections.abc import Callable
+from typing import List, Optional, Protocol, Tuple
 
 from qtpy.QtCore import QSize, Qt, Signal
 from qtpy.QtGui import QDoubleValidator, QValidator
@@ -26,7 +27,7 @@ class DoubleLineEdit(CompactLineEdit):
         self.editingFinished.connect(self.valueChanged)
 
     def minimumSizeHint(self) -> QSize:
-        width_hint = self.fontMetrics().horizontalAdvance("1.234567")
+        width_hint = self.fontMetrics().horizontalAdvance('1.234567')
         sizeHint = super().minimumSizeHint()
         return QSize(width_hint, sizeHint.height())
 
@@ -37,7 +38,7 @@ class DoubleLineEdit(CompactLineEdit):
         text = str(value)
         state, text, _ = self.validator().validate(text, 0)
         if state != QValidator.State.Acceptable:
-            raise ValueError("Value is invalid.")
+            raise ValueError('Value is invalid.')
         if text != self.text():
             super().setText(text)
             self.editingFinished.emit()
@@ -50,7 +51,7 @@ class ReadOnlyLineEdit(CompactLineEdit):
     def __init__(self, *, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setReadOnly(True)
-        self.setStyleSheet("QLineEdit{" "background: transparent;" "}")
+        self.setStyleSheet('QLineEdit{background: transparent;}')
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def setText(self, text: str) -> None:
@@ -66,8 +67,7 @@ def readonly_lineedit(text: Optional[str] = None) -> QLineEdit:
 
 
 class GridRow(Protocol):
-    def widgets() -> Tuple[QWidget, ...]:
-        ...
+    def widgets() -> Tuple[QWidget, ...]: ...
 
 
 def set_row_visible(row: GridRow, visible: bool) -> None:
@@ -80,7 +80,7 @@ def update_num_rows(
     rows: List[GridRow],
     layout: QGridLayout,
     desired_num: int,
-    row_factory: Callable[[], GridRow]
+    row_factory: Callable[[], GridRow],
 ) -> None:
     current_num = len(rows)
     # Add any missing widgets.

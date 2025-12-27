@@ -1,4 +1,5 @@
-from typing import Dict, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pytest
@@ -25,7 +26,7 @@ def rng() -> np.random.Generator:
 
 @pytest.fixture
 def path(tmp_path) -> str:
-    return str(tmp_path / "test.zarr")
+    return str(tmp_path / 'test.zarr')
 
 
 def read_ome_zarr(path: str) -> Tuple[Sequence[ArrayLike], Dict]:
@@ -38,19 +39,19 @@ def read_ome_zarr(path: str) -> Tuple[Sequence[ArrayLike], Dict]:
 
 
 def ome_axis_names(ome_metadata: Dict) -> Tuple[str, ...]:
-    return tuple(a["name"] for a in ome_metadata["axes"])
+    return tuple(a['name'] for a in ome_metadata['axes'])
 
 
 def ome_axis_types(ome_metadata: Dict) -> Tuple[Optional[str], ...]:
-    return tuple(a.get("type") for a in ome_metadata["axes"])
+    return tuple(a.get('type') for a in ome_metadata['axes'])
 
 
 def ome_axis_units(ome_metadata: Dict) -> Tuple[Optional[str], ...]:
-    return tuple(a.get("unit") for a in ome_metadata["axes"])
+    return tuple(a.get('unit') for a in ome_metadata['axes'])
 
 
 def ome_transforms(ome_metadata: Dict) -> Tuple[float, ...]:
-    return ome_metadata["coordinateTransformations"][0]
+    return ome_metadata['coordinateTransformations'][0]
 
 
 def test_write_2d_image_without_extras(rng, path):
@@ -69,33 +70,33 @@ def test_write_2d_image_without_extras(rng, path):
 
     # The default/magic name that napari gives the layer is not
     # in our control and we always write it.
-    assert read_metadata["name"] == "Image"
+    assert read_metadata['name'] == 'Image'
 
-    assert ome_axis_names(read_metadata) == ("0", "1")
-    assert ome_axis_types(read_metadata) == ("space", "space")
+    assert ome_axis_names(read_metadata) == ('0', '1')
+    assert ome_axis_types(read_metadata) == ('space', 'space')
     assert ome_axis_units(read_metadata) == (None, None)
 
-    transforms = read_metadata["coordinateTransformations"][0]
+    transforms = read_metadata['coordinateTransformations'][0]
     assert len(transforms) == 2
-    assert tuple(transforms[0]["scale"]) == (1, 1)
-    assert tuple(transforms[1]["translation"]) == (0, 0)
+    assert tuple(transforms[0]['scale']) == (1, 1)
+    assert tuple(transforms[1]['translation']) == (0, 0)
 
 
 def test_write_2d_image_with_extras(rng, path):
     image = Image(
         rng.random((5, 6)),
-        name="kermit",
+        name='kermit',
         scale=(2, 3),
         translate=(-1, 1),
     )
     data, metadata, _ = image.as_layer_data_tuple()
     extras = ExtraMetadata(
         axes=[
-            SpaceAxis(name="y", unit=SpaceUnits.MILLIMETER),
-            SpaceAxis(name="x", unit=SpaceUnits.MILLIMETER),
+            SpaceAxis(name='y', unit=SpaceUnits.MILLIMETER),
+            SpaceAxis(name='x', unit=SpaceUnits.MILLIMETER),
         ],
     )
-    metadata["metadata"][EXTRA_METADATA_KEY] = extras
+    metadata['metadata'][EXTRA_METADATA_KEY] = extras
 
     paths_written = write_image(path, data, metadata)
 
@@ -107,34 +108,34 @@ def test_write_2d_image_with_extras(rng, path):
     assert len(read_data) == 1
     np.testing.assert_array_equal(read_data[0], data)
 
-    assert read_metadata["name"] == "kermit"
+    assert read_metadata['name'] == 'kermit'
 
-    assert ome_axis_names(read_metadata) == ("y", "x")
-    assert ome_axis_types(read_metadata) == ("space", "space")
-    assert ome_axis_units(read_metadata) == ("millimeter", "millimeter")
+    assert ome_axis_names(read_metadata) == ('y', 'x')
+    assert ome_axis_types(read_metadata) == ('space', 'space')
+    assert ome_axis_units(read_metadata) == ('millimeter', 'millimeter')
 
-    transforms = read_metadata["coordinateTransformations"]
+    transforms = read_metadata['coordinateTransformations']
     assert len(transforms) == 1
     assert len(transforms[0]) == 2
-    assert tuple(transforms[0][0]["scale"]) == (2, 3)
-    assert tuple(transforms[0][1]["translation"]) == (-1, 1)
+    assert tuple(transforms[0][0]['scale']) == (2, 3)
+    assert tuple(transforms[0][1]['translation']) == (-1, 1)
 
 
 def test_write_multiscale_2d_image_with_extras(rng, path):
     image = Image(
         [rng.random((10, 12)), rng.random((5, 6))],
-        name="momo",
+        name='momo',
         scale=(2, 3),
         translate=(-1, 1),
     )
     data, metadata, _ = image.as_layer_data_tuple()
     extras = ExtraMetadata(
         axes=[
-            SpaceAxis(name="y", unit=SpaceUnits.MILLIMETER),
-            SpaceAxis(name="x", unit=SpaceUnits.MILLIMETER),
+            SpaceAxis(name='y', unit=SpaceUnits.MILLIMETER),
+            SpaceAxis(name='x', unit=SpaceUnits.MILLIMETER),
         ],
     )
-    metadata["metadata"][EXTRA_METADATA_KEY] = extras
+    metadata['metadata'][EXTRA_METADATA_KEY] = extras
 
     paths_written = write_image(path, data, metadata)
 
@@ -147,42 +148,42 @@ def test_write_multiscale_2d_image_with_extras(rng, path):
     np.testing.assert_array_equal(read_data[0], data[0])
     np.testing.assert_array_equal(read_data[1], data[1])
 
-    assert read_metadata["name"] == "momo"
+    assert read_metadata['name'] == 'momo'
 
-    assert ome_axis_names(read_metadata) == ("y", "x")
-    assert ome_axis_types(read_metadata) == ("space", "space")
-    assert ome_axis_units(read_metadata) == ("millimeter", "millimeter")
+    assert ome_axis_names(read_metadata) == ('y', 'x')
+    assert ome_axis_types(read_metadata) == ('space', 'space')
+    assert ome_axis_units(read_metadata) == ('millimeter', 'millimeter')
 
-    transforms = read_metadata["coordinateTransformations"]
+    transforms = read_metadata['coordinateTransformations']
     assert len(transforms) == 2
 
     transforms_hi_res = transforms[0]
     assert len(transforms_hi_res) == 2
-    assert tuple(transforms_hi_res[0]["scale"]) == (2, 3)
-    assert tuple(transforms_hi_res[1]["translation"]) == (-1, 1)
+    assert tuple(transforms_hi_res[0]['scale']) == (2, 3)
+    assert tuple(transforms_hi_res[1]['translation']) == (-1, 1)
 
     transforms_lo_res = transforms[1]
     assert len(transforms_lo_res) == 2
-    assert tuple(transforms_lo_res[0]["scale"]) == (4, 6)
-    assert tuple(transforms_lo_res[1]["translation"]) == (-1, 1)
+    assert tuple(transforms_lo_res[0]['scale']) == (4, 6)
+    assert tuple(transforms_lo_res[1]['translation']) == (-1, 1)
 
 
 def test_write_3d_image_with_extras(rng, path):
     image = Image(
         rng.random((5, 6, 7)),
-        name="sandy",
+        name='sandy',
         scale=(1, 3, 4),
         translate=(9000, -1, 1),
     )
     data, metadata, _ = image.as_layer_data_tuple()
     extras = ExtraMetadata(
         axes=[
-            TimeAxis(name="t", unit=TimeUnits.SECOND),
-            SpaceAxis(name="y", unit=SpaceUnits.MILLIMETER),
-            SpaceAxis(name="x", unit=SpaceUnits.MILLIMETER),
+            TimeAxis(name='t', unit=TimeUnits.SECOND),
+            SpaceAxis(name='y', unit=SpaceUnits.MILLIMETER),
+            SpaceAxis(name='x', unit=SpaceUnits.MILLIMETER),
         ],
     )
-    metadata["metadata"][EXTRA_METADATA_KEY] = extras
+    metadata['metadata'][EXTRA_METADATA_KEY] = extras
 
     paths_written = write_image(path, data, metadata)
 
@@ -194,18 +195,18 @@ def test_write_3d_image_with_extras(rng, path):
     assert len(read_data) == 1
     np.testing.assert_array_equal(read_data[0], data)
 
-    assert read_metadata["name"] == "sandy"
+    assert read_metadata['name'] == 'sandy'
 
-    assert ome_axis_names(read_metadata) == ("t", "y", "x")
-    assert ome_axis_types(read_metadata) == ("time", "space", "space")
+    assert ome_axis_names(read_metadata) == ('t', 'y', 'x')
+    assert ome_axis_types(read_metadata) == ('time', 'space', 'space')
     assert ome_axis_units(read_metadata) == (
-        "second",
-        "millimeter",
-        "millimeter",
+        'second',
+        'millimeter',
+        'millimeter',
     )
 
-    transforms = read_metadata["coordinateTransformations"]
+    transforms = read_metadata['coordinateTransformations']
     assert len(transforms) == 1
     assert len(transforms[0]) == 2
-    assert tuple(transforms[0][0]["scale"]) == (1, 3, 4)
-    assert tuple(transforms[0][1]["translation"]) == (9000, -1, 1)
+    assert tuple(transforms[0][0]['scale']) == (1, 3, 4)
+    assert tuple(transforms[0][1]['translation']) == (9000, -1, 1)

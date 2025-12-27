@@ -13,7 +13,7 @@ class AxisType(Enum):
         return self.name.lower()
 
     @classmethod
-    def from_name(cls, name: str) -> Optional["AxisType"]:
+    def from_name(cls, name: str) -> Optional['AxisType']:
         for m in cls:
             if str(m) == name:
                 return m

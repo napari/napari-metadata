@@ -22,11 +22,9 @@ if TYPE_CHECKING:
 class Axis(Protocol):
     name: str
 
-    def get_type(self) -> AxisType:
-        ...
+    def get_type(self) -> AxisType: ...
 
-    def get_unit_name(self) -> Optional[str]:
-        ...
+    def get_unit_name(self) -> Optional[str]: ...
 
 
 @dataclass
@@ -64,7 +62,7 @@ class ChannelAxis:
         return None
 
 
-EXTRA_METADATA_KEY = "napari-metadata-plugin"
+EXTRA_METADATA_KEY = 'napari-metadata-plugin'
 
 
 @dataclass(frozen=True)
@@ -85,7 +83,7 @@ class ExtraMetadata:
 
     def set_axis_names(self, names: Tuple[str, ...]) -> None:
         assert len(self.axes) == len(names)
-        for axis, name in zip(self.axes, names):
+        for axis, name in zip(self.axes, names, strict=False):
             axis.name = name
 
     def get_space_unit(self) -> SpaceUnits:
@@ -111,12 +109,12 @@ class ExtraMetadata:
                 axis.unit = unit
 
 
-def extra_metadata(layer: "Layer") -> Optional[ExtraMetadata]:
+def extra_metadata(layer: 'Layer') -> Optional[ExtraMetadata]:
     return layer.metadata.get(EXTRA_METADATA_KEY)
 
 
 def coerce_extra_metadata(
-    viewer: "ViewerModel", layer: "Layer"
+    viewer: 'ViewerModel', layer: 'Layer'
 ) -> ExtraMetadata:
     if EXTRA_METADATA_KEY not in layer.metadata:
         axes = [
@@ -136,7 +134,7 @@ def coerce_extra_metadata(
     return layer.metadata[EXTRA_METADATA_KEY]
 
 
-def is_metadata_equal_to_original(layer: Optional["Layer"]) -> bool:
+def is_metadata_equal_to_original(layer: Optional['Layer']) -> bool:
     if layer is None:
         return False
     extras = extra_metadata(layer)
