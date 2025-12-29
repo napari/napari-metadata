@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List, Optional
+from typing import Optional
 
 
 class TimeUnits(Enum):
@@ -15,12 +15,12 @@ class TimeUnits(Enum):
         return self.name.lower()
 
     @classmethod
-    def from_name(cls, name: str) -> Optional["TimeUnits"]:
+    def from_name(cls, name: str) -> Optional['TimeUnits']:
         for m in cls:
             if str(m) == name:
                 return m
         return None
 
     @classmethod
-    def names(cls) -> List[str]:
+    def names(cls) -> list[str]:
         return [str(m) for m in cls]

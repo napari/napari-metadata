@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 from pint import Unit, UnitRegistry
 from qtpy.QtWidgets import QComboBox
@@ -12,12 +12,12 @@ if TYPE_CHECKING:
 
 
 class SpatialUnitsComboBox(QComboBox):
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
         self._viewer = viewer
         self.addItems(SpaceUnits.names())
         self._unit_registry: UnitRegistry = UnitRegistry()
-        self._PINT_TO_SPACE_UNIT: Dict[Unit, SpaceUnits] = {
+        self._PINT_TO_SPACE_UNIT: dict[Unit, SpaceUnits] = {
             self._unit_registry.nanometer: SpaceUnits.NANOMETER,
             self._unit_registry.micron: SpaceUnits.MICROMETER,
             self._unit_registry.micrometer: SpaceUnits.MICROMETER,
@@ -33,7 +33,7 @@ class SpatialUnitsComboBox(QComboBox):
 
         self._on_units_changed()
 
-    def set_selected_layer(self, layer: "Layer") -> None:
+    def set_selected_layer(self, layer: 'Layer') -> None:
         extras = coerce_extra_metadata(self._viewer, layer)
         unit = extras.get_space_unit()
         self._viewer.scale_bar.unit = (
@@ -42,19 +42,19 @@ class SpatialUnitsComboBox(QComboBox):
 
     def _on_units_changed(self) -> None:
         text = self.currentText()
-        unit = None if text == "none" else text
+        unit = None if text == 'none' else text
         self._viewer.scale_bar.unit = unit
 
     def _on_viewer_scale_bar_unit_changed(self, event) -> None:
         unit = event.value
-        text = "none" if unit is None else self._convert_model_unit(unit)
+        text = 'none' if unit is None else self._convert_model_unit(unit)
         self.setCurrentText(text)
 
     def _convert_model_unit(self, model_unit: str) -> str:
         quantity = self._unit_registry(model_unit)
         if quantity is None:
-            return "none"
+            return 'none'
         unit = quantity.units
         if unit not in self._PINT_TO_SPACE_UNIT:
-            return "none"
+            return 'none'
         return str(self._PINT_TO_SPACE_UNIT[unit])

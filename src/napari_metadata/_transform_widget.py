@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from qtpy.QtWidgets import QGridLayout, QLabel, QLineEdit, QWidget
 
@@ -22,24 +22,24 @@ class TransformRow:
         self.translate = DoubleLineEdit()
         self.translate.setValue(0)
 
-    def widgets(self) -> Tuple[QWidget, ...]:
+    def widgets(self) -> tuple[QWidget, ...]:
         return (self.name, self.spacing, self.translate)
 
 
 class TransformWidget(QWidget):
     """Shows and controls all axes' names and spacing."""
 
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
-        self._viewer: "ViewerModel" = viewer
-        self._layer: Optional["Layer"] = None
-        self._rows: List[TransformRow] = []
+        self._viewer: ViewerModel = viewer
+        self._layer: Optional[Layer] = None
+        self._rows: list[TransformRow] = []
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(QLabel("Axis"), 0, 0)
-        layout.addWidget(QLabel("Scale"), 0, 1)
-        layout.addWidget(QLabel("Translate"), 0, 2)
+        layout.addWidget(QLabel('Axis'), 0, 0)
+        layout.addWidget(QLabel('Scale'), 0, 1)
+        layout.addWidget(QLabel('Translate'), 0, 2)
 
         self.setLayout(layout)
 
@@ -47,7 +47,7 @@ class TransformWidget(QWidget):
             self._on_viewer_dims_axis_labels_changed
         )
 
-    def set_selected_layer(self, layer: Optional["Layer"]) -> None:
+    def set_selected_layer(self, layer: Optional['Layer']) -> None:
         dims = self._viewer.dims
         update_num_rows(
             rows=self._rows,
@@ -79,23 +79,23 @@ class TransformWidget(QWidget):
     def _on_viewer_dims_axis_labels_changed(self) -> None:
         self._set_axis_names(self._viewer.dims.axis_labels)
 
-    def _set_axis_names(self, names: Tuple[str, ...]) -> None:
+    def _set_axis_names(self, names: tuple[str, ...]) -> None:
         widgets = self._axis_widgets()
-        for name, widget in zip(names, widgets):
+        for name, widget in zip(names, widgets, strict=False):
             widget.name.setText(name)
 
     def _on_layer_scale_changed(self) -> None:
         assert self._layer is not None
         scale = self._layer.scale
         widgets = self._layer_widgets()
-        for s, w in zip(scale, widgets):
+        for s, w in zip(scale, widgets, strict=False):
             w.spacing.setValue(s)
 
     def _on_layer_translate_changed(self) -> None:
         assert self._layer is not None
         translate = self._layer.translate
         widgets = self._layer_widgets()
-        for t, w in zip(translate, widgets):
+        for t, w in zip(translate, widgets, strict=False):
             w.translate.setValue(t)
 
     def _on_pixel_size_changed(self) -> None:
@@ -106,10 +106,10 @@ class TransformWidget(QWidget):
         translate = tuple(w.translate.value() for w in self._layer_widgets())
         self._layer.translate = translate
 
-    def _axis_widgets(self) -> Tuple[TransformRow, ...]:
+    def _axis_widgets(self) -> tuple[TransformRow, ...]:
         return tuple(self._rows)
 
-    def _layer_widgets(self) -> Tuple[TransformRow, ...]:
+    def _layer_widgets(self) -> tuple[TransformRow, ...]:
         return (
             ()
             if self._layer is None
@@ -129,25 +129,25 @@ class ReadOnlyTransformRow:
         self.spacing: QLineEdit = readonly_lineedit()
         self.translate: QLineEdit = readonly_lineedit()
 
-    def widgets(self) -> Tuple[QWidget, ...]:
+    def widgets(self) -> tuple[QWidget, ...]:
         return (self.name, self.spacing, self.translate)
 
 
 class ReadOnlyTransformWidget(QWidget):
     """Shows and controls all axes' transform parameters."""
 
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
-        self._viewer: "ViewerModel" = viewer
-        self._layer: Optional["Layer"] = None
-        self._rows: List[ReadOnlyTransformRow] = []
+        self._viewer: ViewerModel = viewer
+        self._layer: Optional[Layer] = None
+        self._rows: list[ReadOnlyTransformRow] = []
 
         layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(QLabel("Axis"), 0, 0)
-        layout.addWidget(QLabel("Scale"), 0, 1)
-        layout.addWidget(QLabel("Translate"), 0, 2)
+        layout.addWidget(QLabel('Axis'), 0, 0)
+        layout.addWidget(QLabel('Scale'), 0, 1)
+        layout.addWidget(QLabel('Translate'), 0, 2)
 
         self.setLayout(layout)
 
@@ -155,7 +155,7 @@ class ReadOnlyTransformWidget(QWidget):
             self._on_viewer_dims_axis_labels_changed
         )
 
-    def set_selected_layer(self, layer: Optional["Layer"]) -> None:
+    def set_selected_layer(self, layer: Optional['Layer']) -> None:
         dims = self._viewer.dims
         update_num_rows(
             rows=self._rows,
@@ -187,23 +187,23 @@ class ReadOnlyTransformWidget(QWidget):
     def _on_viewer_dims_axis_labels_changed(self) -> None:
         self._set_axis_names(self._viewer.dims.axis_labels)
 
-    def _set_axis_names(self, names: Tuple[str, ...]) -> None:
-        for name, row in zip(names, self._rows):
+    def _set_axis_names(self, names: tuple[str, ...]) -> None:
+        for name, row in zip(names, self._rows, strict=False):
             row.name.setText(name)
 
     def _on_layer_scale_changed(self) -> None:
         assert self._layer is not None
         scale = self._layer.scale
-        for s, r in zip(scale, self._layer_rows()):
+        for s, r in zip(scale, self._layer_rows(), strict=False):
             r.spacing.setText(str(s))
 
     def _on_layer_translate_changed(self) -> None:
         assert self._layer is not None
         translate = self._layer.translate
-        for t, r in zip(translate, self._layer_rows()):
+        for t, r in zip(translate, self._layer_rows(), strict=False):
             r.translate.setText(str(t))
 
-    def _layer_rows(self) -> Tuple[TransformRow, ...]:
+    def _layer_rows(self) -> tuple[TransformRow, ...]:
         return (
             ()
             if self._layer is None

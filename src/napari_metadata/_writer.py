@@ -1,5 +1,6 @@
 import os
-from typing import Any, Dict, List, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import zarr
@@ -11,15 +12,15 @@ from ._model import EXTRA_METADATA_KEY, Axis
 
 
 def write_image(
-    path: str, data: ArrayLike, attributes: Dict[str, Any]
-) -> List[str]:
+    path: str, data: ArrayLike, attributes: dict[str, Any]
+) -> list[str]:
     # Based on https://ome-zarr.readthedocs.io/en/stable/python.html#writing-ome-ngff-images # noqa
     os.mkdir(path)
 
-    store = parse_url(path, mode="w").store
+    store = parse_url(path, mode='w').store
     root = zarr.group(store=store)
 
-    if extras := attributes["metadata"].get(EXTRA_METADATA_KEY):
+    if extras := attributes['metadata'].get(EXTRA_METADATA_KEY):
         axes = [axis_to_ome(axis) for axis in extras.axes]
     else:
         # Ideally we would just provide axis names, but that it not
@@ -27,10 +28,10 @@ def write_image(
         # https://github.com/ome/ome-zarr-py/issues/249
         # so use space as the most sensible default.
         axes = [
-            {"name": str(i), "type": "space"} for i in range(len(data.shape))
+            {'name': str(i), 'type': 'space'} for i in range(len(data.shape))
         ]
 
-    name = attributes["name"]
+    name = attributes['name']
 
     multiscale_data = data if isinstance(data, Sequence) else [data]
     scale_factors = [
@@ -40,12 +41,12 @@ def write_image(
     transforms = [
         [
             {
-                "type": "scale",
-                "scale": tuple(scale_factor * attributes["scale"]),
+                'type': 'scale',
+                'scale': tuple(scale_factor * attributes['scale']),
             },
             {
-                "type": "translation",
-                "translation": attributes["translate"],
+                'type': 'translation',
+                'translation': attributes['translate'],
             },
         ]
         for scale_factor in scale_factors
@@ -62,11 +63,11 @@ def write_image(
     return [path]
 
 
-def axis_to_ome(axis: Axis) -> Dict[str, str]:
+def axis_to_ome(axis: Axis) -> dict[str, str]:
     ome = {
-        "name": axis.name,
-        "type": str(axis.get_type()),
+        'name': axis.name,
+        'type': str(axis.get_type()),
     }
     if unit := axis.get_unit_name():
-        ome["unit"] = unit
+        ome['unit'] = unit
     return ome

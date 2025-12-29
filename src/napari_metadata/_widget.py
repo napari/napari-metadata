@@ -1,5 +1,6 @@
+from collections.abc import Sequence
 from copy import deepcopy
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Optional
 
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QShowEvent
@@ -16,6 +17,7 @@ from qtpy.QtWidgets import (
 )
 
 from napari_metadata._axes_widget import AxesWidget, ReadOnlyAxesWidget
+from napari_metadata._file_size import generate_display_size
 from napari_metadata._model import (
     coerce_extra_metadata,
     is_metadata_equal_to_original,
@@ -28,8 +30,6 @@ from napari_metadata._transform_widget import (
     TransformWidget,
 )
 from napari_metadata._widget_utils import readonly_lineedit
-from napari_metadata._file_size import generate_display_size
-
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class EditableMetadataWidget(QWidget):
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
         self._viewer = viewer
         self._selected_layer = None
@@ -52,18 +52,18 @@ class EditableMetadataWidget(QWidget):
         self._attribute_widget.setLayout(self._attribute_layout)
 
         self.name = QLineEdit()
-        self._add_attribute_row("Layer name", self.name)
+        self._add_attribute_row('Layer name', self.name)
         self.name.textChanged.connect(self._on_name_changed)
 
         self._axes_widget = AxesWidget(viewer)
-        self._add_attribute_row("Axes", self._axes_widget)
+        self._add_attribute_row('Axes', self._axes_widget)
 
         self._spacing_widget = TransformWidget(viewer)
-        self._add_attribute_row("Transforms", self._spacing_widget)
+        self._add_attribute_row('Transforms', self._spacing_widget)
 
         self._spatial_units = SpatialUnitsComboBox(viewer)
         self._spatial_units.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self._add_attribute_row("Space units", self._spatial_units)
+        self._add_attribute_row('Space units', self._spatial_units)
         self._spatial_units.currentTextChanged.connect(
             self._on_spatial_units_changed
         )
@@ -71,22 +71,22 @@ class EditableMetadataWidget(QWidget):
         self._temporal_units = QComboBox()
         self._temporal_units.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._temporal_units.addItems(TimeUnits.names())
-        self._add_attribute_row("Time units", self._temporal_units)
+        self._add_attribute_row('Time units', self._temporal_units)
         self._temporal_units.currentTextChanged.connect(
             self._on_temporal_units_changed
         )
-        
+
         restore_layout = QHBoxLayout()
         restore_layout.addStretch(1)
-        self._restore_defaults = QPushButton("Restore defaults")
+        self._restore_defaults = QPushButton('Restore defaults')
         self._restore_defaults.setStyleSheet(
-            "QPushButton {"
-            "color: #898D93;"
-            "background: transparent;"
-            "}"
-            "QPushButton::enabled {"
-            "color: #66C1FF;"
-            "}"
+            'QPushButton {'
+            'color: #898D93;'
+            'background: transparent;'
+            '}'
+            'QPushButton::enabled {'
+            'color: #66C1FF;'
+            '}'
         )
         self._restore_defaults.clicked.connect(self._on_restore_clicked)
         restore_layout.addWidget(self._restore_defaults)
@@ -100,16 +100,16 @@ class EditableMetadataWidget(QWidget):
         control_layout.setContentsMargins(0, 0, 0, 0)
         self._control_widget.setLayout(control_layout)
 
-        self.show_readonly = QPushButton("View full metadata")
+        self.show_readonly = QPushButton('View full metadata')
         self.show_readonly.setStyleSheet(
-            "QPushButton {" "color: #66C1FF;" "background: transparent;" "}"
+            'QPushButton {color: #66C1FF;background: transparent;}'
         )
 
         control_layout.addWidget(self.show_readonly)
         control_layout.addStretch(1)
-        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button = QPushButton('Cancel')
         control_layout.addWidget(self.cancel_button)
-        self._save_button = QPushButton("Save")
+        self._save_button = QPushButton('Save')
         self._save_button.setEnabled(False)
         control_layout.addWidget(self._save_button)
 
@@ -119,7 +119,7 @@ class EditableMetadataWidget(QWidget):
             self._update_restore_enabled
         )
 
-    def set_selected_layer(self, layer: Optional["Layer"]) -> None:
+    def set_selected_layer(self, layer: Optional['Layer']) -> None:
         if layer == self._selected_layer:
             return
 
@@ -207,7 +207,7 @@ class EditableMetadataWidget(QWidget):
 
 
 class ReadOnlyMetadataWidget(QWidget):
-    def __init__(self, viewer: "ViewerModel") -> None:
+    def __init__(self, viewer: 'ViewerModel') -> None:
         super().__init__()
         self._viewer = viewer
         self._selected_layer = None
@@ -221,28 +221,28 @@ class ReadOnlyMetadataWidget(QWidget):
         self._attribute_layout.setContentsMargins(0, 0, 0, 0)
         self._attribute_widget.setLayout(self._attribute_layout)
 
-        item_label = QLabel("Item")
-        item_label.setStyleSheet("font-weight: bold")
+        item_label = QLabel('Item')
+        item_label.setStyleSheet('font-weight: bold')
         self._attribute_layout.addWidget(item_label, 0, 0)
-        value_label = QLabel("Value")
-        value_label.setStyleSheet("font-weight: bold")
+        value_label = QLabel('Value')
+        value_label.setStyleSheet('font-weight: bold')
         self._attribute_layout.addWidget(value_label, 0, 1)
 
-        self.name = self._add_attribute_row("Layer name")
-        self.file_path = self._add_attribute_row("File name")
-        self.plugin = self._add_attribute_row("Plugin")
-        self.data_shape = self._add_attribute_row("Array shape")
-        self.data_type = self._add_attribute_row("Data type")
-        self.file_size = self._add_attribute_row("File size")
+        self.name = self._add_attribute_row('Layer name')
+        self.file_path = self._add_attribute_row('File name')
+        self.plugin = self._add_attribute_row('Plugin')
+        self.data_shape = self._add_attribute_row('Array shape')
+        self.data_type = self._add_attribute_row('Data type')
+        self.file_size = self._add_attribute_row('File size')
 
         self._axes_widget = ReadOnlyAxesWidget(viewer)
-        self._add_attribute_row("Axes", self._axes_widget)
+        self._add_attribute_row('Axes', self._axes_widget)
 
         self._spacing_widget = ReadOnlyTransformWidget(viewer)
-        self._add_attribute_row("Transforms", self._spacing_widget)
+        self._add_attribute_row('Transforms', self._spacing_widget)
 
-        self.spatial_units = self._add_attribute_row("Space units")
-        self.temporal_units = self._add_attribute_row("Time units")
+        self.spatial_units = self._add_attribute_row('Space units')
+        self.temporal_units = self._add_attribute_row('Time units')
 
         # Push control widget to bottom.
         layout.addStretch(1)
@@ -252,19 +252,19 @@ class ReadOnlyMetadataWidget(QWidget):
         control_layout.setContentsMargins(0, 0, 0, 0)
         self._control_widget.setLayout(control_layout)
 
-        self.show_editable = QPushButton("View editable metadata")
+        self.show_editable = QPushButton('View editable metadata')
         self.show_editable.setStyleSheet(
-            "QPushButton {" "color: #66C1FF;" "background: transparent;" "}"
+            'QPushButton {color: #66C1FF;background: transparent;}'
         )
 
         control_layout.addWidget(self.show_editable)
         control_layout.addStretch(1)
-        self.close_button = QPushButton("Close")
+        self.close_button = QPushButton('Close')
         control_layout.addWidget(self.close_button)
 
         layout.addWidget(self._control_widget)
 
-    def set_selected_layer(self, layer: Optional["Layer"]) -> None:
+    def set_selected_layer(self, layer: Optional['Layer']) -> None:
         if layer == self._selected_layer:
             return
 
@@ -328,14 +328,14 @@ class InfoWidget(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
-        info_label = QLabel("Select a single layer to view its metadata")
+        info_label = QLabel('Select a single layer to view its metadata')
         layout.addWidget(info_label)
         layout.addStretch(1)
         self.setLayout(layout)
 
 
 class MetadataWidget(QStackedWidget):
-    def __init__(self, napari_viewer: "ViewerModel"):
+    def __init__(self, napari_viewer: 'ViewerModel'):
         super().__init__()
         self._viewer = napari_viewer
         self._selected_layer = None
@@ -413,11 +413,11 @@ class MetadataWidget(QStackedWidget):
         # To constrain our implementation and for testing, we only want
         # the type of _viewer to be ViewerModel and not Viewer.
         # This works around that typing information.
-        if window := getattr(self._viewer, "window", None):
+        if window := getattr(self._viewer, 'window', None):
             window.remove_dock_widget(self)
 
 
-def _layer_plugin_info(layer: "Layer") -> str:
+def _layer_plugin_info(layer: 'Layer') -> str:
     source = layer.source
     return (
         str(source.reader_plugin)
@@ -426,23 +426,23 @@ def _layer_plugin_info(layer: "Layer") -> str:
     )
 
 
-def _layer_data_shape(layer: "Layer") -> str:
+def _layer_data_shape(layer: 'Layer') -> str:
     data = layer.data
-    if hasattr(data, "shape"):
+    if hasattr(data, 'shape'):
         return str(data.shape)
     if isinstance(data, Sequence):
-        return f"{(len(data),)}"
-    return "Unknown"
+        return f'{(len(data),)}'
+    return 'Unknown'
 
 
-def _layer_data_dtype(layer: "Layer") -> str:
+def _layer_data_dtype(layer: 'Layer') -> str:
     data = layer.data
-    if hasattr(data, "dtype"):
+    if hasattr(data, 'dtype'):
         return str(data.dtype)
     if (
         isinstance(data, Sequence)
         and len(data) > 0
-        and hasattr(data[0], "dtype")
+        and hasattr(data[0], 'dtype')
     ):
         return str(data[0].dtype)
-    return "Unknown"
+    return 'Unknown'

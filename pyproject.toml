@@ -1,14 +1,112 @@
 [build-system]
-requires = ["setuptools>=42.0.0", "wheel", "setuptools_scm"]
+requires = ["setuptools>=77.0.3", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "napari-metadata"
+description = "View and edit layer metadata"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Andy Sweet", email = "andrewdsweet@gmail.com"},
+    {name = 'napari team', email = 'napari-steering-council@googlegroups.com'},
+    {name = 'napari-metadata contributors'},
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: napari",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "magicgui",
+    "napari-ome-zarr",
+    "ome-zarr",
+    "qtpy",
+    "pint",
+    "pooch",
+    "scikit-image",
+    "tqdm",
+    "zarr",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/napari/napari-metadata/issues"
+"Documentation" = "https://github.com/napari/napari-metadata#README.md"
+"Source Code" = "https://github.com/napari/napari-metadata"
+"User Support" = "https://github.com/napari/napari-metadata/issues"
+
+[project.entry-points."napari.manifest"]
+napari-metadata = "napari_metadata:napari.yaml"
+
+[dependency-groups]
+dev = [
+    "napari[qt]",
+    "npe2",
+    "pytest",
+    "coverage>7",
+    "pytest-qt",
+    "tox-uv",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml"]
 
 [tool.setuptools_scm]
 write_to = "src/napari_metadata/_version.py"
+fallback_version = "0.0.1+nogit"
 
-[tool.black]
+[tool.ruff]
 line-length = 79
+fix = true
 
-[tool.isort]
-profile = "black"
-line_length = 79
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", #flake8
+    "UP", # pyupgrade
+    "I", # isort
+    "BLE", # flake8-blind-exception
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "C4", # flake8-comprehensions
+    "ISC", # flake8-implicit-str-concat
+    "G", # flake8-logging-format
+    "PIE", # flake8-pie
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line too long. handled by formatter
+    "UP006", "UP007", # type annotation. As using magicgui require runtime type annotation then we disable this.
+]
+
+[tool.coverage.run]
+omit = [
+    "*/napari_metadata/_version.py",
+]
+
+source = [
+    "src/napari_metadata",
+    "napari_metadata",
+]
+
