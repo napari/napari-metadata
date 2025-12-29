@@ -56,7 +56,7 @@ dev = [
     "napari[qt]",
     "npe2",
     "pytest",
-    "pytest-cov",
+    "coverage>7",
     "pytest-qt",
     "tox-uv",
 ]

@@ -52,13 +52,24 @@ jobs:
         env:
           PLATFORM: ${{ matrix.platform }}
 
-      - name: Coverage
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v6
+        with:
+          name: covreport-${{ matrix.platform }}-py${{ matrix.python-version }}
+          path: .coverage*
+          if-no-files-found: error
+
+  coverage_report:
+    if: ${{ always() }}
+    secrets: inherit
+    needs: [test]
+    uses: napari/shared-workflows/.github/workflows/upload_coverage.yml@main
+    with:
+      artifact-pattern: 'covreport-*'
 
   build-and-inspect-package:
     name: Build & inspect package.
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v6
       - uses: hynek/build-and-inspect-python-package@v2
