@@ -106,7 +106,7 @@ omit = [
 ]
 
 source = [
-    "src/napari-metadata",
-    "napari-metadata",
+    "src/napari_metadata",
+    "napari_metadata",
 ]
 
