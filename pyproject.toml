@@ -104,3 +104,9 @@ ignore = [
 omit = [
     "*/napari_metadata/_version.py",
 ]
+
+source = [
+    "src/napari-metadata",
+    "napari-metadata",
+]
+
