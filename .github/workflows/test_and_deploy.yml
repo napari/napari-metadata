@@ -56,8 +56,8 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: covreport-${{ matrix.platform }}-py${{ matrix.python-version }}
-          path: .coverage*
-          if-no-files-found: error
+          include-hidden-files: true
+          path: ./.coverage.*
 
   coverage_report:
     if: ${{ always() }}
