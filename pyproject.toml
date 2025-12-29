@@ -99,3 +99,8 @@ ignore = [
     "E501", # line too long. handled by formatter
     "UP006", "UP007", # type annotation. As using magicgui require runtime type annotation then we disable this.
 ]
+
+[tool.coverage.run]
+omit = [
+    "*/napari_metadata/_version.py",
+]

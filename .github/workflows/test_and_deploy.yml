@@ -57,7 +57,8 @@ jobs:
         with:
           name: covreport-${{ matrix.platform }}-py${{ matrix.python-version }}
           include-hidden-files: true
-          path: ./.coverage.*
+          path: .coverage*
+          if-no-files-found: error
 
   coverage_report:
     if: ${{ always() }}
