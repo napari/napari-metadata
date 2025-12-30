@@ -1467,10 +1467,10 @@ def _get_double_spinbox_tuple(
     setting_values: tuple[float, ...]
     try:
         setting_values = globals()[obtain_tuple_method_str](viewer, layer)
-    except KeyError:
+    except KeyError as err:
         raise KeyError(
             f'Method {obtain_tuple_method_str} is not a valid method for AxisScales'
-        )
+        ) from err
     returning_tuple: tuple[QDoubleSpinBox, ...] = ()
     for i in range(len(setting_values)):
         spinbox: QDoubleSpinBox = QDoubleSpinBox()
@@ -2132,9 +2132,7 @@ class MetadataWidget(QWidget):
 
                 total_row_spans: int = 0
 
-                general_component: GeneralMetadataComponent = components_dict[
-                    name
-                ]
+                general_component: MetadataComponent = components_dict[name]
 
                 general_component_qlabel: QLabel = (
                     general_component._component_qlabel
@@ -2183,9 +2181,7 @@ class MetadataWidget(QWidget):
 
                 total_row_spans: int = 0
 
-                general_component: GeneralMetadataComponent = components_dict[
-                    name
-                ]  # type: ignore
+                general_component: MetadataComponent = components_dict[name]  # type: ignore
 
                 general_component_qlabel: QLabel = (
                     general_component._component_qlabel
@@ -2287,7 +2283,6 @@ class MetadataWidget(QWidget):
                         tuple[QWidget, int, int, str, Qt.AlignmentFlag | None],
                     ],
                 ] = axis_component.get_entries_dict(orientation)  # type: ignore
-
 
                 for axis_index in entries_dict:
                     setting_column = current_column
@@ -2579,7 +2574,7 @@ class MetadataWidget(QWidget):
         )  # type: ignore
 
         for name in components_dict:
-            general_component: GeneralMetadataComponent = components_dict[name]  # type: ignore
+            general_component: MetadataComponent = components_dict[name]  # type: ignore
             entries_dict: dict[str, tuple[QWidget, int, int, str]] = (
                 general_component.get_entries_dict(self._current_orientation)
             )
@@ -2669,9 +2664,9 @@ class MetadataWidget(QWidget):
             axes_labels_component.get_line_edit_labels()
         )  # type: ignore
         set_active_layer_axes_labels(self._viewer, axes_tuples)  # type: ignore
-        for axes_component_name in (
-            self._axis_metadata_instance._axis_metadata_components_dict
-        ):
+        for (
+            axes_component_name
+        ) in self._axis_metadata_instance._axis_metadata_components_dict:
             if axes_component_name != 'AxisLabels':
                 axis_component: MetadataComponent = self._axis_metadata_instance._axis_metadata_components_dict[
                     axes_component_name
@@ -2747,7 +2742,7 @@ class MetadataWidget(QWidget):
         current_units: tuple[pint.Unit | str, ...] = get_axes_units(
             self._napari_viewer, self._selected_layer
         )
-        unit_registry: UnitRegistry = current_units[0]._REGISTRY  # type: ignore
+        unit_registry: pint.UnitRegistry = current_units[0]._REGISTRY  # type: ignore
         for axis_number in range(len(type_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
             type_string: str = type_combobox_tuple[axis_number].currentText()  # type: ignore
@@ -2813,7 +2808,7 @@ class MetadataWidget(QWidget):
         current_units: tuple[pint.Unit | str, ...] = get_axes_units(
             self._napari_viewer, self._selected_layer
         )
-        unit_registry: UnitRegistry = current_units[0]._REGISTRY  # type: ignore
+        unit_registry: pint.UnitRegistry = current_units[0]._REGISTRY  # type: ignore
         setting_units_list: list[pint.Unit | str] = []
         for axis_number in range(len(unit_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
