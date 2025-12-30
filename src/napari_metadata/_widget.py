@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Protocol, Tuple, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 import pint
 from qtpy.QtCore import QObject, QRect, QSignalBlocker, QSize, Qt
@@ -79,7 +79,7 @@ class MetadataComponent(Protocol):
     def load_entries(self, layer: 'Layer | None' = None) -> None: ...
 
     """ This method returns the dictionary that will be used to populate the general metadata QGridLayout.
-    It requires you to input the type of layout, either horizontal or vertical, with vertical set to default. 
+    It requires you to input the type of layout, either horizontal or vertical, with vertical set to default.
     It should return a dictionary with the name of the entries as keys (They'll be set in bold capital letters) and a tuple with the corresponding
     QWidget, the row span, the column span, the calling method as a string or none if there's no method """
 
@@ -177,10 +177,7 @@ class LayerNameComponent:
         return returning_dict
 
     def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        if layout_mode == 'vertical':
-            return True
-        else:
-            return False
+        return layout_mode == 'vertical'
 
 
 @_metadata_component
@@ -462,13 +459,11 @@ class SourcePathComponent:
         return returning_dict
 
     def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        if layout_mode == 'vertical':
-            return True
-        return False
+        return layout_mode == 'vertical'
 
 
 """ This is the class that integrates all of the general metadata components together and instantiates them. This class itself
-is instantiated in the MetadataWidget class, which is ultimately the main class passed to napari. This class will only hold the 
+is instantiated in the MetadataWidget class, which is ultimately the main class passed to napari. This class will only hold the
 components instances and everything else is handled in the MetadataWidget class or the individual metadata component classes."""
 
 
@@ -661,7 +656,7 @@ class FileMetadataWidget(QWidget):
         self._layer_name_QLineEdit.setText(layer.name)
         self._layer_path_line_edit.setText(layer.source.path)
 
-        data_shape: Tuple[int, ...] = get_layer_data_shape(layer)
+        data_shape: tuple[int, ...] = get_layer_data_shape(layer)
         self._layer_data_shape.setText(f'{data_shape}')
 
         data_type: str = get_layer_data_dtype(layer)
@@ -686,7 +681,7 @@ class FileMetadataWidget(QWidget):
         self._layer_file_size.setText(file_size)
 
 
-""" This protocol is used to define the structure of the AxisComponent class. 
+""" This protocol is used to define the structure of the AxisComponent class.
 NOTE: Again, it is possible to integrate the metadata into a single type of component by passing lists instead of single values in the get_entries_dict,
 but it might complicate even more the already complicated extension patterns."""
 
@@ -827,7 +822,7 @@ class AxisLabels:
         setting_inherit_checkbox_tuple: tuple[QCheckBox, ...] = (
             _get_checkbox_tuple(layer)
         )
-        layer_labels: Tuple[str, ...] = get_axes_labels(
+        layer_labels: tuple[str, ...] = get_axes_labels(
             self._napari_viewer, layer
         )  # type: ignore
         for i in range(layer_dimensions):
@@ -1358,7 +1353,7 @@ class AxisUnits:
         setting_inherit_checkbox_tuple: tuple[QCheckBox, ...] = (
             _get_checkbox_tuple(layer)
         )
-        layer_units: Tuple[pint.Unit, ...] = get_axes_units(
+        layer_units: tuple[pint.Unit, ...] = get_axes_units(
             self._napari_viewer, layer
         )  # type: ignore
         for i in range(layer_dimensions):
@@ -1505,7 +1500,7 @@ def _get_checkbox_tuple(layer: 'Layer | None') -> tuple[QCheckBox, ...]:
 
 
 """ This is the class that integrates all of the axis metadata components together and instantiates them. This class itself
-is instantiated in the MetadataWidget class, which is ultimately the main class passed to napari. This class will only hold the 
+is instantiated in the MetadataWidget class, which is ultimately the main class passed to napari. This class will only hold the
 components instances and everything else is handled in the MetadataWidget class or the individual metadata component classes."""
 
 
@@ -2132,11 +2127,10 @@ class MetadataWidget(QWidget):
         if orientation == 'vertical':
             self._reset_layout(hori_file_layout)
 
-            for name in components_dict.keys():
+            for name in components_dict:
                 current_column: int = starting_column
 
                 total_row_spans: int = 0
-                total_column_spans: int = 0
 
                 general_component: GeneralMetadataComponent = components_dict[
                     name
@@ -2165,7 +2159,7 @@ class MetadataWidget(QWidget):
                     entry_widget: QWidget = entries_dict[entry_name][0]
                     row_span: int = entries_dict[entry_name][1]
                     column_span: int = entries_dict[entry_name][2]
-                    method_name: str = entries_dict[entry_name][3]
+                    entries_dict[entry_name][3]
                     alignment: Qt.AlignmentFlag | None = entries_dict[
                         entry_name
                     ][4]
@@ -2184,11 +2178,10 @@ class MetadataWidget(QWidget):
         else:
             self._reset_layout(vert_file_layout)
 
-            for name in components_dict.keys():
+            for name in components_dict:
                 current_column: int = starting_column
 
                 total_row_spans: int = 0
-                total_column_spans: int = 0
 
                 general_component: GeneralMetadataComponent = components_dict[
                     name
@@ -2213,11 +2206,11 @@ class MetadataWidget(QWidget):
 
                 total_row_spans += 1
 
-                for entry_name in entries_dict.keys():
+                for entry_name in entries_dict:
                     entry_widget: QWidget = entries_dict[entry_name][0]
                     row_span: int = entries_dict[entry_name][1]
                     column_span: int = entries_dict[entry_name][2]
-                    method_name: str = entries_dict[entry_name][3]
+                    entries_dict[entry_name][3]
                     alignment: Qt.AlignmentFlag | None = entries_dict[
                         entry_name
                     ][4]
@@ -2269,7 +2262,7 @@ class MetadataWidget(QWidget):
             self._reset_layout(vert_axis_layout)
 
             # This is the name of every axis
-            for name in components_dict.keys():
+            for name in components_dict:
                 current_column: int = starting_column
 
                 # This is the instance of the Axis Protocol
@@ -2295,7 +2288,6 @@ class MetadataWidget(QWidget):
                     ],
                 ] = axis_component.get_entries_dict(orientation)  # type: ignore
 
-                total_axis_index_row_spans: int = 0
 
                 for axis_index in entries_dict:
                     setting_column = current_column
@@ -2350,7 +2342,7 @@ class MetadataWidget(QWidget):
             self._reset_layout(hori_axis_layout)
 
             # This is the name of every axis
-            for name in components_dict.keys():
+            for name in components_dict:
                 current_column: int = starting_column
                 current_row: int = starting_row
 
@@ -2380,7 +2372,7 @@ class MetadataWidget(QWidget):
 
                 max_axis_col_spans: int = 0
 
-                for axis_index in entries_dict.keys():
+                for axis_index in entries_dict:
                     current_axis_col_sum: int = 0
 
                     setting_column = current_column
@@ -2392,7 +2384,7 @@ class MetadataWidget(QWidget):
                         tuple[QWidget, int, int, str, Qt.AlignmentFlag | None],
                     ] = entries_dict[axis_index]  # type: ignore
 
-                    for widget_name in axis_entries_dict.keys():
+                    for widget_name in axis_entries_dict:
                         entry_widget: QWidget = axis_entries_dict[widget_name][
                             0
                         ]
@@ -2586,7 +2578,7 @@ class MetadataWidget(QWidget):
             file_general_meta_instance._file_metadata_components_dict
         )  # type: ignore
 
-        for name in components_dict.keys():
+        for name in components_dict:
             general_component: GeneralMetadataComponent = components_dict[name]  # type: ignore
             entries_dict: dict[str, tuple[QWidget, int, int, str]] = (
                 general_component.get_entries_dict(self._current_orientation)
@@ -2641,7 +2633,7 @@ class MetadataWidget(QWidget):
         ] = component.get_entries_dict('vertical')  # type: ignore
 
         for axis_number in component_entries:
-            for component_name in component_entries[axis_number].keys():
+            for component_name in component_entries[axis_number]:
                 method_str: str = component_entries[axis_number][
                     component_name
                 ][3]
@@ -2678,7 +2670,7 @@ class MetadataWidget(QWidget):
         )  # type: ignore
         set_active_layer_axes_labels(self._viewer, axes_tuples)  # type: ignore
         for axes_component_name in (
-            self._axis_metadata_instance._axis_metadata_components_dict.keys()
+            self._axis_metadata_instance._axis_metadata_components_dict
         ):
             if axes_component_name != 'AxisLabels':
                 axis_component: MetadataComponent = self._axis_metadata_instance._axis_metadata_components_dict[

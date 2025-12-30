@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from typing import (
     TYPE_CHECKING,
-    Tuple,
     cast,
 )
 
@@ -15,7 +14,7 @@ if TYPE_CHECKING:
 
 def get_axes_labels(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> Tuple[str, ...]:
+) -> tuple[str, ...]:
     active_layer = None
     if layer is None:
         active_layer = get_active_layer(viewer)
@@ -27,7 +26,7 @@ def get_axes_labels(
 
 
 def set_active_layer_axes_labels(
-    viewer: 'ViewerModel', axes_labels: Tuple[str, ...]
+    viewer: 'ViewerModel', axes_labels: tuple[str, ...]
 ):
     layer: Layer | None = get_active_layer(viewer)
     if layer is None:
@@ -50,7 +49,7 @@ def get_pint_ureg(viewer: 'ViewerModel') -> pint.UnitRegistry | None:
 
 def get_axes_units(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> Tuple[pint.Unit | str, ...]:
+) -> tuple[pint.Unit | str, ...]:
     active_layer = None
     if layer is None:
         active_layer = get_active_layer(viewer)
@@ -62,7 +61,7 @@ def get_axes_units(
 
 
 def set_active_layer_axes_units(
-    viewer: 'ViewerModel', axes_units: Tuple[str, ...]
+    viewer: 'ViewerModel', axes_units: tuple[str, ...]
 ) -> None:
     layer: Layer | None = get_active_layer(viewer)
     if layer is None:
@@ -72,7 +71,7 @@ def set_active_layer_axes_units(
 
 def get_axes_scales(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> Tuple[float, ...]:
+) -> tuple[float, ...]:
     active_layer = None
     if layer is None:
         active_layer = get_active_layer(viewer)
@@ -80,11 +79,11 @@ def get_axes_scales(
             return ()
     else:
         active_layer = layer
-    return cast(Tuple[float, ...], active_layer.scale)
+    return cast(tuple[float, ...], active_layer.scale)
 
 
 def set_active_layer_axes_scales(
-    viewer: 'ViewerModel', axes_scales: Tuple[float, ...]
+    viewer: 'ViewerModel', axes_scales: tuple[float, ...]
 ) -> None:
     layer: Layer | None = get_active_layer(viewer)
     if layer is None:
@@ -99,7 +98,7 @@ def set_active_layer_axes_scales(
 
 def get_axes_translations(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> Tuple[float, ...]:
+) -> tuple[float, ...]:
     active_layer = None
     if layer is None:
         active_layer = get_active_layer(viewer)
@@ -107,11 +106,11 @@ def get_axes_translations(
             return ()
     else:
         active_layer = layer
-    return cast(Tuple[float, ...], active_layer.translate)
+    return cast(tuple[float, ...], active_layer.translate)
 
 
 def set_active_layer_axes_translations(
-    viewer: 'ViewerModel', axes_translations: Tuple[float, ...]
+    viewer: 'ViewerModel', axes_translations: tuple[float, ...]
 ) -> None:
     layer: Layer | None = get_active_layer(viewer)
     if layer is None:
@@ -119,7 +118,7 @@ def set_active_layer_axes_translations(
     layer.translate = axes_translations
 
 
-def get_layer_data_shape(layer: 'Layer | None') -> Tuple[int, ...]:
+def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
     if layer is None:
         return ()
     layer_data = layer.data
