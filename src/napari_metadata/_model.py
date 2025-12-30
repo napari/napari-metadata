@@ -1,12 +1,12 @@
+from collections.abc import Sequence
 from typing import (
     TYPE_CHECKING,
     Tuple,
-    Sequence,
     cast,
 )
 
-import pint
 import numpy as np
+import pint
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 def get_axes_labels(
-    viewer: "ViewerModel", layer: "Layer | None" = None
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
 ) -> Tuple[str, ...]:
     active_layer = None
     if layer is None:
@@ -26,15 +26,17 @@ def get_axes_labels(
     return active_layer.axis_labels
 
 
-def set_active_layer_axes_labels(viewer: "ViewerModel", axes_labels: Tuple[str, ...]):
-    layer: "Layer | None" = get_active_layer(viewer)
+def set_active_layer_axes_labels(
+    viewer: 'ViewerModel', axes_labels: Tuple[str, ...]
+):
+    layer: Layer | None = get_active_layer(viewer)
     if layer is None:
         return
     layer.axis_labels = axes_labels
 
 
-def get_pint_ureg(viewer: "ViewerModel") -> pint.UnitRegistry | None:
-    layer: "Layer | None" = get_active_layer(viewer)
+def get_pint_ureg(viewer: 'ViewerModel') -> pint.UnitRegistry | None:
+    layer: Layer | None = get_active_layer(viewer)
     if layer is None:
         return None
     layer_units = layer.units
@@ -47,7 +49,7 @@ def get_pint_ureg(viewer: "ViewerModel") -> pint.UnitRegistry | None:
 
 
 def get_axes_units(
-    viewer: "ViewerModel", layer: "Layer | None" = None
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
 ) -> Tuple[pint.Unit | str, ...]:
     active_layer = None
     if layer is None:
@@ -60,16 +62,16 @@ def get_axes_units(
 
 
 def set_active_layer_axes_units(
-    viewer: "ViewerModel", axes_units: Tuple[str, ...]
+    viewer: 'ViewerModel', axes_units: Tuple[str, ...]
 ) -> None:
-    layer: "Layer | None" = get_active_layer(viewer)
+    layer: Layer | None = get_active_layer(viewer)
     if layer is None:
         return
     layer.units = axes_units
 
 
 def get_axes_scales(
-    viewer: "ViewerModel", layer: "Layer | None" = None
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
 ) -> Tuple[float, ...]:
     active_layer = None
     if layer is None:
@@ -82,9 +84,9 @@ def get_axes_scales(
 
 
 def set_active_layer_axes_scales(
-    viewer: "ViewerModel", axes_scales: Tuple[float, ...]
+    viewer: 'ViewerModel', axes_scales: Tuple[float, ...]
 ) -> None:
-    layer: "Layer | None" = get_active_layer(viewer)
+    layer: Layer | None = get_active_layer(viewer)
     if layer is None:
         return
     for scale in axes_scales:
@@ -96,7 +98,7 @@ def set_active_layer_axes_scales(
 
 
 def get_axes_translations(
-    viewer: "ViewerModel", layer: "Layer | None" = None
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
 ) -> Tuple[float, ...]:
     active_layer = None
     if layer is None:
@@ -109,53 +111,53 @@ def get_axes_translations(
 
 
 def set_active_layer_axes_translations(
-    viewer: "ViewerModel", axes_translations: Tuple[float, ...]
+    viewer: 'ViewerModel', axes_translations: Tuple[float, ...]
 ) -> None:
-    layer: "Layer | None" = get_active_layer(viewer)
+    layer: Layer | None = get_active_layer(viewer)
     if layer is None:
         return
     layer.translate = axes_translations
 
 
-def get_layer_data_shape(layer: "Layer | None") -> Tuple[int, ...]:
+def get_layer_data_shape(layer: 'Layer | None') -> Tuple[int, ...]:
     if layer is None:
         return ()
     layer_data = layer.data
-    if hasattr(layer_data, "shape"):
+    if hasattr(layer_data, 'shape'):
         return layer_data.shape
     if isinstance(layer_data, Sequence):
         return (len(layer_data),)
     return ()
 
 
-def get_layer_data_dtype(layer: "Layer | None") -> str:
+def get_layer_data_dtype(layer: 'Layer | None') -> str:
     if layer is None:
-        return ""
+        return ''
     layer_data = layer.data
-    if hasattr(layer_data, "dtype"):
+    if hasattr(layer_data, 'dtype'):
         return str(layer_data.dtype)
     if (
         isinstance(layer_data, Sequence)
         and len(layer_data) > 0
-        and hasattr(layer_data[0], "dtype")
+        and hasattr(layer_data[0], 'dtype')
     ):
         return str(layer_data[0].dtype)
-    return "Unknown"
+    return 'Unknown'
 
 
-def get_layer_source_path(layer: "Layer | None") -> str:
+def get_layer_source_path(layer: 'Layer | None') -> str:
     if layer is None:
-        return ""
+        return ''
     if layer.source.path is None:
-        return ""
+        return ''
     return layer.source.path
 
 
-def get_layer_dimensions(layer: "Layer | None") -> int:
+def get_layer_dimensions(layer: 'Layer | None') -> int:
     if layer is None:
         return 0
     return layer.ndim
 
 
-def get_active_layer(viewer: "ViewerModel") -> "Layer | None":
+def get_active_layer(viewer: 'ViewerModel') -> 'Layer | None':
     return viewer.layers.selection.active

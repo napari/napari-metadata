@@ -28,7 +28,7 @@ class SpaceUnits(Enum):
     @classmethod
     def names(cls) -> list[str]:
         return [str(m) for m in cls]
-    
+
     @classmethod
     def contains(cls, name: str) -> bool:
         return name in cls.names()

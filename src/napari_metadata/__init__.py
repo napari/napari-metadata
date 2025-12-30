@@ -5,6 +5,4 @@ except ImportError:
 
 from ._widget import MetadataWidget
 
-__all__ = (
-    "MetadataWidget",
-)
+__all__ = ('MetadataWidget',)

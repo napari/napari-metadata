@@ -4,6 +4,7 @@ from typing import Optional
 
 class AxisType(Enum):
     """Supported axis types."""
+
     SPACE = auto()
     TIME = auto()
     STRING = auto()
