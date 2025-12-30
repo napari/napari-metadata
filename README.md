@@ -26,7 +26,9 @@ You can install the latest development version of `napari-metadata` via [pip]:
 
     pip install git+https://github.com/andy-sweet/napari-metadata.git
 
-Alternatively, fork or clone this repository directly.
+Alternatively, fork or clone this repository directly and install in editable mode for development:
+
+    pip install -e . --group dev
 
 ## Findings
 
