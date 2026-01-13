@@ -48,6 +48,8 @@ from napari_metadata._model import (
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
 
+from napari_metadata._vertical_containers import VerticalSectionContainer
+
 if TYPE_CHECKING:
     from napari.components import ViewerModel
     from napari.layers import Layer
@@ -1903,29 +1905,48 @@ class MetadataWidget(QWidget):
             self._hori_inheritance_layout
         )
 
-        vertical_container: QWidget = QWidget()
+        vertical_container: QScrollArea = QScrollArea()
+        vertical_container.setWidgetResizable(True)
+        vertical_container.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         vertical_container.container_orientation = 'vertical'
-        vertical_container.setLayout(self._vertical_layout)
+
+        vertical_content = QWidget()
+        vertical_content.setLayout(self._vertical_layout)
+        vertical_container.setWidget(vertical_content)
+
         self._stacked_layout.addWidget(vertical_container)
 
-        self._collapsible_vertical_file_metadata: CollapsibleVerticalBox = (
-            CollapsibleVerticalBox('File metadata')
+        self._collapsible_vertical_file_metadata: VerticalSectionContainer = (
+            VerticalSectionContainer(self._napari_viewer)
         )
-        self._collapsible_vertical_file_metadata.setContentWidget(
+        self._collapsible_vertical_file_metadata._set_button_text(
+            'File metadata'
+        )
+        self._collapsible_vertical_file_metadata._set_expanding_area_widget(
             self._vert_file_general_metadata_container
-        )  # type: ignore
-        self._collapsible_vertical_editable_metadata: CollapsibleVerticalBox = CollapsibleVerticalBox(
+        )
+
+        self._collapsible_vertical_editable_metadata: VerticalSectionContainer = VerticalSectionContainer(
+            self._napari_viewer
+        )
+        self._collapsible_vertical_editable_metadata._set_button_text(
             'Axes metadata'
         )
-        self._collapsible_vertical_editable_metadata.setContentWidget(
+        self._collapsible_vertical_editable_metadata._set_expanding_area_widget(
             self._vert_axis_metadata_container
-        )  # type: ignore
-        self._collapsible_vertical_inheritance: CollapsibleVerticalBox = (
-            CollapsibleVerticalBox('Axes Inheritance')
         )
-        self._collapsible_vertical_inheritance.setContentWidget(
+
+        self._collapsible_vertical_inheritance: VerticalSectionContainer = (
+            VerticalSectionContainer(self._napari_viewer)
+        )
+        self._collapsible_vertical_inheritance._set_button_text(
+            'Axes inheritance'
+        )
+        self._collapsible_vertical_inheritance._set_expanding_area_widget(
             self._vert_inheritance_container
-        )  # type: ignore
+        )
 
         self._vertical_layout.addWidget(
             self._collapsible_vertical_file_metadata
@@ -1934,6 +1955,7 @@ class MetadataWidget(QWidget):
             self._collapsible_vertical_editable_metadata
         )
         self._vertical_layout.addWidget(self._collapsible_vertical_inheritance)
+
         self._vertical_layout.addStretch(1)
 
         horizontal_container: QWidget = QWidget()
