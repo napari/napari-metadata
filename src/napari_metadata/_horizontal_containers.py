@@ -1,24 +1,27 @@
 from qtpy.QtWidgets import (
     QPushButton,
     QScrollArea,
-    QVBoxLayout,
+    QHBoxLayout,
     QWidget,
     QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
+    QStylePainter,
 )
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QSize
 
 
-class VerticalSectionContainer(QWidget):
+class HorizontalSectionContainer(QWidget):
     def __init__(self, viewer: 'napari.viewer.Viewer'):
         super().__init__()
         self._viewer = viewer
         self._set_text = ' '
 
-        self._layout = QVBoxLayout(self)
+        self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(5, 5, 5, 5)
         self._layout.setSpacing(4)
 
-        self._button = QPushButton(' ')
+        self._button = RotatedButton(' ')
         font = self._button.font()
         font.setBold(True)
         self._button.setFont(font)
@@ -42,28 +45,28 @@ class VerticalSectionContainer(QWidget):
 
     def _expanding_area_set_visible(self, checked: bool) -> None:
         self._expanding_area.setVisible(checked)
-        self._sync_body_height()
+        self._sync_body_width()
         if not checked:
             self._button.setText('▶ ' + self._set_text)
         else:
             self._button.setText('▼ ' + self._set_text)
 
-    def _sync_body_height(self) -> None:
+    def _sync_body_width(self) -> None:
         current_widget = self._expanding_area.widget()
         if (not self._expanding_area.isVisible()) or current_widget is None:
-            self._expanding_area.setFixedHeight(0)
+            self._expanding_area.setFixedWidth(0)
             return
 
-        widget_height = current_widget.sizeHint().height()
+        widget_width = current_widget.sizeHint().width()
 
-        scroll_bar_height = (
-            self._expanding_area.horizontalScrollBar().sizeHint().height()
+        scroll_bar_width = (
+            self._expanding_area.horizontalScrollBar().sizeHint().width()
         )
 
         frame = 2 * self._expanding_area.frameWidth()
 
-        self._expanding_area.setFixedHeight(
-            widget_height + scroll_bar_height + frame
+        self._expanding_area.setFixedWidth(
+            widget_width + scroll_bar_width + frame
         )
 
         current_widget.updateGeometry()
@@ -86,14 +89,49 @@ class VerticalSectionContainer(QWidget):
         )
 
         self._expanding_area.setWidget(setting_widget)
-        self._sync_body_height()
+        self._sync_body_width()
 
     def _set_button_text(self, button_text: str) -> None:
         self._set_text = button_text
         self._expanding_area_set_visible(False)
 
-    def expandedHeight(self) -> int:
+    def expandedWidth(self) -> int:
         current_widget = self._expanding_area.widget()
         if (not self.isExpanded()) or current_widget is None:
             return 0
-        return max(1, current_widget.sizeHint().height())
+        return max(1, current_widget.sizeHint().width())
+
+
+class RotatedButton(QPushButton):
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+    def paintEvent(self, a0):
+        # Use QStylePainter to handle the complex drawing of the button body
+        painter = QStylePainter(self)
+
+        # Move and rotate the entire coordinate system
+        # Since we rotate 90 degrees, we swap height and width logic
+        painter.rotate(-90)
+        painter.translate(-self.height(), 0)
+
+        # Prepare the standard options for a button (hover, pressed, etc.)
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+
+        # Crucial: We must swap the rectangle coordinates to match the rotation
+        # Otherwise, the button thinks it is drawing in the old horizontal space
+        opt.rect = opt.rect.transposed()
+
+        # Draw the button background and text using the current theme
+        painter.drawControl(QStyle.ControlElement.CE_PushButton, opt)
+
+    def sizeHint(self):
+        # Swap width and height for the layout engine
+        size = super().sizeHint()
+        return QSize(size.height(), size.width())
+
+    def minimumSizeHint(self):
+        return self.sizeHint()

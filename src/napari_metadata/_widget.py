@@ -49,6 +49,7 @@ from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
 
 from napari_metadata._vertical_containers import VerticalSectionContainer
+from napari_metadata._horizontal_containers import HorizontalSectionContainer
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -1958,29 +1959,50 @@ class MetadataWidget(QWidget):
 
         self._vertical_layout.addStretch(1)
 
-        horizontal_container: QWidget = QWidget()
+        horizontal_container: QScrollArea = QScrollArea()
+        horizontal_container.setWidgetResizable(True)
+        horizontal_container.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        horizontal_container.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         horizontal_container.container_orientation = 'horizontal'
-        horizontal_container.setLayout(self._horizontal_layout)
+
+        horizontal_content: QWidget = QWidget()
+        horizontal_content.setLayout(self._horizontal_layout)
+        horizontal_container.setWidget(horizontal_content)
         self._stacked_layout.addWidget(horizontal_container)
 
-        self._collapsible_horizontal_file_metadata: CollapsibleHorizontalBox = CollapsibleHorizontalBox(
+        self._collapsible_horizontal_file_metadata: HorizontalSectionContainer = HorizontalSectionContainer(
+            self._napari_viewer
+        )
+        self._collapsible_horizontal_file_metadata._set_button_text(
             'File metadata'
         )
-        self._collapsible_horizontal_file_metadata.setContentWidget(
+        self._collapsible_horizontal_file_metadata._set_expanding_area_widget(
             self._hori_file_general_metadata_container
-        )  # type: ignore
-        self._collapsible_horizontal_editable_metadata: CollapsibleHorizontalBox = CollapsibleHorizontalBox(
+        )
+
+        self._collapsible_horizontal_editable_metadata: HorizontalSectionContainer = HorizontalSectionContainer(
+            self._napari_viewer
+        )
+        self._collapsible_horizontal_editable_metadata._set_button_text(
             'Axes metadata'
         )
-        self._collapsible_horizontal_editable_metadata.setContentWidget(
+        self._collapsible_horizontal_editable_metadata._set_expanding_area_widget(
             self._hori_axis_metadata_container
-        )  # type: ignore
-        self._collapsible_horizontal_inheritance: CollapsibleHorizontalBox = (
-            CollapsibleHorizontalBox('Inheritance')
         )
-        self._collapsible_horizontal_inheritance.setContentWidget(
+
+        self._collapsible_horizontal_inheritance: HorizontalSectionContainer = HorizontalSectionContainer(
+            self._napari_viewer
+        )
+        self._collapsible_horizontal_inheritance._set_button_text(
+            'Axes inheritance'
+        )
+        self._collapsible_horizontal_inheritance._set_expanding_area_widget(
             self._hori_inheritance_container
-        )  # type: ignore
+        )
 
         self._horizontal_layout.addWidget(
             self._collapsible_horizontal_file_metadata
