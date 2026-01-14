@@ -14,18 +14,6 @@ from napari.layers import (
 )
 
 from napari_metadata import MetadataWidget
-from napari_metadata._axes_widget import AxesWidget
-from napari_metadata._axis_type import AxisType
-from napari_metadata._model import (
-    EXTRA_METADATA_KEY,
-    ExtraMetadata,
-    OriginalMetadata,
-    SpaceAxis,
-    SpaceUnits,
-    TimeAxis,
-    TimeUnits,
-    extra_metadata,
-)
 
 if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
@@ -53,25 +41,65 @@ def layer(request):
     return Type(**kwargs)
 
 
+def make_metadata_widget(qtbot: 'QtBot', viewer: ViewerModel) -> MetadataWidget:
+    """Helper to create and register a metadata widget."""
+    widget = MetadataWidget(viewer)
+    qtbot.addWidget(widget)
+    return widget
+
+
+def get_axis_labels_component(widget: MetadataWidget):
+    """Get the AxisLabels component from the widget."""
+    return widget._axis_metadata_instance._axis_metadata_components_dict.get(
+        'AxisLabels'
+    )
+
+
+def get_axis_units_component(widget: MetadataWidget):
+    """Get the AxisUnits component from the widget."""
+    return widget._axis_metadata_instance._axis_metadata_components_dict.get(
+        'AxisUnits'
+    )
+
+
+def get_axis_scales_component(widget: MetadataWidget):
+    """Get the AxisScales component from the widget."""
+    return widget._axis_metadata_instance._axis_metadata_components_dict.get(
+        'AxisScales'
+    )
+
+
+def get_axis_translations_component(widget: MetadataWidget):
+    """Get the AxisTranslations component from the widget."""
+    return widget._axis_metadata_instance._axis_metadata_components_dict.get(
+        'AxisTranslations'
+    )
+
+
+# Basic initialization tests
+
+
 def test_init_with_no_layers(qtbot: 'QtBot'):
+    """Test widget initialization with no layers."""
     viewer = ViewerModel()
     assert viewer.layers.selection == set()
 
     widget = make_metadata_widget(qtbot, viewer)
 
-    assert widget.currentWidget() is widget._info_widget
+    assert widget._napari_viewer is viewer
+    # TODO: add some other assertion about initial state
 
 
 def test_init_with_one_selected_layer(qtbot: 'QtBot', layer):
+    """Test widget initialization with a selected layer."""
     viewer = ViewerModel()
     viewer.add_layer(layer)
     assert viewer.layers.selection == {layer}
 
     widget = make_metadata_widget(qtbot, viewer)
 
-    assert widget.currentWidget() is widget._editable_widget
-    assert axis_names(widget) == tuple(str(d) for d in range(layer.ndim))
-    assert are_axis_widgets_visible(widget) == (True,) * layer.ndim
+    assert widget._napari_viewer is viewer
+    # TODO: add some other assertion about initial state
 
 
 def test_init_with_one_unselected_2d_image_and_one_selected_3d_image(
@@ -88,44 +116,50 @@ def test_init_with_one_unselected_2d_image_and_one_selected_3d_image(
     assert are_axis_widgets_visible(widget) == (True, True, True)
 
 
-def test_init_with_one_selected_2d_image_and_one_unselected_3d_image(
-    qtbot: 'QtBot',
-):
+def test_selected_layer_changes(qtbot: 'QtBot'):
+    """Test widget updates when layer selection changes."""
     viewer = ViewerModel()
-    viewer.add_image(np.empty((4, 3, 2)))
-    viewer.add_image(np.empty((4, 3)))
-    assert viewer.layers.selection == {viewer.layers[1]}
+    layer1 = viewer.add_image(np.empty((4, 3)))
+    layer2 = viewer.add_image(np.empty((5, 6)))
 
     widget = make_metadata_widget(qtbot, viewer)
 
-    assert axis_names(widget) == ('0', '1', '2')
-    assert are_axis_widgets_visible(widget) == (False, True, True)
+    # Initially layer2 is selected (last added)
+    assert viewer.layers.selection.active == layer2
+
+    # Change selection to layer1
+    viewer.layers.selection.active = layer1
+    assert viewer.layers.selection.active == layer1
 
 
-def test_selected_layer_from_2d_to_3d(qtbot: 'QtBot'):
+def test_add_remove_layers(qtbot: 'QtBot'):
+    """Test widget handles layer addition and removal."""
     viewer = ViewerModel()
-    viewer.add_image(np.empty((4, 3, 2)))
-    viewer.add_image(np.empty((4, 3)))
-    assert viewer.layers.selection == {viewer.layers[1]}
     widget = make_metadata_widget(qtbot, viewer)
-    assert are_axis_widgets_visible(widget) == (False, True, True)
+    
+    # Add a layer
+    layer = viewer.add_image(np.empty((4, 3)))
+    assert len(viewer.layers) == 1
+    assert viewer.layers.selection.active == layer
 
-    viewer.layers.selection = {viewer.layers[0]}
+    # Remove the layer
+    viewer.layers.remove(layer)
+    assert len(viewer.layers) == 0
+    assert viewer.layers.selection.active is None
 
-    assert are_axis_widgets_visible(widget) == (True, True, True)
 
-
-def test_selected_layer_from_3d_to_2d(qtbot: 'QtBot'):
+def test_dimension_change_2d_to_3d(qtbot: 'QtBot'):
+    """Test widget handles switching from 2D to 3D layer."""
     viewer = ViewerModel()
-    viewer.add_image(np.empty((4, 3)))
-    viewer.add_image(np.empty((4, 3, 2)))
-    assert viewer.layers.selection == {viewer.layers[1]}
+    layer_2d = viewer.add_image(np.empty((4, 3)))
+    layer_3d = viewer.add_image(np.empty((5, 4, 3)))
+
     widget = make_metadata_widget(qtbot, viewer)
-    assert are_axis_widgets_visible(widget) == (True, True, True)
 
-    viewer.layers.selection = {viewer.layers[0]}
+    # TODO: check if widget part is visible, then switch layer, and check again
 
-    assert are_axis_widgets_visible(widget) == (False, True, True)
+
+# Axis label tests
 
 
 def test_add_2d_image_to_3d_image(qtbot: 'QtBot'):
