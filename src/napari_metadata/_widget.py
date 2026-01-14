@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, Protocol, cast
 
 import pint
-from qtpy.QtCore import QObject, QRect, QSignalBlocker, QSize, Qt
-from qtpy.QtGui import QFontMetrics, QPainter, QShowEvent
+from qtpy.QtCore import QObject, QSignalBlocker, QSize, Qt
+from qtpy.QtGui import QFontMetrics, QShowEvent
 from qtpy.QtWidgets import (
     QAbstractSpinBox,
     QCheckBox,
@@ -21,8 +21,6 @@ from qtpy.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QStackedLayout,
-    QStyle,
-    QStyleOptionButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -30,6 +28,10 @@ from qtpy.QtWidgets import (
 
 from napari_metadata._axis_type import AxisType
 from napari_metadata._file_size import generate_display_size
+from napari_metadata._horizontal_containers import (
+    HorizontalOnlyOuterScrollArea,
+    HorizontalSectionContainer,
+)
 from napari_metadata._model import (
     get_active_layer,
     get_axes_labels,
@@ -47,12 +49,7 @@ from napari_metadata._model import (
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
-
 from napari_metadata._vertical_containers import VerticalSectionContainer
-from napari_metadata._horizontal_containers import (
-    HorizontalSectionContainer,
-    HorizontalOnlyOuterScrollArea,
-)
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel

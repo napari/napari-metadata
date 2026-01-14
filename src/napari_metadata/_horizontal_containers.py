@@ -1,16 +1,16 @@
+from qtpy.QtCore import QSize, Qt
+from qtpy.QtGui import QWheelEvent
 from qtpy.QtWidgets import (
+    QHBoxLayout,
     QPushButton,
     QScrollArea,
-    QHBoxLayout,
-    QVBoxLayout,
-    QWidget,
     QSizePolicy,
     QStyle,
     QStyleOptionButton,
     QStylePainter,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtCore import Qt, QSize
-from qtpy.QtGui import QWheelEvent
 
 
 class HorizontalSectionContainer(QWidget):

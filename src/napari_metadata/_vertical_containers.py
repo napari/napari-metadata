@@ -1,11 +1,11 @@
+from qtpy.QtCore import QEvent, QObject, Qt
 from qtpy.QtWidgets import (
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
-    QSizePolicy,
 )
-from qtpy.QtCore import Qt, QObject, QEvent
 
 
 class VerticalSectionContainer(QWidget):

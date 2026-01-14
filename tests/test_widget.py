@@ -41,7 +41,9 @@ def layer(request):
     return Type(**kwargs)
 
 
-def make_metadata_widget(qtbot: 'QtBot', viewer: ViewerModel) -> MetadataWidget:
+def make_metadata_widget(
+    qtbot: 'QtBot', viewer: ViewerModel
+) -> MetadataWidget:
     """Helper to create and register a metadata widget."""
     widget = MetadataWidget(viewer)
     qtbot.addWidget(widget)
@@ -136,7 +138,7 @@ def test_add_remove_layers(qtbot: 'QtBot'):
     """Test widget handles layer addition and removal."""
     viewer = ViewerModel()
     widget = make_metadata_widget(qtbot, viewer)
-    
+
     # Add a layer
     layer = viewer.add_image(np.empty((4, 3)))
     assert len(viewer.layers) == 1
