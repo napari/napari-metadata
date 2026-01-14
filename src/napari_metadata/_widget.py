@@ -27,11 +27,11 @@ from qtpy.QtWidgets import (
 )
 
 from napari_metadata._axis_type import AxisType
-from napari_metadata._file_size import generate_display_size
-from napari_metadata._horizontal_containers import (
+from napari_metadata._collapsible_containers import (
+    CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
-    HorizontalSectionContainer,
 )
+from napari_metadata._file_size import generate_display_size
 from napari_metadata._model import (
     get_active_layer,
     get_axes_labels,
@@ -49,7 +49,6 @@ from napari_metadata._model import (
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
-from napari_metadata._vertical_containers import VerticalSectionContainer
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -1758,8 +1757,8 @@ class MetadataWidget(QWidget):
 
         self._stacked_layout.addWidget(vertical_container)
 
-        self._collapsible_vertical_file_metadata: VerticalSectionContainer = (
-            VerticalSectionContainer(self._napari_viewer)
+        self._collapsible_vertical_file_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
+            self._napari_viewer, orientation='vertical'
         )
         self._collapsible_vertical_file_metadata._set_button_text(
             'File metadata'
@@ -1768,8 +1767,8 @@ class MetadataWidget(QWidget):
             self._vert_file_general_metadata_container
         )
 
-        self._collapsible_vertical_editable_metadata: VerticalSectionContainer = VerticalSectionContainer(
-            self._napari_viewer
+        self._collapsible_vertical_editable_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
+            self._napari_viewer, orientation='vertical'
         )
         self._collapsible_vertical_editable_metadata._set_button_text(
             'Axes metadata'
@@ -1778,8 +1777,10 @@ class MetadataWidget(QWidget):
             self._vert_axis_metadata_container
         )
 
-        self._collapsible_vertical_inheritance: VerticalSectionContainer = (
-            VerticalSectionContainer(self._napari_viewer)
+        self._collapsible_vertical_inheritance: CollapsibleSectionContainer = (
+            CollapsibleSectionContainer(
+                self._napari_viewer, orientation='vertical'
+            )
         )
         self._collapsible_vertical_inheritance._set_button_text(
             'Axes inheritance'
@@ -1815,8 +1816,8 @@ class MetadataWidget(QWidget):
         horizontal_container.setWidget(horizontal_content)
         self._stacked_layout.addWidget(horizontal_container)
 
-        self._collapsible_horizontal_file_metadata: HorizontalSectionContainer = HorizontalSectionContainer(
-            self._napari_viewer
+        self._collapsible_horizontal_file_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
+            self._napari_viewer, orientation='horizontal'
         )
         self._collapsible_horizontal_file_metadata._set_button_text(
             'File metadata'
@@ -1825,8 +1826,8 @@ class MetadataWidget(QWidget):
             self._hori_file_general_metadata_container
         )
 
-        self._collapsible_horizontal_editable_metadata: HorizontalSectionContainer = HorizontalSectionContainer(
-            self._napari_viewer
+        self._collapsible_horizontal_editable_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
+            self._napari_viewer, orientation='horizontal'
         )
         self._collapsible_horizontal_editable_metadata._set_button_text(
             'Axes metadata'
@@ -1835,8 +1836,8 @@ class MetadataWidget(QWidget):
             self._hori_axis_metadata_container
         )
 
-        self._collapsible_horizontal_inheritance: HorizontalSectionContainer = HorizontalSectionContainer(
-            self._napari_viewer
+        self._collapsible_horizontal_inheritance: CollapsibleSectionContainer = CollapsibleSectionContainer(
+            self._napari_viewer, orientation='horizontal'
         )
         self._collapsible_horizontal_inheritance._set_button_text(
             'Axes inheritance'
