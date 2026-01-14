@@ -2,6 +2,7 @@ from qtpy.QtWidgets import (
     QPushButton,
     QScrollArea,
     QHBoxLayout,
+    QVBoxLayout,
     QWidget,
     QSizePolicy,
     QStyle,
@@ -9,6 +10,7 @@ from qtpy.QtWidgets import (
     QStylePainter,
 )
 from qtpy.QtCore import Qt, QSize
+from qtpy.QtGui import QWheelEvent
 
 
 class HorizontalSectionContainer(QWidget):
@@ -32,16 +34,18 @@ class HorizontalSectionContainer(QWidget):
         self._expanding_area = QScrollArea()
         self._expanding_area.setWidgetResizable(True)
         self._expanding_area.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         self._expanding_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self._expanding_area.setVisible(False)
         self._expanding_area.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
+            QSizePolicy.Fixed, QSizePolicy.Expanding
         )
-        self._layout.addWidget(self._expanding_area, 0)
+        self._layout.addWidget(self._expanding_area, 1)
+
+        self._expanding_area.setFixedWidth(0)
 
     def _expanding_area_set_visible(self, checked: bool) -> None:
         self._expanding_area.setVisible(checked)
@@ -50,6 +54,9 @@ class HorizontalSectionContainer(QWidget):
             self._button.setText('▶ ' + self._set_text)
         else:
             self._button.setText('▼ ' + self._set_text)
+
+        self._expanding_area.updateGeometry()
+        self.updateGeometry()
 
     def _sync_body_width(self) -> None:
         current_widget = self._expanding_area.widget()
@@ -60,7 +67,7 @@ class HorizontalSectionContainer(QWidget):
         widget_width = current_widget.sizeHint().width()
 
         scroll_bar_width = (
-            self._expanding_area.horizontalScrollBar().sizeHint().width()
+            self._expanding_area.verticalScrollBar().sizeHint().width()
         )
 
         frame = 2 * self._expanding_area.frameWidth()
@@ -84,11 +91,14 @@ class HorizontalSectionContainer(QWidget):
         if old is not None:
             old.deleteLater()
 
-        setting_widget.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.Preferred
-        )
+        wrapper = QWidget()
+        wrapper_layout = QVBoxLayout(wrapper)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._expanding_area.setWidget(setting_widget)
+        wrapper_layout.addWidget(setting_widget)
+        wrapper_layout.addStretch(1)
+
+        self._expanding_area.setWidget(wrapper)
         self._sync_body_width()
 
     def _set_button_text(self, button_text: str) -> None:
@@ -109,29 +119,32 @@ class RotatedButton(QPushButton):
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
     def paintEvent(self, a0):
-        # Use QStylePainter to handle the complex drawing of the button body
         painter = QStylePainter(self)
 
-        # Move and rotate the entire coordinate system
-        # Since we rotate 90 degrees, we swap height and width logic
         painter.rotate(-90)
         painter.translate(-self.height(), 0)
 
-        # Prepare the standard options for a button (hover, pressed, etc.)
         opt = QStyleOptionButton()
         self.initStyleOption(opt)
 
-        # Crucial: We must swap the rectangle coordinates to match the rotation
-        # Otherwise, the button thinks it is drawing in the old horizontal space
         opt.rect = opt.rect.transposed()
 
-        # Draw the button background and text using the current theme
         painter.drawControl(QStyle.ControlElement.CE_PushButton, opt)
 
     def sizeHint(self):
-        # Swap width and height for the layout engine
         size = super().sizeHint()
         return QSize(size.height(), size.width())
 
     def minimumSizeHint(self):
         return self.sizeHint()
+
+
+class HorizontalOnlyOuterScrollArea(QScrollArea):
+    def resizeEvent(self, a0):
+        super().resizeEvent(a0)
+        w = self.widget()
+        if w is not None:
+            w.setFixedHeight(self.viewport().height())
+
+    def wheelEvent(self, a0: QWheelEvent | None):
+        a0.ignore()

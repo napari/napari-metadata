@@ -5,7 +5,7 @@ from qtpy.QtWidgets import (
     QWidget,
     QSizePolicy,
 )
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QObject, QEvent
 
 
 class VerticalSectionContainer(QWidget):
@@ -33,6 +33,12 @@ class VerticalSectionContainer(QWidget):
         )
         self._expanding_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.disable_horizontal_scrolling_wheel_filter = (
+            DisableWheelScrollingFilter()
+        )
+        self._expanding_area.horizontalScrollBar().installEventFilter(
+            self.disable_horizontal_scrolling_wheel_filter
         )
         self._expanding_area.setVisible(False)
         self._expanding_area.setSizePolicy(
@@ -97,3 +103,10 @@ class VerticalSectionContainer(QWidget):
         if (not self.isExpanded()) or current_widget is None:
             return 0
         return max(1, current_widget.sizeHint().height())
+
+
+class DisableWheelScrollingFilter(QObject):
+    def eventFilter(self, a0, a1):
+        if a1.type() == QEvent.Wheel:
+            return True
+        return False

@@ -49,7 +49,10 @@ from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
 
 from napari_metadata._vertical_containers import VerticalSectionContainer
-from napari_metadata._horizontal_containers import HorizontalSectionContainer
+from napari_metadata._horizontal_containers import (
+    HorizontalSectionContainer,
+    HorizontalOnlyOuterScrollArea,
+)
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -1611,10 +1614,11 @@ class InheritanceWidget(QWidget):
         self.setLayout(self._layout)
         self._layout.setSpacing(3)
         self._layout.setContentsMargins(10, 10, 10, 10)
+
+        self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         self.setSizePolicy(
-            QSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-            )
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         )
 
         self._inheritance_layer_label = QLabel('Inheriting from layer')
@@ -1639,6 +1643,12 @@ class InheritanceWidget(QWidget):
         )
         self._layer_name_scroll_area.setFrameShape(QFrame.NoFrame)  # type: ignore
         self._layer_name_scroll_area.setWidget(label_container)
+        self._layer_name_scroll_area.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        )
+        self._layer_name_scroll_area.setFixedHeight(
+            self._inheritancel_layer_name.sizeHint().height() + 6
+        )
 
         self._inheritance_select_layer_button = QPushButton(
             'Set current layer'
@@ -1791,7 +1801,9 @@ class MetadataWidget(QWidget):
 
         self._vertical_layout.addStretch(1)
 
-        horizontal_container: QScrollArea = QScrollArea()
+        horizontal_container: HorizontalOnlyOuterScrollArea = (
+            HorizontalOnlyOuterScrollArea()
+        )
         horizontal_container.setWidgetResizable(True)
         horizontal_container.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
