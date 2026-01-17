@@ -1,8 +1,7 @@
 from collections.abc import Sequence
-from typing import (
-    TYPE_CHECKING,
-    cast,
-)
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
+from contextlib import suppress
 
 import numpy as np
 import pint
@@ -160,3 +159,40 @@ def get_layer_dimensions(layer: 'Layer | None') -> int:
 
 def get_active_layer(viewer: 'ViewerModel') -> 'Layer | None':
     return viewer.layers.selection.active
+
+
+def get_layers_list(viewer: 'ViewerModel') -> list['Layer']:
+    layer_name_list: list[Layer] = list(viewer.layers)
+    return layer_name_list
+
+
+def connect_callback_to_layer_selection_events(
+    viewer: 'ViewerModel', cb_function: Callable
+):
+    viewer.layers.selection.events.active.connect(cb_function)
+
+
+def disconnect_callback_to_layer_selection_events(
+    viewer: 'ViewerModel', cb_function: Callable
+):
+    with suppress(TypeError, ValueError):
+        viewer.layers.selection.events.active.disconnect(cb_function)
+
+
+def connect_callback_to_list_events(
+    viewer: 'ViewerModel', cb_function: Callable
+):
+    viewer.layers.events.inserted.connect(cb_function)
+    viewer.layers.events.removed.connect(cb_function)
+    viewer.layers.events.changed.connect(cb_function)
+
+
+def disconnect_callback_to_list_events(
+    viewer: 'ViewerModel', cb_function: Callable
+):
+    with suppress(TypeError, ValueError):
+        viewer.layers.events.inserted.disconnect(cb_function)
+    with suppress(TypeError, ValueError):
+        viewer.layers.events.removed.connect(cb_function)
+    with suppress(TypeError, ValueError):
+        viewer.layers.events.changed.connect(cb_function)

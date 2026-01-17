@@ -49,13 +49,14 @@ from napari_metadata._model import (
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
+from napari_metadata._inheritance_widget import InheritanceWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
     from napari.layers import Layer
     from napari.utils.notifications import show_info
 
-INHERIT_STRING = 'Inherit'
+INHERIT_STRING = ''
 
 """This protocol is made to store the general metadata components that are not the axis components. They differn from the axis components
 because they only get one widget per entry and I didn't wanto to complicate (complicate more) the extension patterns so it'll have to stay like this.
@@ -1528,134 +1529,75 @@ class AxisMetadata:
                 )
 
 
-class AxesInheritance:
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-
-    _inheritance_layer_label: QLabel
-    _layer_name_scroll_area: QScrollArea
-
-    inheritance_layer: 'Layer | None'
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget | None = None
-    ):
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        self.inheritance_layer = None
-
-        self.inheritance_layer = None
-
-        self._inheritance_layer_label = QLabel('Inheriting from layer')
-        self._inheritance_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._inheritance_layer_label.setStyleSheet('font-weight: bold;')
-        self._inheritance_layer_name = QLabel('None selected')
-        self._inheritance_layer_name.setWordWrap(False)
-
-        label_container = QWidget()
-        label_layout = QHBoxLayout(label_container)
-        label_layout.setContentsMargins(0, 0, 0, 0)
-        label_layout.addWidget(self._inheritance_layer_name)
-        label_layout.addStretch(1)
-
-        self._layer_name_scroll_area = QScrollArea()
-        self._layer_name_scroll_area.setWidgetResizable(True)
-        self._layer_name_scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
-        self._layer_name_scroll_area.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self._layer_name_scroll_area.setFrameShape(QFrame.NoFrame)  # type: ignore
-        self._layer_name_scroll_area.setWidget(label_container)
-
-        set_layer_button: QPushButton = QPushButton('Set current layer')
-        set_layer_button.clicked.connect(
-            self._set_current_layer_to_inheritance
-        )
-        self._inheritance_select_layer_button = set_layer_button
-
-        apply_inheritance_button: QPushButton = QPushButton('Apply')
-        apply_inheritance_button.clicked.connect(self._apply_inheritance)
-        self._inheritance_apply_button = apply_inheritance_button
-
-    def _set_current_layer_to_inheritance(self) -> None:
-        current_layer = get_active_layer(self._napari_viewer)  # type: ignore
-        if current_layer == self.inheritance_layer:
-            return
-        if current_layer is None:
-            self._inheritance_layer_name.setText('None selected')
-        else:
-            layer_name = current_layer.name
-            self._inheritance_layer_name.setText(layer_name)
-            self.inheritance_layer = current_layer
-
-    def _apply_inheritance(self) -> None:
-        if self.inheritance_layer is None:
-            return
-        self._main_widget.apply_inheritance_to_current_layer(
-            self.inheritance_layer
-        )  # type: ignore
-
-
-class InheritanceWidget(QWidget):
-    def __init__(
-        self, napari_viewer: 'ViewerModel', parent: QWidget | None = None
-    ):
-        super().__init__(parent)
-        self._napari_viewer = napari_viewer
-
-        self._layout: QVBoxLayout = QVBoxLayout()
-        self.setLayout(self._layout)
-        self._layout.setSpacing(3)
-        self._layout.setContentsMargins(10, 10, 10, 10)
-
-        self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        self.setSizePolicy(
-            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        )
-
-        self._inheritance_layer_label = QLabel('Inheriting from layer')
-        self._inheritance_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._inheritance_layer_label.setStyleSheet('font-weight: bold;')
-        self._inheritance_layer_name = QLabel('None selected')
-        self._inheritance_layer_name.setWordWrap(False)
-
-        label_container = QWidget()
-        label_layout = QHBoxLayout(label_container)
-        label_layout.setContentsMargins(0, 0, 0, 0)
-        label_layout.addWidget(self._inheritance_layer_name)
-        label_layout.addStretch(1)
-
-        self._layer_name_scroll_area = QScrollArea()
-        self._layer_name_scroll_area.setWidgetResizable(True)
-        self._layer_name_scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
-        self._layer_name_scroll_area.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self._layer_name_scroll_area.setFrameShape(QFrame.NoFrame)  # type: ignore
-        self._layer_name_scroll_area.setWidget(label_container)
-        self._layer_name_scroll_area.setSizePolicy(
-            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        )
-        self._layer_name_scroll_area.setFixedHeight(
-            self._inheritancel_layer_name.sizeHint().height() + 6
-        )
-
-        self._inheritance_select_layer_button = QPushButton(
-            'Set current layer'
-        )
-        self._inheritance_apply_button = QPushButton('Apply')
-
-        self._layout.addWidget(self._inheritance_layer_label)
-        self._layout.addWidget(self._layer_name_scroll_area)
-        self._layout.addWidget(self._inheritance_select_layer_button)
-        self._layout.addWidget(self._inheritance_apply_button)
-        self._layout.addStretch(1)
+# class AxesInheritance:
+#    _napari_viewer: 'ViewerModel'
+#    _main_widget: QWidget
+#
+#    _inheritance_layer_label: QLabel
+#    _layer_name_scroll_area: QScrollArea
+#
+#    inheritance_layer: 'Layer | None'
+#
+#    def __init__(
+#        self, napari_viewer: 'ViewerModel', main_widget: QWidget | None = None
+#    ):
+#        self._napari_viewer = napari_viewer
+#        self._main_widget = main_widget
+#
+#        self.inheritance_layer = None
+#
+#        self.inheritance_layer = None
+#
+#        self._inheritance_layer_label = QLabel('Inheriting from layer')
+#        self._inheritance_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+#        self._inheritance_layer_label.setStyleSheet('font-weight: bold;')
+#        self._inheritance_layer_name = QLabel('None selected')
+#        self._inheritance_layer_name.setWordWrap(False)
+#
+#        label_container = QWidget()
+#        label_layout = QHBoxLayout(label_container)
+#        label_layout.setContentsMargins(0, 0, 0, 0)
+#        label_layout.addWidget(self._inheritance_layer_name)
+#        label_layout.addStretch(1)
+#
+#        self._layer_name_scroll_area = QScrollArea()
+#        self._layer_name_scroll_area.setWidgetResizable(True)
+#        self._layer_name_scroll_area.setHorizontalScrollBarPolicy(
+#            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+#        )
+#        self._layer_name_scroll_area.setVerticalScrollBarPolicy(
+#            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+#        )
+#        self._layer_name_scroll_area.setFrameShape(QFrame.NoFrame)  # type: ignore
+#        self._layer_name_scroll_area.setWidget(label_container)
+#
+#        set_layer_button: QPushButton = QPushButton('Set current layer')
+#        set_layer_button.clicked.connect(
+#            self._set_current_layer_to_inheritance
+#        )
+#        self._inheritance_select_layer_button = set_layer_button
+#
+#        apply_inheritance_button: QPushButton = QPushButton('Apply')
+#        apply_inheritance_button.clicked.connect(self._apply_inheritance)
+#        self._inheritance_apply_button = apply_inheritance_button
+#
+#    def _set_current_layer_to_inheritance(self) -> None:
+#        current_layer = get_active_layer(self._napari_viewer)  # type: ignore
+#        if current_layer == self.inheritance_layer:
+#            return
+#        if current_layer is None:
+#            self._inheritance_layer_name.setText('None selected')
+#        else:
+#            layer_name = current_layer.name
+#            self._inheritance_layer_name.setText(layer_name)
+#            self.inheritance_layer = current_layer
+#
+#    def _apply_inheritance(self) -> None:
+#        if self.inheritance_layer is None:
+#            return
+#        self._main_widget.apply_inheritance_to_current_layer(
+#            self.inheritance_layer
+#        )  # type: ignore
 
 
 class MetadataWidget(QWidget):
@@ -1731,7 +1673,10 @@ class MetadataWidget(QWidget):
             self._hori_axis_metadata_layout
         )
 
-        self._inheritance_instance = AxesInheritance(napari_viewer, self)
+        # self._inheritance_instance = AxesInheritance(napari_viewer, self)
+        self._inheritance_instance: InheritanceWidget = InheritanceWidget(
+            napari_viewer, self
+        )
 
         self._vert_inheritance_container: QWidget = QWidget()
         self._vert_inhertiance_layout: QGridLayout = QGridLayout()
@@ -2443,8 +2388,6 @@ class MetadataWidget(QWidget):
         vert_inheritance_layout.setVerticalSpacing(8)
         hori_inheritance_layout: QGridLayout = self._hori_inheritance_layout
 
-        inheritance_instance: AxesInheritance = self._inheritance_instance
-
         setting_layout: QGridLayout | None = None
 
         if orientation == 'vertical':
@@ -2454,14 +2397,7 @@ class MetadataWidget(QWidget):
             self._reset_layout(hori_inheritance_layout)
             setting_layout = hori_inheritance_layout
 
-        setting_layout.addWidget(inheritance_instance._inheritance_layer_label)
-        setting_layout.addWidget(inheritance_instance._layer_name_scroll_area)
-        setting_layout.addWidget(
-            inheritance_instance._inheritance_select_layer_button
-        )
-        setting_layout.addWidget(
-            inheritance_instance._inheritance_apply_button
-        )
+        setting_layout.addWidget(self._inheritance_instance)
 
     def _connect_file_general_metadata_components(self) -> None:
         file_general_meta_instance: FileGeneralMetadata = (
