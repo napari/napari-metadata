@@ -27,6 +27,8 @@ class CollapsibleSectionContainer(QWidget):
     ----------
     viewer : napari.viewer.Viewer
         The napari viewer instance.
+    container_nake : str
+        The name of the container.
     orientation : {'vertical', 'horizontal'}
         The orientation of the container. Vertical containers expand downward
         with horizontal scrolling. Horizontal containers expand rightward with
@@ -36,10 +38,12 @@ class CollapsibleSectionContainer(QWidget):
     def __init__(
         self,
         viewer: 'napari.viewer.Viewer',
+        container_name: str,
         orientation: Literal['vertical', 'horizontal'] = 'vertical',
     ):
         super().__init__()
         self._viewer = viewer
+        self._container_name = container_name
         self._orientation = orientation
         self._set_text = ' '
 

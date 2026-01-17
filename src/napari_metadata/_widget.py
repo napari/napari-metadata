@@ -1758,7 +1758,9 @@ class MetadataWidget(QWidget):
         self._stacked_layout.addWidget(vertical_container)
 
         self._collapsible_vertical_file_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
-            self._napari_viewer, orientation='vertical'
+            self._napari_viewer,
+            'vertical_file_metadata',
+            orientation='vertical',
         )
         self._collapsible_vertical_file_metadata._set_button_text(
             'File metadata'
@@ -1768,7 +1770,9 @@ class MetadataWidget(QWidget):
         )
 
         self._collapsible_vertical_editable_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
-            self._napari_viewer, orientation='vertical'
+            self._napari_viewer,
+            'vertical_axes_metadata',
+            orientation='vertical',
         )
         self._collapsible_vertical_editable_metadata._set_button_text(
             'Axes metadata'
@@ -1779,7 +1783,9 @@ class MetadataWidget(QWidget):
 
         self._collapsible_vertical_inheritance: CollapsibleSectionContainer = (
             CollapsibleSectionContainer(
-                self._napari_viewer, orientation='vertical'
+                self._napari_viewer,
+                'vertical_inheritance',
+                orientation='vertical',
             )
         )
         self._collapsible_vertical_inheritance._set_button_text(
@@ -1817,7 +1823,9 @@ class MetadataWidget(QWidget):
         self._stacked_layout.addWidget(horizontal_container)
 
         self._collapsible_horizontal_file_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
-            self._napari_viewer, orientation='horizontal'
+            self._napari_viewer,
+            'horizontal_file_metadata',
+            orientation='horizontal',
         )
         self._collapsible_horizontal_file_metadata._set_button_text(
             'File metadata'
@@ -1827,7 +1835,9 @@ class MetadataWidget(QWidget):
         )
 
         self._collapsible_horizontal_editable_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
-            self._napari_viewer, orientation='horizontal'
+            self._napari_viewer,
+            'horizontal_axes_metadata',
+            orientation='horizontal',
         )
         self._collapsible_horizontal_editable_metadata._set_button_text(
             'Axes metadata'
@@ -1837,7 +1847,9 @@ class MetadataWidget(QWidget):
         )
 
         self._collapsible_horizontal_inheritance: CollapsibleSectionContainer = CollapsibleSectionContainer(
-            self._napari_viewer, orientation='horizontal'
+            self._napari_viewer,
+            'horizontal_inheritance',
+            orientation='horizontal',
         )
         self._collapsible_horizontal_inheritance._set_button_text(
             'Axes inheritance'
