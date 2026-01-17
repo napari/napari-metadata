@@ -7,7 +7,7 @@ class AxisType(Enum):
 
     SPACE = auto()
     TIME = auto()
-    CHANNEL = auto()
+    STRING = auto()
 
     def __str__(self) -> str:
         return self.name.lower()
