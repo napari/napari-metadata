@@ -49,6 +49,7 @@ from napari_metadata._model import (
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
+from napari_metadata._protocols import AxisComponent
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -681,28 +682,6 @@ class FileMetadataWidget(QWidget):
 
     def _set_file_size(self, file_size: str) -> None:
         self._layer_file_size.setText(file_size)
-
-
-""" This protocol is used to define the structure of the AxisComponent class.
-NOTE: Again, it is possible to integrate the metadata into a single type of component by passing lists instead of single values in the get_entries_dict,
-but it might complicate even more the already complicated extension patterns."""
-
-
-class AxisComponent(Protocol):
-    _axis_component_name: str
-    _entries_dict: dict[int, dict[str, tuple[int, int, QWidget, str | None]]]
-    _napari_viewer: 'ViewerModel'
-
-    def __init__(self, napari_viewer: 'ViewerModel') -> None: ...
-    def load_entries(
-        self,
-    ) -> dict[int, dict[str, tuple[int, int, QWidget, str | None]]] | None: ...
-    def get_entries_dict(
-        self,
-    ) -> dict[int, dict[str, tuple[int, int, QWidget, str | None]]]: ...
-    def get_rows_and_column_spans(self) -> dict[str, int] | None: ...
-    def get_checkboxes_list(self) -> list[QCheckBox]: ...
-    def inherit_layer_properties(self, template_layer: 'Layer') -> None: ...
 
 
 AXES_ENTRIES_DICT: dict[str, type[AxisComponent]] = {}

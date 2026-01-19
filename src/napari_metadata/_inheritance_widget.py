@@ -13,10 +13,13 @@ from qtpy.QtWidgets import (
 from napari_metadata._model import (
     connect_callback_to_layer_selection_events,
     connect_callback_to_list_events,
+    disconnect_callback_to_layer_selection_events,
     disconnect_callback_to_list_events,
     get_layers_list,
     resolve_layer,
 )
+
+from napari_metadata._protocols import MetadataWidgetAPI
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -27,12 +30,16 @@ BLOCKS_SPACING = 20
 
 class InheritanceWidget(QWidget):
     def __init__(
-        self, napari_viewer: 'ViewerModel', parent: QWidget | None = None
+        self,
+        napari_viewer: 'ViewerModel',
+        metadata_widget: MetadataWidgetAPI,
+        parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._napari_viewer = napari_viewer
         self._template_layer: Layer | None = None
         self._inheriting_layer: Layer | None = None
+        self._metadata_widget: MetadataWidgetAPI = metadata_widget
 
         self._layout: QVBoxLayout = QVBoxLayout()
         self.setLayout(self._layout)
@@ -88,10 +95,13 @@ class InheritanceWidget(QWidget):
             self._napari_viewer, self._update_layers_combobox_callback
         )
 
-        self._update_inheriting_layer_cb = self._update_inheriting_label
+        self._update_inheriting_layer_callback = self._update_inheriting_label
         connect_callback_to_layer_selection_events(
-            self._napari_viewer, self._update_inheriting_layer_cb
+            self._napari_viewer, self._update_inheriting_layer_callback
         )
+
+        self._update_layers_combobox()
+        self._update_inheriting_label()
 
     def _update_layers_combobox(self) -> None:
         layers_list: list[Layer] = get_layers_list(self._napari_viewer)
@@ -156,7 +166,20 @@ class InheritanceWidget(QWidget):
                 self._different_dims_label.setVisible(False)
 
     def _on_apply_button_pressed(self) -> None:
-        print('Applying inheritances')
+        template_layer = self._template_layer
+        if template_layer is None:
+            return
+        inheriting_layer = self._inheriting_layer
+        if inheriting_layer is None:
+            return
+        if (
+            template_layer is inheriting_layer
+            or template_layer.ndim != inheriting_layer.ndim
+        ):
+            return
+        self._metadata_widget.apply_inheritance_to_current_layer(
+            template_layer
+        )
 
     def _on_combobox_selection_changed(self) -> None:
         selected_item: Layer | None = self._template_combobox.currentData(
@@ -168,5 +191,8 @@ class InheritanceWidget(QWidget):
     def closeEvent(self, a0):
         disconnect_callback_to_list_events(
             self._napari_viewer, self._update_layers_combobox_callback
+        )
+        disconnect_callback_to_layer_selection_events(
+            self._napari_viewer, self._update_inheriting_layer_callback
         )
         super().closeEvent(a0)
