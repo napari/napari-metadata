@@ -10,7 +10,9 @@ if TYPE_CHECKING:
     from napari.layers import Layer
 
 
-def resolve_layer(viewer: 'ViewerModel', layer: 'Layer | None' = None) -> 'Layer | None':
+def resolve_layer(
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
+) -> 'Layer | None':
     """Helper to resolve which layer to use: explicit layer or active layer."""
     if layer is not None:
         return layer
@@ -34,7 +36,7 @@ def get_axes_labels(
 def set_axes_labels(
     viewer: 'ViewerModel',
     axes_labels: tuple[str, ...],
-    layer: 'Layer | None' = None
+    layer: 'Layer | None' = None,
 ) -> None:
     """Set axis labels on the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
@@ -66,7 +68,7 @@ def get_axes_units(
 def set_axes_units(
     viewer: 'ViewerModel',
     axes_units: tuple[str, ...],
-    layer: 'Layer | None' = None
+    layer: 'Layer | None' = None,
 ) -> None:
     """Set axis units on the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
@@ -79,13 +81,17 @@ def get_axes_scales(
 ) -> tuple[float, ...]:
     """Get axis scales from the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
-    return cast(tuple[float, ...], resolved_layer.scale) if resolved_layer is not None else ()
+    return (
+        cast(tuple[float, ...], resolved_layer.scale)
+        if resolved_layer is not None
+        else ()
+    )
 
 
 def set_axes_scales(
     viewer: 'ViewerModel',
     axes_scales: tuple[float, ...],
-    layer: 'Layer | None' = None
+    layer: 'Layer | None' = None,
 ) -> None:
     """Set axis scales on the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
@@ -100,23 +106,29 @@ def set_axes_scales(
 
     resolved_layer.scale = np.array(axes_scales)
 
+
 def get_axes_translations(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
 ) -> tuple[float, ...]:
     """Get axis translations from the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
-    return cast(tuple[float, ...], resolved_layer.translate) if resolved_layer is not None else ()
+    return (
+        cast(tuple[float, ...], resolved_layer.translate)
+        if resolved_layer is not None
+        else ()
+    )
 
 
 def set_axes_translations(
     viewer: 'ViewerModel',
     axes_translations: tuple[float, ...],
-    layer: 'Layer | None' = None
+    layer: 'Layer | None' = None,
 ) -> None:
     """Set axis translations on the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
     if resolved_layer is not None:
         resolved_layer.translate = axes_translations
+
 
 def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
     """Get the shape of the layer's data."""

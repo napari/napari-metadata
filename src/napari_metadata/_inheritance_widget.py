@@ -1,27 +1,22 @@
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING
 
+from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QComboBox,
-    QWidget,
-    QVBoxLayout,
-    QSizePolicy,
     QLabel,
-    QHBoxLayout,
-    QScrollArea,
-    QFrame,
     QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtCore import QSignalBlocker, Qt
 
 from napari_metadata._model import (
-    get_layers_list,
-    connect_callback_to_list_events,
     connect_callback_to_layer_selection_events,
+    connect_callback_to_list_events,
     disconnect_callback_to_list_events,
-    disconnect_callback_to_layer_selection_events,
+    get_layers_list,
     resolve_layer,
 )
-
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel

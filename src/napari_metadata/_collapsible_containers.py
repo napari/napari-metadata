@@ -255,6 +255,4 @@ class DisableWheelScrollingFilter(QObject):
     """Event filter to disable mouse wheel scrolling on scroll bars."""
 
     def eventFilter(self, a0, a1):
-        if a1 is not None and a1.type() == QEvent.Type.Wheel:
-            return True
-        return False
+        return bool(a1 is not None and a1.type() == QEvent.Type.Wheel)

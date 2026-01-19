@@ -17,7 +17,6 @@ from qtpy.QtWidgets import (
     QLayoutItem,
     QLineEdit,
     QMainWindow,
-    QPushButton,
     QScrollArea,
     QSizePolicy,
     QStackedLayout,
@@ -32,8 +31,8 @@ from napari_metadata._collapsible_containers import (
     HorizontalOnlyOuterScrollArea,
 )
 from napari_metadata._file_size import generate_display_size
+from napari_metadata._inheritance_widget import InheritanceWidget
 from napari_metadata._model import (
-    resolve_layer,
     get_axes_labels,
     get_axes_scales,
     get_axes_translations,
@@ -42,6 +41,7 @@ from napari_metadata._model import (
     get_layer_data_shape,
     get_layer_dimensions,
     get_layer_source_path,
+    resolve_layer,
     set_axes_labels,
     set_axes_scales,
     set_axes_translations,
@@ -49,7 +49,6 @@ from napari_metadata._model import (
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
-from napari_metadata._inheritance_widget import InheritanceWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -860,9 +859,7 @@ class AxisLabels:
                 setting_labels.append(template_labels[i])
             else:
                 setting_labels.append(current_layer_labels[i])
-        set_axes_labels(
-            self._napari_viewer, tuple(setting_labels)
-        )  # type: ignore
+        set_axes_labels(self._napari_viewer, tuple(setting_labels))  # type: ignore
         self._selected_layer = None
 
 
@@ -1030,9 +1027,7 @@ class AxisTranslations:
                 setting_translates.append(template_translates[i])
             else:
                 setting_translates.append(current_layer_translates[i])
-        set_axes_translations(
-            self._napari_viewer, tuple(setting_translates)
-        )  # type: ignore
+        set_axes_translations(self._napari_viewer, tuple(setting_translates))  # type: ignore
         self._selected_layer = None
 
 
@@ -1196,9 +1191,7 @@ class AxisScales:
                 setting_scales.append(template_scales[i])
             else:
                 setting_scales.append(current_layer_scales[i])
-        set_axes_scales(
-            self._napari_viewer, tuple(setting_scales)
-        )  # type: ignore
+        set_axes_scales(self._napari_viewer, tuple(setting_scales))  # type: ignore
         self._selected_layer = None
 
 
