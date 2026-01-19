@@ -19,7 +19,7 @@ from napari_metadata._model import (
     connect_callback_to_layer_selection_events,
     disconnect_callback_to_list_events,
     disconnect_callback_to_layer_selection_events,
-    get_active_layer,
+    resolve_layer,
 )
 
 
@@ -134,7 +134,7 @@ class InheritanceWidget(QWidget):
             )
 
     def _update_inheriting_label(self) -> None:
-        active_layer: Layer | None = get_active_layer(self._napari_viewer)
+        active_layer: Layer | None = resolve_layer(self._napari_viewer, None)
         if active_layer is None:
             self._inheriting_layer_name.setText('None selected')
             self._inheriting_layer = None

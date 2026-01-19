@@ -33,7 +33,7 @@ from napari_metadata._collapsible_containers import (
 )
 from napari_metadata._file_size import generate_display_size
 from napari_metadata._model import (
-    get_active_layer,
+    resolve_layer,
     get_axes_labels,
     get_axes_scales,
     get_axes_translations,
@@ -42,10 +42,10 @@ from napari_metadata._model import (
     get_layer_data_shape,
     get_layer_dimensions,
     get_layer_source_path,
-    set_active_layer_axes_labels,
-    set_active_layer_axes_scales,
-    set_active_layer_axes_translations,
-    set_active_layer_axes_units,
+    set_axes_labels,
+    set_axes_scales,
+    set_axes_translations,
+    set_axes_units,
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
@@ -149,7 +149,7 @@ class LayerNameComponent:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
         if active_layer is None:
             self._layer_name_line_edit.setText('None selected')  # type: ignore
             return
@@ -216,7 +216,7 @@ class LayerShapeComponent:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
         if active_layer is None:
             self._layer_shape_label.setText('None selected')  # type: ignore
             return
@@ -283,7 +283,7 @@ class LayerDataTypeComponent:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
         if active_layer is None:
             self._layer_data_type_label.setText('None selected')  # type: ignore
             return
@@ -350,7 +350,7 @@ class LayerFileSizeComponent:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
         if active_layer is None:
             self._layer_file_size_label.setText('None selected')  # type: ignore
             return
@@ -421,7 +421,7 @@ class SourcePathComponent:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
         if active_layer is None:
             self._source_path_text_edit.setPlainText('None selected')  # type: ignore
             font_metrics = QFontMetrics(self._source_path_text_edit.font())
@@ -748,7 +748,7 @@ class AxisLabels:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
 
         if active_layer != self._selected_layer or active_layer is None:
             self._reset_tuples()
@@ -844,7 +844,7 @@ class AxisLabels:
         main_widget.connect_axis_components(self)
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
-        current_layer: Layer | None = get_active_layer(self._napari_viewer)
+        current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
             return
         current_layer_labels: tuple[str, ...] = get_axes_labels(
@@ -860,7 +860,7 @@ class AxisLabels:
                 setting_labels.append(template_labels[i])
             else:
                 setting_labels.append(current_layer_labels[i])
-        set_active_layer_axes_labels(
+        set_axes_labels(
             self._napari_viewer, tuple(setting_labels)
         )  # type: ignore
         self._selected_layer = None
@@ -902,7 +902,7 @@ class AxisTranslations:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
 
         if active_layer != self._selected_layer or active_layer is None:
             self._reset_tuples()
@@ -1014,7 +1014,7 @@ class AxisTranslations:
         )
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
-        current_layer: Layer | None = get_active_layer(self._napari_viewer)
+        current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
             return
         current_layer_translates: tuple[float, ...] = get_axes_translations(
@@ -1030,7 +1030,7 @@ class AxisTranslations:
                 setting_translates.append(template_translates[i])
             else:
                 setting_translates.append(current_layer_translates[i])
-        set_active_layer_axes_translations(
+        set_axes_translations(
             self._napari_viewer, tuple(setting_translates)
         )  # type: ignore
         self._selected_layer = None
@@ -1072,7 +1072,7 @@ class AxisScales:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
 
         if active_layer != self._selected_layer or active_layer is None:
             self._reset_tuples()
@@ -1180,7 +1180,7 @@ class AxisScales:
         )
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
-        current_layer: Layer | None = get_active_layer(self._napari_viewer)
+        current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
             return
         current_layer_scales: tuple[float, ...] = get_axes_scales(
@@ -1196,7 +1196,7 @@ class AxisScales:
                 setting_scales.append(template_scales[i])
             else:
                 setting_scales.append(current_layer_scales[i])
-        set_active_layer_axes_scales(
+        set_axes_scales(
             self._napari_viewer, tuple(setting_scales)
         )  # type: ignore
         self._selected_layer = None
@@ -1240,7 +1240,7 @@ class AxisUnits:
         if layer is not None:
             active_layer = layer
         else:
-            active_layer = get_active_layer(self._napari_viewer)  # type: ignore
+            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
 
         if active_layer != self._selected_layer or active_layer is None:
             self._reset_tuples()
@@ -1411,7 +1411,7 @@ class AxisUnits:
                 self._axis_name_labels_tuple[i].setText(axes_tuples[i])
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
-        current_layer: Layer | None = get_active_layer(self._napari_viewer)
+        current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
             return
         current_layer_units: tuple[float, ...] = get_axes_units(
@@ -1427,7 +1427,7 @@ class AxisUnits:
                 setting_units.append(template_units[i])
             else:
                 setting_units.append(current_layer_units[i])
-        set_active_layer_axes_units(self._napari_viewer, tuple(setting_units))  # type: ignore
+        set_axes_units(self._napari_viewer, tuple(setting_units))  # type: ignore
         self._selected_layer = None
 
 
@@ -2354,7 +2354,7 @@ class MetadataWidget(QWidget):
 
     def _on_name_line_changed(self, text: str) -> None:
         sender_line_edit: QLineEdit = cast(QLineEdit, self.sender())
-        active_layer: Layer | None = get_active_layer(self._napari_viewer)  # type: ignore
+        active_layer: Layer | None = resolve_layer(self._napari_viewer)  # type: ignore
         if active_layer is None:
             sender_line_edit.setText('No layer selected')
             return
@@ -2426,7 +2426,7 @@ class MetadataWidget(QWidget):
         axes_tuples: tuple[str, ...] = (
             axes_labels_component.get_line_edit_labels()
         )  # type: ignore
-        set_active_layer_axes_labels(self._viewer, axes_tuples)  # type: ignore
+        set_axes_labels(self._viewer, axes_tuples)  # type: ignore
         for (
             axes_component_name
         ) in self._axis_metadata_instance._axis_metadata_components_dict:
@@ -2457,7 +2457,7 @@ class MetadataWidget(QWidget):
         axes_tuples: tuple[float, ...] = (
             axes_translate_component.get_spin_box_values()
         )  # type: ignore
-        set_active_layer_axes_translations(self._viewer, axes_tuples)  # type: ignore
+        set_axes_translations(self._viewer, axes_tuples)  # type: ignore
 
     def _on_axis_scale_spin_box_adjusted(self) -> None:
         axes_scale_component: AxisScales = (
@@ -2486,9 +2486,9 @@ class MetadataWidget(QWidget):
                     spin_boxes_tuple[spin_box_index].setValue(
                         axis_scales_list[spin_box_index]
                     )  # type: ignore
-            set_active_layer_axes_scales(self._viewer, axis_scales_list)  # type: ignore
+            set_axes_scales(self._viewer, axis_scales_list)  # type: ignore
             return
-        set_active_layer_axes_scales(self._viewer, axes_tuples)  # type: ignore
+        set_axes_scales(self._viewer, axes_tuples)  # type: ignore
 
     def _on_type_combobox_changed(self) -> None:
         unit_axis_component: MetadataComponent = (
@@ -2554,7 +2554,7 @@ class MetadataWidget(QWidget):
             else:
                 unit_pint = unit_registry(unit_string).units  # type: ignore
             setting_units_list.append(unit_pint)
-        set_active_layer_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
+        set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
 
     def _on_unit_combobox_changed(self) -> None:
         unit_axis_component: MetadataComponent = (
@@ -2596,12 +2596,12 @@ class MetadataWidget(QWidget):
             else:
                 unit_pint = unit_registry(unit_string).units  # type: ignore
             setting_units_list.append(unit_pint)
-        set_active_layer_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
+        set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
 
     def apply_inheritance_to_current_layer(
         self, template_layer: 'Layer'
     ) -> None:
-        active_layer = get_active_layer(self._napari_viewer)
+        active_layer = resolve_layer(self._napari_viewer)
         if active_layer is None:
             return
 
