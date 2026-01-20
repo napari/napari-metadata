@@ -30,15 +30,8 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "magicgui",
-    "napari-ome-zarr",
-    "ome-zarr",
     "qtpy",
     "pint",
-    "pooch",
-    "scikit-image",
-    "tqdm",
-    "zarr",
 ]
 dynamic = ["version"]
 
