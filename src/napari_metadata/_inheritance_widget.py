@@ -83,7 +83,7 @@ class InheritanceWidget(QWidget):
         )
         self._different_dims_label.setVisible(False)
 
-        self._apply_button = QPushButton('Apply')
+        self._apply_button = QPushButton('Apply checked metadata')
         self._apply_button.pressed.connect(self._on_apply_button_pressed)
 
         self._layout.addWidget(self._template_layer_label)
