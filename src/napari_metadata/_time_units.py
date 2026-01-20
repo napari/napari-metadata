@@ -6,10 +6,19 @@ class TimeUnits(Enum):
     """Supported units for a temporal axis."""
 
     NONE = auto()
+    FEMTOSECOND = auto()
+    PICOSECOND = auto()
     NANOSECOND = auto()
     MICROSECOND = auto()
     MILLISECOND = auto()
     SECOND = auto()
+    MINUTE = auto()
+    HOUR = auto()
+    DAY = auto()
+    YEAR = auto()
+    DECADE = auto()
+    CENTURY = auto()
+    MILLENNIUM = auto()
 
     def __str__(self) -> str:
         return self.name.lower()
@@ -24,3 +33,7 @@ class TimeUnits(Enum):
     @classmethod
     def names(cls) -> list[str]:
         return [str(m) for m in cls]
+
+    @classmethod
+    def contains(cls, name: str) -> bool:
+        return name in cls.names()

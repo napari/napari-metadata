@@ -2,43 +2,9 @@ name: napari-metadata
 display_name: Layer metadata
 contributions:
   commands:
-    - id: napari-metadata.read_ome_zarr_hipsc_mip
-      python_name: napari_metadata._sample_data:read_ome_zarr_hipsc_mip
-      title: Load 3D MIP of hiPSCs
-    - id: napari-metadata.make_cells_3d_sample_data
-      python_name: napari_metadata._sample_data:make_cells_3d_sample_data
-      title: Load 3D cells with metadata
-    - id: napari-metadata.make_nuclei_md_sample_data
-      python_name: napari_metadata._sample_data:make_nuclei_md_sample_data
-      title: Load 2+3D nuclei with metadata
     - id: napari-metadata.make_metadata_qwidget
       python_name: napari_metadata._widget:MetadataWidget
       title: Make metadata widget
-    - id: napari-metadata.read_image
-      python_name: napari_metadata._reader:napari_get_reader
-      title: Read image with metadata
-    - id: napari-metadata.write_image
-      python_name: napari_metadata._writer:write_image
-      title: Write image with metadata
-  sample_data:
-    - command: napari-metadata.read_ome_zarr_hipsc_mip
-      display_name: hiPSCs 3D MIP
-      key: hipsc-3d-mip
-    - command: napari-metadata.make_cells_3d_sample_data
-      display_name: Cells 3D
-      key: cells-3d
-    - command: napari-metadata.make_nuclei_md_sample_data
-      display_name: Nuclei mixed-D
-      key: nuclei-md
-  readers:
-    - command: napari-metadata.read_image
-      filename_patterns:
-      - '*.zarr'
-      accepts_directories: true
   widgets:
     - command: napari-metadata.make_metadata_qwidget
       display_name: Layer metadata
-  writers:
-    - command: napari-metadata.write_image
-      layer_types: ["image"]
-      filename_extensions: [".zarr"]
