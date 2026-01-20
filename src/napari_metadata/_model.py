@@ -196,10 +196,45 @@ def connect_callback_to_list_events(
 
 def disconnect_callback_to_list_events(
     viewer: 'ViewerModel', cb_function: Callable
-):
+) -> None:
     with suppress(TypeError, ValueError):
         viewer.layers.events.inserted.disconnect(cb_function)
     with suppress(TypeError, ValueError):
         viewer.layers.events.removed.disconnect(cb_function)
     with suppress(TypeError, ValueError):
         viewer.layers.events.changed.disconnect(cb_function)
+
+
+def connect_callback_to_layer_selection_changed(
+    viewer: 'ViewerModel', cb_function: Callable
+) -> None:
+    """Connect a callback to layer name change Aevent."""
+    viewer.layers.selection.events.active.connect(cb_function)
+
+
+def disconnect_callback_to_layer_selection_changed(
+    viewer: 'ViewerModel', cb_function: Callable
+) -> None:
+    """Disconnect a callback from layer name change event."""
+    with suppress(TypeError, ValueError):
+        viewer.layers.selection.events.active.disconnect(cb_function)
+
+
+def connect_callback_to_layer_name_changed(
+    viewer: 'ViewerModel', cb_function: Callable, layer: 'Layer | None' = None
+) -> None:
+    """Connect a callback function to the specified layer or the current layer name event"""
+    resolved_layer = resolve_layer(viewer, layer)
+    if resolved_layer is None:
+        return
+    resolved_layer.events.name.connect(cb_function)
+
+
+def disconnect_callback_to_layer_name_changed(
+    viewer: 'ViewerModel', cb_function: Callable, layer: 'Layer | None'
+) -> None:
+    """Disconnect a callback function from the specified layer name event"""
+    if layer is None:
+        return
+    with suppress(TypeError, ValueError):
+        layer.events.name.disconnect(cb_function)

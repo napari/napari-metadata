@@ -1,3 +1,4 @@
+from re import A
 from typing import TYPE_CHECKING
 
 from qtpy.QtCore import QSignalBlocker, Qt
@@ -13,8 +14,12 @@ from qtpy.QtWidgets import (
 from napari_metadata._model import (
     connect_callback_to_layer_selection_events,
     connect_callback_to_list_events,
+    connect_callback_to_layer_name_changed,
+    connect_callback_to_layer_selection_changed,
     disconnect_callback_to_layer_selection_events,
     disconnect_callback_to_list_events,
+    disconnect_callback_to_layer_name_changed,
+    disconnect_callback_to_layer_selection_changed,
     get_layers_list,
     resolve_layer,
 )
@@ -40,6 +45,7 @@ class InheritanceWidget(QWidget):
         self._template_layer: Layer | None = None
         self._inheriting_layer: Layer | None = None
         self._metadata_widget: MetadataWidgetAPI = metadata_widget
+        self._selected_layer: Layer | None = None
 
         self._layout: QVBoxLayout = QVBoxLayout()
         self.setLayout(self._layout)
@@ -98,6 +104,14 @@ class InheritanceWidget(QWidget):
         self._update_inheriting_layer_callback = self._update_inheriting_label
         connect_callback_to_layer_selection_events(
             self._napari_viewer, self._update_inheriting_layer_callback
+        )
+
+        self._layer_selection_changed_callback = (
+            self._on_layer_selection_changed
+        )
+        self._layer_name_changed_callback = self._on_layer_name_changed
+        connect_callback_to_layer_selection_changed(
+            self._napari_viewer, self._layer_selection_changed_callback
         )
 
         self._update_layers_combobox()
@@ -187,6 +201,28 @@ class InheritanceWidget(QWidget):
         )
         self._template_layer = selected_item
         self._compare_template_and_inheriting_layers()
+
+    def _on_layer_name_changed(self) -> None:
+        self._update_layers_combobox()
+        self._update_inheriting_label()
+
+    def _on_layer_selection_changed(self) -> None:
+        current_layer = resolve_layer(self._napari_viewer)
+        if current_layer is self._selected_layer:
+            return
+        if self._selected_layer is not None:
+            disconnect_callback_to_layer_name_changed(
+                self._napari_viewer,
+                self._layer_name_changed_callback,
+                self._selected_layer,
+            )
+        self._selected_layer = current_layer
+        if current_layer is not None:
+            connect_callback_to_layer_name_changed(
+                self._napari_viewer,
+                self._layer_name_changed_callback,
+                current_layer,
+            )
 
     def closeEvent(self, a0):
         disconnect_callback_to_list_events(
