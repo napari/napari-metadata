@@ -1,7 +1,11 @@
 # napari-metadata
 
-[![tests](https://github.com/andy-sweet/napari-metadata/workflows/tests/badge.svg)](https://github.com/andy-sweet/napari-metadata/actions)
-[![codecov](https://codecov.io/gh/andy-sweet/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/andy-sweet/napari-metadata)
+[![License BSD-3](https://img.shields.io/pypi/l/napari-metadata.svg?color=green)](https://github.com/napari/napari-metadata/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/napari-metadata.svg?color=green)](https://pypi.org/project/napari-metadata/)
+[![Python Version](https://img.shields.io/pypi/pyversions/napari-metadata.svg?color=green)](https://python.org)
+[![tests](https://github.com/napari/napari-metadata/workflows/tests/badge.svg)](https://github.com/napari/napari-metadata/actions)
+[![codecov](https://codecov.io/gh/napari/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/napari/napari-metadata)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-metadata)](https://napari-hub.org/plugins/napari-metadata)
 
 This is a [napari] plugin that expands the functionality of napari's handling of layer metadata by using the `Layer.metadata` dictionary to store some extra metadata attributes.
 
