@@ -16,13 +16,17 @@ This is a [napari] plugin that visually exposes the functionality of napari's ha
 
 ## Installation
 
-You can install `napari-metadata` via [pip]:
+You can install `napari-metadata` via pip:
 
-    pip install napari-metadata
+```bash
+pip install napari-metadata
+```
 
 Alternatively, fork or clone this repository directly and install in editable mode for development:
 
-    pip install -e . --group dev
+```bash
+pip install -e . --group dev
+```
 
 ## Contributing
 
