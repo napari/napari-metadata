@@ -7,22 +7,12 @@
 [![codecov](https://codecov.io/gh/napari/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/napari/napari-metadata)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-metadata)](https://napari-hub.org/plugins/napari-metadata)
 
-This is a [napari] plugin that expands the functionality of napari's handling of layer metadata by using the `Layer.metadata` dictionary to store some extra metadata attributes.
+This is a [napari] plugin that visually exposes the functionality of napari's handling of layer metadata by directly connecting with the public API of napari layers.
 
-https://user-images.githubusercontent.com/2608297/229252866-68117b59-c574-44f5-9420-c59028007d37.mp4
+> [!NOTE]
+> This plugin is in active development. *You should not depend on any API, as it is likely to change*. Instead, understand that this plugin intends to serve as a GUI to manage already available public API of napari layers.
+> If you find a feature of this plugin useful, but it is not available in napari's core API, please consider opening an issue here or in the [napari repository](https://github.com/napari/napari/issues/new/choose). 
 
-It provides a few contributions.
-
-- A reader to read some metadata from OME-Zarr images.
-- A writer to write some metadata to a multiscale OME-Zarr image.
-- A widget to control the extra attributes and view some other important read-only attributes.
-- Some sample data to demonstrate basic usage.
-
-This plugin is still an experimental work in progress. As such, it is not widely distributed and you should not expect support or future maintenance.
-
-This plugin lacks a public API by design. In particular, you should not rely on any of the extra keys or values in `Layer.metadata` in your own software of napari plugins. They are purely implementation details of this plugin.
-
-You can of course feel free to use the plugin or any of its code, but by doing so accept ownership of any issues that arise. If you have ideas or comments about this work, feel free to [file an issue].
 
 ## Installation
 
