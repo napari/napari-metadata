@@ -13,12 +13,6 @@ napari-metadata is a [napari] plugin that visually exposes the functionality of 
 > This plugin is in active development. *You should not depend on any API, as it is likely to change*. Instead, understand that this plugin intends to serve as a GUI to manage already available public API of napari layers.
 > If you find a feature of this plugin useful, but it is not available in napari's core API, please consider opening an issue here or in the [napari repository](https://github.com/napari/napari/issues/new/choose). 
 
-## Usage
-
-This plugin adds a dock widget to napari that allows you to view and edit metadata for each layer in your napari viewer. The widget is intended to be used in the typical vertical widget layout and additionally is designed to work great in a horizontal layout.
-
-![horizontal layout of metadata widget](https://raw.githubusercontent.com/napari/napari-metadata/main/resources/horizontal-widget.png)
-
 ## Installation
 
 You can install `napari-metadata` via pip:
@@ -27,15 +21,36 @@ You can install `napari-metadata` via pip:
 pip install napari-metadata
 ```
 
-Alternatively, fork or clone this repository directly and install in editable mode for development:
+## Usage
+
+This plugin adds a dock widget to napari that allows you to view and edit metadata for each layer in your napari viewer. The widget is intended to be used in the typical vertical widget layout and additionally is designed to work great in a horizontal layout.
+
+![horizontal layout of metadata widget](https://raw.githubusercontent.com/napari/napari-metadata/main/resources/horizontal-widget.png)
+
+### File Metadata
+
+The File Metadata section displays metadata related to the source of the layer, such as name, shape, dtype, and file size. All information except layer name is read-only.
+
+### Axes Metadata
+
+The Axes Metadata section allows you to view and edit metadata related to the axes of the layer, such as axis labels, transforms, scales, and units. You can modify these properties directly in the widget, and the changes will be reflected in the layer, and visa versa.
+
+> [!TIP]
+> Layers can be linked using the napari layer context menu `Link Layers`. When `axes metadata` is changed in the widget, all linked layers will update their `axes metadata` accordingly.
+
+### Axes Inheritance 
+
+The Axes Inheritance widget can be used to propagate axes metadata from one layer to other layers. Select a template layer from the dropdown, and apply any `axes metadata` with `checked` boolean boxes to the currently active layer and any linked layers.
+
+## Contributing
+
+Contributions are very welcome. Fork or clone this repository directly and install in editable mode for development:
 
 ```bash
 pip install -e . --group dev
 ```
 
-## Contributing
-
-Contributions are very welcome. Tests can be run with [tox], please ensure
+Tests can be run with [tox], please ensure
 the coverage at least stays the same before you submit a pull request.
 
 ## License
