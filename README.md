@@ -1,52 +1,59 @@
 # napari-metadata
 
-[![tests](https://github.com/andy-sweet/napari-metadata/workflows/tests/badge.svg)](https://github.com/andy-sweet/napari-metadata/actions)
-[![codecov](https://codecov.io/gh/andy-sweet/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/andy-sweet/napari-metadata)
+[![License BSD-3](https://img.shields.io/pypi/l/napari-metadata.svg?color=green)](https://github.com/napari/napari-metadata/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/napari-metadata.svg?color=green)](https://pypi.org/project/napari-metadata/)
+[![Python Version](https://img.shields.io/pypi/pyversions/napari-metadata.svg?color=green)](https://python.org)
+[![tests](https://github.com/napari/napari-metadata/workflows/tests/badge.svg)](https://github.com/napari/napari-metadata/actions)
+[![codecov](https://codecov.io/gh/napari/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/napari/napari-metadata)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-metadata)](https://napari-hub.org/plugins/napari-metadata)
 
-This is a [napari] plugin that expands the functionality of napari's handling of layer metadata by using the `Layer.metadata` dictionary to store some extra metadata attributes.
+napari-metadata is a [napari] plugin that visually exposes the functionality of napari's handling of layer metadata by directly connecting with the public API of napari layers.
 
-https://user-images.githubusercontent.com/2608297/229252866-68117b59-c574-44f5-9420-c59028007d37.mp4
-
-It provides a few contributions.
-
-- A reader to read some metadata from OME-Zarr images.
-- A writer to write some metadata to a multiscale OME-Zarr image.
-- A widget to control the extra attributes and view some other important read-only attributes.
-- Some sample data to demonstrate basic usage.
-
-This plugin is still an experimental work in progress. As such, it is not widely distributed and you should not expect support or future maintenance.
-
-This plugin lacks a public API by design. In particular, you should not rely on any of the extra keys or values in `Layer.metadata` in your own software of napari plugins. They are purely implementation details of this plugin.
-
-You can of course feel free to use the plugin or any of its code, but by doing so accept ownership of any issues that arise. If you have ideas or comments about this work, feel free to [file an issue].
+> [!NOTE]
+> This plugin is in active development. *You should not depend on any API, as it is likely to change*. Instead, understand that this plugin intends to serve as a GUI to manage already available public API of napari layers.
+> If you find a feature of this plugin useful, but it is not available in napari's core API, please consider opening an issue here or in the [napari repository](https://github.com/napari/napari/issues/new/choose). 
 
 ## Installation
 
-You can install the latest development version of `napari-metadata` via [pip]:
+You can install `napari-metadata` via pip:
 
-    pip install git+https://github.com/andy-sweet/napari-metadata.git
+```bash
+pip install napari-metadata
+```
 
-Alternatively, fork or clone this repository directly and install in editable mode for development:
+## Usage
 
-    pip install -e . --group dev
+This plugin adds a dock widget to napari that allows you to view and edit metadata for each layer in your napari viewer. The widget is intended to be used in the typical vertical widget layout and additionally is designed to work great in a horizontal layout.
 
-## Findings
+![horizontal layout of metadata widget](https://raw.githubusercontent.com/napari/napari-metadata/main/resources/horizontal-widget.png)
 
-Since this plugin is an experiment, we performed some [initial testing](https://github.com/andy-sweet/napari-metadata/blob/main/docs/testing-2023-05.md) to assess its value.
-Overall sentiment was positive, though there were some suggestions and points of discussion that could be useful for related and future work.
+### File Metadata
 
-We also received some feedback on [the zulip topic where this plugin was announced](https://napari.zulipchat.com/#narrow/stream/309872-plugins/topic/WIP.20metadata.20plugin), which may be useful to reference.
+The File Metadata section displays metadata related to the source of the layer, such as name, shape, dtype, and file size. All information except layer name is read-only.
+
+### Axes Metadata
+
+The Axes Metadata section allows you to view and edit metadata related to the axes of the layer, such as axis labels, transforms, scales, and units. You can modify these properties directly in the widget, and the changes will be reflected in the layer, and visa versa.
+
+> [!TIP]
+> Layers can be linked using the napari layer context menu `Link Layers`. When `axes metadata` is changed in the widget, all linked layers will update their `axes metadata` accordingly.
+
+### Axes Inheritance 
+
+The Axes Inheritance widget can be used to propagate axes metadata from one layer to other layers. Select a template layer from the dropdown, and apply any `axes metadata` with `checked` boolean boxes to the currently active layer and any linked layers.
 
 ## Contributing
 
-Since this is still experimental, I don't encourage contributions and likely won't review PRs with much urgency.
+Contributions are very welcome. Fork or clone this repository directly and install in editable mode for development:
+
+```bash
+pip install -e . --group dev
+```
+
+Tests can be run with [tox], please ensure
+the coverage at least stays the same before you submit a pull request.
 
 ## License
 
 Distributed under the terms of the [BSD-3] license,
 "napari-metadata" is free and open source software
-
-[napari]: https://github.com/napari/napari
-[BSD-3]: http://opensource.org/licenses/BSD-3-Clause
-[file an issue]: https://github.com/andy-sweet/napari-metadata/issues
-[pip]: https://pypi.org/project/pip

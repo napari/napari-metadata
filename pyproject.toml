@@ -14,7 +14,7 @@ authors = [
     {name = 'napari-metadata contributors'},
 ]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Framework :: napari",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
