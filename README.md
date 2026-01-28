@@ -16,31 +16,20 @@ This is a [napari] plugin that visually exposes the functionality of napari's ha
 
 ## Installation
 
-You can install the latest development version of `napari-metadata` via [pip]:
+You can install `napari-metadata` via [pip]:
 
-    pip install git+https://github.com/andy-sweet/napari-metadata.git
+    pip install napari-metadata
 
 Alternatively, fork or clone this repository directly and install in editable mode for development:
 
     pip install -e . --group dev
 
-## Findings
-
-Since this plugin is an experiment, we performed some [initial testing](https://github.com/andy-sweet/napari-metadata/blob/main/docs/testing-2023-05.md) to assess its value.
-Overall sentiment was positive, though there were some suggestions and points of discussion that could be useful for related and future work.
-
-We also received some feedback on [the zulip topic where this plugin was announced](https://napari.zulipchat.com/#narrow/stream/309872-plugins/topic/WIP.20metadata.20plugin), which may be useful to reference.
-
 ## Contributing
 
-Since this is still experimental, I don't encourage contributions and likely won't review PRs with much urgency.
+Contributions are very welcome. Tests can be run with [tox], please ensure
+the coverage at least stays the same before you submit a pull request.
 
 ## License
 
 Distributed under the terms of the [BSD-3] license,
 "napari-metadata" is free and open source software
-
-[napari]: https://github.com/napari/napari
-[BSD-3]: http://opensource.org/licenses/BSD-3-Clause
-[file an issue]: https://github.com/andy-sweet/napari-metadata/issues
-[pip]: https://pypi.org/project/pip
