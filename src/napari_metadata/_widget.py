@@ -33,6 +33,7 @@ from napari_metadata._collapsible_containers import (
 from napari_metadata._file_size import generate_display_size
 from napari_metadata._inheritance_widget import InheritanceWidget
 from napari_metadata._model import (
+    get_pint_ureg,
     get_axes_labels,
     get_axes_scales,
     get_axes_translations,
@@ -2477,7 +2478,7 @@ class MetadataWidget(QWidget):
         current_units: tuple[pint.Unit | str, ...] = get_axes_units(
             self._napari_viewer, self._selected_layer
         )
-        unit_registry: pint.UnitRegistry = current_units[0]._REGISTRY  # type: ignore
+        unit_registry: pint.registry.ApplicationRegistry = get_pint_ureg()
         for axis_number in range(len(type_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
             type_string: str = type_combobox_tuple[axis_number].currentText()  # type: ignore
@@ -2522,9 +2523,9 @@ class MetadataWidget(QWidget):
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
             unit_pint: pint.Unit
             if unit_string == 'none':
-                unit_pint: pint.Unit = unit_registry('').units
+                unit_pint: pint.Unit = unit_registry.Unit('')
             else:
-                unit_pint = unit_registry(unit_string).units  # type: ignore
+                unit_pint = unit_registry.Unit(unit_string)
             setting_units_list.append(unit_pint)
         set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
 
@@ -2543,7 +2544,7 @@ class MetadataWidget(QWidget):
         current_units: tuple[pint.Unit | str, ...] = get_axes_units(
             self._napari_viewer, self._selected_layer
         )
-        unit_registry: pint.UnitRegistry = current_units[0]._REGISTRY  # type: ignore
+        unit_registry: pint.registry.ApplicationRegistry = get_pint_ureg()
         setting_units_list: list[pint.Unit | str] = []
         for axis_number in range(len(unit_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
@@ -2563,10 +2564,10 @@ class MetadataWidget(QWidget):
                         type_combobox_tuple[axis_number].findText('string')
                     )  # type: ignore
             unit_pint: pint.Unit
-            if unit_string == 'none':
-                unit_pint: pint.Unit = unit_registry('').units
+            if unit_string == 'none' or not unit_string:
+                unit_pint: pint.Unit = unit_registry.Unit('')
             else:
-                unit_pint = unit_registry(unit_string).units  # type: ignore
+                unit_pint = unit_registry.Unit(unit_string)
             setting_units_list.append(unit_pint)
         set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
 

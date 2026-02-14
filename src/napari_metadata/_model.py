@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pint
+from pint.registry import ApplicationRegistry
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -44,17 +45,8 @@ def set_axes_labels(
         resolved_layer.axis_labels = axes_labels
 
 
-def get_pint_ureg(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> pint.UnitRegistry | None:
-    """Extract pint UnitRegistry from layer units if available."""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is None:
-        return None
-    for unit in resolved_layer.units:
-        if not isinstance(unit, str) and hasattr(unit, '_REGISTRY'):
-            return unit._REGISTRY
-    return None
+def get_pint_ureg() -> pint.registry.ApplicationRegistry:
+    return pint.get_application_registry()
 
 
 def get_axes_units(
