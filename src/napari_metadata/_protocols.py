@@ -1,9 +1,7 @@
 from typing import Protocol, TYPE_CHECKING
 
-from qtpy.QtWidgets import (
-    QWidget,
-    QCheckBox,
-)
+from qtpy.QtWidgets import QWidget, QCheckBox, QLabel
+from qtpy.QtCore import Qt
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -32,7 +30,53 @@ class AxisComponent(Protocol):
     def inherit_layer_properties(self, template_layer: 'Layer') -> None: ...
 
 
+"""This protocol is made to store the general metadata components that are not the axis components. They differn from the axis components
+because they only get one widget per entry and I didn't wanto to complicate (complicate more) the extension patterns so it'll have to stay like this.
+It might be best if the plugin won't allow the user to modify any of these except for the layer name.
+NOTE: It is 100% possible to integrate them into a single type of component by passing lists instead of single values in the get_entries_dict but It might get too complex to extend?"""
+
+
+class MetadataComponent(Protocol):
+    _component_name: str
+    _napari_viewer: 'ViewerModel'
+    _component_qlabel: QLabel
+    SUBMENU: str
+
+    """All general metadata components should pass the napari viewer and the main widget (This is the MetaDataWidget that isn't declared until later... SOMEBODY
+    SHOULD MAKE A PROTOCOL FOR THIS....). This is to make sure that the components can call methods from the MetaDataWidget in case they need to interact between components."""
+
+    def __init__(
+        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+    ) -> None: ...
+
+    """I am suggesting the load_entries method to update/load anything that the component needs to display the information."""
+
+    def load_entries(self, layer: 'Layer | None' = None) -> None: ...
+
+    """ This method returns the dictionary that will be used to populate the general metadata QGridLayout.
+    It requires you to input the type of layout, either horizontal or vertical, with vertical set to default.
+    It should return a dictionary with the name of the entries as keys (They'll be set in bold capital letters) and a tuple with the corresponding
+    QWidget, the row span, the column span, the calling method as a string or none if there's no method """
+
+    def get_entries_dict(
+        self, layout_mode: str
+    ) -> (
+        dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        | dict[
+            int,
+            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+        ]
+    ): ...
+
+    """ This method returns a boolean that will determine if the entry is to the left or below the name of the entry. """
+
+    def get_under_label(self, layout_mode: str) -> bool: ...
+
+
 class MetadataWidgetAPI(Protocol):
     def apply_inheritance_to_current_layer(
         self, template_layer: 'Layer'
+    ) -> None: ...
+    def connect_axis_components(
+        self, component: MetadataComponent
     ) -> None: ...
