@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, cast
 
 import pint
-from qtpy.QtCore import QObject, QSignalBlocker, QSize, Qt
+from qtpy.QtCore import QObject, QSignalBlocker, Qt
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QComboBox,
@@ -41,11 +41,11 @@ from napari_metadata._time_units import TimeUnits
 from napari_metadata._protocols import AxisComponent, MetadataComponent
 from napari_metadata._axis_metadata_widgets import (
     AxisMetadata,
-    FileGeneralMetadata,
     AxisLabels,
     AxisTranslations,
     AxisScales,
 )
+from napari_metadata._file_metadata_widgets import FileGeneralMetadata
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -440,7 +440,7 @@ class MetadataWidget(QWidget):
                 general_component.load_entries()
                 entries_dict: dict[
                     str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-                ] = general_component.get_entries_dict(orientation)  # type: ignore
+                ] = general_component.get_entries_dict(orientation)
 
                 if general_component.get_under_label(orientation):
                     current_row += 1
@@ -558,7 +558,7 @@ class MetadataWidget(QWidget):
                 current_column: int = starting_column
 
                 # This is the instance of the Axis Protocol
-                axis_component: MetadataComponent = components_dict[name]  # type: ignore
+                axis_component: AxisComponent = components_dict[name]  # type: ignore
 
                 axis_component_qlabel: QLabel = (
                     axis_component._component_qlabel
@@ -578,7 +578,7 @@ class MetadataWidget(QWidget):
                         str,
                         tuple[QWidget, int, int, str, Qt.AlignmentFlag | None],
                     ],
-                ] = axis_component.get_entries_dict(orientation)  # type: ignore
+                ] = axis_component.get_entries_dict()
 
                 for axis_index in entries_dict:
                     setting_column = current_column
@@ -638,7 +638,7 @@ class MetadataWidget(QWidget):
                 current_row: int = starting_row
 
                 # This is the instance of the Axis Protocol
-                axis_component: MetadataComponent = components_dict[name]  # type: ignore
+                axis_component: AxisComponent = components_dict[name]  # type: ignore
 
                 axis_component_qlabel: QLabel = (
                     axis_component._component_qlabel
@@ -659,7 +659,7 @@ class MetadataWidget(QWidget):
                         str,
                         tuple[QWidget, int, int, str, Qt.AlignmentFlag | None],
                     ],
-                ] = axis_component.get_entries_dict(orientation)  # type: ignore
+                ] = axis_component.get_entries_dict()
 
                 max_axis_col_spans: int = 0
 

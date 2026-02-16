@@ -14,20 +14,25 @@ but it might complicate even more the already complicated extension patterns."""
 
 
 class AxisComponent(Protocol):
-    _axis_component_name: str
-    _entries_dict: dict[int, dict[str, tuple[int, int, QWidget, str | None]]]
+    _component_name: str
     _napari_viewer: 'ViewerModel'
+    _main_widget: QWidget
+    _component_qlabel: QLabel
 
-    def __init__(self, napari_viewer: 'ViewerModel') -> None: ...
-    def load_entries(
-        self,
-    ) -> dict[int, dict[str, tuple[int, int, QWidget, str | None]]] | None: ...
+    _selected_layer: 'Layer | None'
+    _axis_name_labels_tuple: tuple[QLabel, ...]
+
+    def __init__(
+        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+    ) -> None: ...
+    def load_entries(self, layer: 'Layer | None' = None) -> None: ...
     def get_entries_dict(
         self,
-    ) -> dict[int, dict[str, tuple[int, int, QWidget, str | None]]]: ...
-    def get_rows_and_column_spans(self) -> dict[str, int] | None: ...
-    def get_checkboxes_list(self) -> list[QCheckBox]: ...
-    def inherit_layer_properties(self, template_layer: 'Layer') -> None: ...
+    ) -> dict[
+        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+    ]: ...
+    def _reset_tuples(self) -> None: ...
+    def _set_axis_name_labels(self) -> None: ...
 
 
 """This protocol is made to store the general metadata components that are not the axis components. They differn from the axis components
@@ -40,7 +45,6 @@ class MetadataComponent(Protocol):
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _component_qlabel: QLabel
-    SUBMENU: str
 
     """All general metadata components should pass the napari viewer and the main widget (This is the MetaDataWidget that isn't declared until later... SOMEBODY
     SHOULD MAKE A PROTOCOL FOR THIS....). This is to make sure that the components can call methods from the MetaDataWidget in case they need to interact between components."""
@@ -77,6 +81,4 @@ class MetadataWidgetAPI(Protocol):
     def apply_inheritance_to_current_layer(
         self, template_layer: 'Layer'
     ) -> None: ...
-    def connect_axis_components(
-        self, component: MetadataComponent
-    ) -> None: ...
+    def load_axes_widgets(self) -> None: ...
