@@ -77,6 +77,18 @@ def _axis_metadata_component(
 
     _setting_class._set_axis_name_labels = set_axis_name_labels_injection
 
+    def set_checkboxes_visibility_injection(
+        self: AxisComponent, visible: bool
+    ) -> None:
+        checkbox_tuple = self._inherit_checkbox_tuple
+        for checkbox in checkbox_tuple:
+            checkbox.setVisible(visible)
+        self._component_qlabel.setVisible(visible)
+
+    _setting_class._set_checkboxes_visibility = (
+        set_checkboxes_visibility_injection
+    )
+
     AXIS_METADATA_COMPONENTS_DICT[_setting_class.__name__] = _setting_class
     return _setting_class
 
@@ -170,6 +182,9 @@ class AxisLabels:
     def _reset_tuples(self) -> None: ...
 
     def _set_axis_name_labels(self) -> None: ...
+
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
 
     def get_line_edit_labels(self) -> tuple[str, ...]:
         return tuple(
@@ -350,6 +365,9 @@ class AxisTranslations:
 
     def _set_axis_name_labels(self) -> None: ...
 
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
+
     def _on_spinbox_value_changed(self) -> None:
         spin_box_values: tuple[float, ...] = self._get_spin_box_values()
         set_axes_translations(
@@ -499,6 +517,9 @@ class AxisScales:
             )
 
     def _set_axis_name_labels(self) -> None: ...
+
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
 
     def _on_axis_scale_spin_box_adjusted(self) -> None:
         spin_box_values: tuple[float, ...] = self.get_spin_box_values()
@@ -721,6 +742,9 @@ class AxisUnits:
             )
 
     def _set_axis_name_labels(self) -> None: ...
+
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
 
     def _on_type_combobox_changed(self) -> None: ...
 

@@ -21,6 +21,7 @@ class AxisComponent(Protocol):
 
     _selected_layer: 'Layer | None'
     _axis_name_labels_tuple: tuple[QLabel, ...]
+    _inherit_checkbox_tuple: tuple[QCheckBox, ...]
 
     def __init__(
         self, napari_viewer: 'ViewerModel', main_widget: QWidget
@@ -33,6 +34,7 @@ class AxisComponent(Protocol):
     ]: ...
     def _reset_tuples(self) -> None: ...
     def _set_axis_name_labels(self) -> None: ...
+    def _set_checkboxes_visibility(self, visible: bool) -> None: ...
 
 
 """This protocol is made to store the general metadata components that are not the axis components. They differn from the axis components
