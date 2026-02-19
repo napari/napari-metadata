@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/napari/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/napari/napari-metadata)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-metadata)](https://napari-hub.org/plugins/napari-metadata)
 
-napari-metadata is a [napari] plugin that visually exposes the functionality of napari's handling of layer metadata by directly connecting with the public API of napari layers.
+napari-metadata is a [napari](https://napari.org) plugin that visually exposes the functionality of napari's handling of layer metadata by directly connecting with the public API of napari layers.
 
 > [!NOTE]
 > This plugin is in active development. *You should not depend on any API, as it is likely to change*. Instead, understand that this plugin intends to serve as a GUI to manage already available public API of napari layers.
@@ -44,16 +44,9 @@ The Axes Inheritance widget can be used to propagate axes metadata from one laye
 
 ## Contributing
 
-Contributions are very welcome. Fork or clone this repository directly and install in editable mode for development:
-
-```bash
-pip install -e . --group dev
-```
-
-Tests can be run with [tox], please ensure
-the coverage at least stays the same before you submit a pull request.
+Contributions are very welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for details.
 
 ## License
 
-Distributed under the terms of the [BSD-3] license,
+Distributed under the terms of the [BSD-3](https://opensource.org/licenses/BSD-3-Clause) license,
 "napari-metadata" is free and open source software
