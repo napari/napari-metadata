@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 # Only allow one docs build at a time so that overlapping stale builds will get
@@ -52,6 +55,8 @@ jobs:
         name: github-pages
         path: docs/_build
 
+    # Deploy only on pushes to main, not on PRs
     - name: Deploy to GitHub Pages
+      if: github.event_name == 'push'
       id: deployment
       uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
