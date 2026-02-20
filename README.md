@@ -25,7 +25,7 @@ pip install napari-metadata
 
 This plugin adds a dock widget to napari that allows you to view and edit metadata for each layer in your napari viewer. The widget is intended to be used in the typical vertical widget layout and additionally is designed to work great in a horizontal layout.
 
-![horizontal layout of metadata widget](https://raw.githubusercontent.com/napari/napari-metadata/main/resources/horizontal-widget.png)
+![horizontal layout of metadata widget](https://raw.githubusercontent.com/napari/napari-metadata/main/docs/images/horizontal-widget.png)
 
 ### File Metadata
 
