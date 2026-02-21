@@ -59,6 +59,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/.jupyter_cache/
+docs/jupyter_execute/
 
 # MkDocs documentation
 /site/
@@ -82,3 +84,6 @@ venv/
 
 # written by setuptools_scm
 **/_version.py
+
+# lock files
+pixi.lock

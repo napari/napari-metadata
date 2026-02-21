@@ -37,7 +37,7 @@ dynamic = ["version"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/napari/napari-metadata/issues"
-"Documentation" = "https://github.com/napari/napari-metadata#README.md"
+"Documentation" = "https://napari.org/napari-metadata"
 "Source Code" = "https://github.com/napari/napari-metadata"
 "User Support" = "https://github.com/napari/napari-metadata/issues"
 
@@ -52,6 +52,15 @@ dev = [
     "coverage>7",
     "pytest-qt",
     "tox-uv",
+]
+docs = [
+    "sphinx>6",
+    "sphinx-autobuild",
+    "sphinx-external-toc",
+    "sphinx-copybutton",
+    "sphinx-favicon",
+    "myst-nb",
+    "napari-sphinx-theme>=0.3.0",
 ]
 
 [tool.setuptools]
@@ -103,3 +112,26 @@ source = [
     "napari_metadata",
 ]
 
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+napari-metadata = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+
+[tool.pixi.feature.docs.tasks.docs-clean]
+cmd = "rm -rf docs/_build"
+
+[tool.pixi.feature.docs.tasks.docs-build]
+cmd = "sphinx-build -b html docs/ docs/_build"
+env = { NAPARI_APPLICATION_IPY_INTERACTIVE = "0" }
+depends-on = ["docs-clean"]
+
+[tool.pixi.feature.docs.tasks.docs-live]
+cmd = "sphinx-autobuild -b html docs/ docs/_build --open-browser --port=0"
+env = { NAPARI_APPLICATION_IPY_INTERACTIVE = "0" }
