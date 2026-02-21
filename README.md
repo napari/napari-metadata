@@ -15,10 +15,16 @@ napari-metadata is a [napari](https://napari.org) plugin that visually exposes t
 
 ## Installation
 
-You can install `napari-metadata` via pip:
+You can install `napari-metadata` from PyPI:
 
 ```bash
 pip install napari-metadata
+```
+
+or from conda-forge:
+
+```bash
+conda install napari-metadata
 ```
 
 ## Usage
