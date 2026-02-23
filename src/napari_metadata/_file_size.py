@@ -116,4 +116,4 @@ def directory_size(path: Union[str, Path]) -> int:
         raise RuntimeError(
             'Path provided is not a directory. Unable to get directory size.'
         )
-    return sum(file.stat().st_size for file in p.rglob('*'))
+    return sum(file.stat().st_size for file in p.rglob('*') if file.is_file())
