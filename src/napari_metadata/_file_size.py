@@ -80,10 +80,9 @@ def generate_display_size(layer: Layer) -> str:
         if (
             type(layer).__name__ == 'Shapes'
             or type(layer).__name__ == 'Surface'
+            or layer.multiscale is True
         ):
-            size = 0
-            for shape in layer.data:
-                size += shape.nbytes
+            size = sum(d.nbytes for d in layer.data)
         else:
             size = layer.data.nbytes
         suffix = ' (in memory)'
