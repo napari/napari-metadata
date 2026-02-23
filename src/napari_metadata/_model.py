@@ -45,13 +45,16 @@ def set_axes_labels(
         resolved_layer.axis_labels = axes_labels
 
 
+APPLICATION_REGISTRY: ApplicationRegistry = pint.get_application_registry()
+
+
 def get_pint_ureg() -> pint.registry.ApplicationRegistry:
-    return pint.get_application_registry()
+    return APPLICATION_REGISTRY
 
 
 def get_axes_units(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[pint.Unit | str, ...]:
+) -> tuple[pint.Unit | None, ...]:
     """Get axis units from the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
     return resolved_layer.units if resolved_layer is not None else ()
