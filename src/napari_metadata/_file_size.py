@@ -91,7 +91,7 @@ def generate_display_size(layer: Layer) -> str:
     return text
 
 
-def directory_size(path: Union[str, Path]) -> str:
+def directory_size(path: Union[str, Path]) -> int:
     """Recursively walk a directory and add up total size on disk in bytes.
     Note that the napari-ome-zarr plugin doesn't store the path to a local
     zarr file. Until this is resolved, this will be unused.
