@@ -1,47 +1,44 @@
+from enum import Enum
 from typing import TYPE_CHECKING, cast
+
+import pint
+from pint.registry import ApplicationRegistry
 
 from napari_metadata._model import (
     resolve_layer,
-    get_layer_data_shape,
-    get_layer_data_dtype,
-    get_layer_source_path,
     get_axes_labels,
     get_layer_dimensions,
     get_axes_scales,
     get_axes_translations,
     get_axes_units,
+    get_pint_ureg,
     set_axes_translations,
     set_axes_labels,
     set_axes_scales,
     set_axes_units,
 )
 
-from napari_metadata._file_size import generate_display_size
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
-from napari_metadata._axis_type import AxisType
+from napari_metadata._axis_type import AxisType, PossibleUnitEnum
 
 from qtpy.QtWidgets import (
     QLabel,
     QWidget,
     QLineEdit,
     QDoubleSpinBox,
-    QSizePolicy,
-    QTextEdit,
     QCheckBox,
     QComboBox,
     QAbstractSpinBox,
 )
-from qtpy.QtCore import Qt, QSize, QSignalBlocker
-from qtpy.QtGui import QFontMetrics
+from qtpy.QtCore import Qt, QSignalBlocker
 
 from napari_metadata._protocols import (
-    AxisComponent,
     MetadataWidgetAPI,
-    MetadataComponent,
+    AxesMetadataComponentsInstanceAPI,
+    AxisComponent,
 )
-
-from napari.utils.notifications import show_info
+from napari.utils.notifications import show_error
 
 if TYPE_CHECKING:
     from napari.viewer import ViewerModel
@@ -50,426 +47,82 @@ if TYPE_CHECKING:
 INHERIT_STRING = ''
 
 
-METADATA_COMPONENTS_DICT: dict[str, type[MetadataComponent]] = {}
+AXIS_METADATA_COMPONENTS_DICT: dict[str, type[AxisComponent]] = {}
 
 """ This decorator is used to register the MetadataComponent class in the METADATA_COMPONENTS_DICT dictionary."""
 
 
-def _metadata_component(
-    _setting_class: type[MetadataComponent],
-) -> type[MetadataComponent]:
-    METADATA_COMPONENTS_DICT[_setting_class.__name__] = _setting_class
+def _axis_metadata_component(
+    _setting_class: type[AxisComponent],
+) -> type[AxisComponent]:
+    def reset_tuples_injection(self: AxisComponent) -> None:
+        tuple_names = [name for name in vars(self) if name.endswith('_tuple')]
+        if not tuple_names:
+            return
+        current_tuple_values = tuple(
+            getattr(self, tuple_name) for tuple_name in tuple_names
+        )
+        new_values = _reset_widget_tuples(*current_tuple_values)
+        for tuple_name, new_value in zip(tuple_names, new_values, strict=True):
+            setattr(self, tuple_name, new_value)
+
+    _setting_class._reset_tuples = reset_tuples_injection
+
+    def set_axis_name_labels_injection(self: AxisComponent) -> None:
+        if self._component_name == 'AxisLabels':
+            return
+        current_axis_names: tuple[str, ...] = get_axes_labels(
+            self._napari_viewer
+        )
+        for axis_index, axis_label in enumerate(current_axis_names):
+            current_axis_name_label = self._axis_name_labels_tuple[axis_index]
+            if axis_label == '':
+                current_axis_name_label.setText(f'{axis_index}')
+            else:
+                current_axis_name_label.setText(axis_label)
+
+    _setting_class._set_axis_name_labels = set_axis_name_labels_injection
+
+    def set_checkboxes_visibility_injection(
+        self: AxisComponent, visible: bool
+    ) -> None:
+        checkbox_tuple = self._inherit_checkbox_tuple
+        for checkbox in checkbox_tuple:
+            checkbox.setVisible(visible)
+        self._component_qlabel.setVisible(visible)
+
+    _setting_class._set_checkboxes_visibility = (
+        set_checkboxes_visibility_injection
+    )
+
+    AXIS_METADATA_COMPONENTS_DICT[_setting_class.__name__] = _setting_class
     return _setting_class
-
-
-@_metadata_component
-class LayerNameComponent:
-    _component_name: str
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'GeneralMetadata'
-
-    _layer_name_line_edit: QLineEdit
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('Layer Name:')
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        layer_name_line_edit = QLineEdit()
-        self._layer_name_line_edit = layer_name_line_edit
-        layer_name_line_edit.setSizePolicy(
-            QSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
-            )
-        )
-        self._component_name = 'LayerName'
-
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_name_line_edit.setText('None selected')  # type: ignore
-            return
-        self._layer_name_line_edit.setText(active_layer.name)  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerName'] = (
-                self._layer_name_line_edit,
-                1,
-                2,
-                '_on_name_line_changed',
-                Qt.AlignmentFlag.AlignTop,
-            )  # type: ignore
-        else:
-            returning_dict['LayerName'] = (
-                self._layer_name_line_edit,
-                1,
-                3,
-                '_on_name_line_changed',
-                Qt.AlignmentFlag.AlignTop,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return layout_mode == 'vertical'
-
-
-@_metadata_component
-class LayerShapeComponent:
-    _component_name: str
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'GeneralMetadata'
-
-    _layer_shape_label: QLabel
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('Layer Shape:')
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        shape_label: QLabel = QLabel('None selected')
-        shape_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layer_shape_label = shape_label
-
-        self._component_name = 'LayerShape'
-
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_shape_label.setText('None selected')  # type: ignore
-            return
-        self._layer_shape_label.setText(
-            str(get_layer_data_shape(active_layer))
-        )  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerShape'] = (
-                self._layer_shape_label,
-                1,
-                1,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        else:
-            returning_dict['LayerShape'] = (
-                self._layer_shape_label,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return False
-
-
-@_metadata_component
-class LayerDataTypeComponent:
-    _component_name: str
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'GeneralMetadata'
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('Layer DataType:')
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        data_type_label: QLabel = QLabel('None selected')
-        data_type_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layer_data_type_label = data_type_label
-
-        self._component_name = 'LayerDataType'
-
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_data_type_label.setText('None selected')  # type: ignore
-            return
-        self._layer_data_type_label.setText(
-            str(get_layer_data_dtype(active_layer))
-        )  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerDataType'] = (
-                self._layer_data_type_label,
-                1,
-                1,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        else:
-            returning_dict['LayerDataType'] = (
-                self._layer_data_type_label,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return False
-
-
-@_metadata_component
-class LayerFileSizeComponent:
-    _component_name: str
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'GeneralMetadata'
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('File Size:')
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        file_size_label: QLabel = QLabel('None selected')
-        file_size_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layer_file_size_label = file_size_label
-
-        self._component_name = 'LayerFileSize'
-
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_file_size_label.setText('None selected')  # type: ignore
-            return
-        self._layer_file_size_label.setText(
-            str(generate_display_size(active_layer))
-        )  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerFileSize'] = (
-                self._layer_file_size_label,
-                1,
-                1,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        else:
-            returning_dict['LayerFileSize'] = (
-                self._layer_file_size_label,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return False
-
-
-@_metadata_component
-class SourcePathComponent:
-    _component_name: str
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'GeneralMetadata'
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
-    ) -> None:
-        self._component_name = 'SourcePath'
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('Source Path:')
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        source_path_text_edit: SingleLineTextEdit = SingleLineTextEdit()
-        source_path_text_edit.setPlainText('None selected')
-        source_path_text_edit.setReadOnly(True)
-        source_path_text_edit.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        source_path_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        self._source_path_text_edit = source_path_text_edit
-
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._source_path_text_edit.setPlainText('None selected')  # type: ignore
-            font_metrics = QFontMetrics(self._source_path_text_edit.font())
-            self._source_path_text_edit.setMaximumHeight(
-                font_metrics.height() + 30
-            )
-            return
-        self._source_path_text_edit.setPlainText(
-            str(get_layer_source_path(active_layer))
-        )  # type: ignore
-        font_metrics = QFontMetrics(self._source_path_text_edit.font())
-        self._source_path_text_edit.setMaximumHeight(
-            font_metrics.height() + 30
-        )
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['SourcePath'] = (
-                self._source_path_text_edit,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignVCenter,
-            )  # type: ignore
-        else:
-            returning_dict['SourcePath'] = (
-                self._source_path_text_edit,
-                1,
-                3,
-                '',
-                Qt.AlignmentFlag.AlignTop,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return layout_mode == 'vertical'
-
-
-""" This is the class that integrates all of the general metadata components together and instantiates them. This class itself
-is instantiated in the MetadataWidgetAPI class, which is ultimately the main class passed to napari. This class will only hold the
-components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes."""
-
-
-class FileGeneralMetadata:
-    _napari_viewer: 'ViewerModel'
-    _main_widget: QWidget
-    _file_metadata_components_dict: dict[str, MetadataComponent]
-
-    def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-        self._file_metadata_components_dict: dict[str, MetadataComponent] = {}
-
-        for (
-            metadata_comp_name,
-            metadata_component_class,
-        ) in METADATA_COMPONENTS_DICT.items():
-            if metadata_component_class.SUBMENU == 'GeneralMetadata':
-                self._file_metadata_components_dict[metadata_comp_name] = (
-                    metadata_component_class(napari_viewer, main_widget)
-                )
-
-
-class SingleLineTextEdit(QTextEdit):
-    def sizeHint(self):
-        font_metrics = QFontMetrics(self.font())
-        return QSize(50, font_metrics.height())
-
-    def maximumHeight(self) -> int:
-        font_metrics = QFontMetrics(self.font())
-        return font_metrics.height() + 6
 
 
 AXES_ENTRIES_DICT: dict[str, type[AxisComponent]] = {}
 
 
-@_metadata_component
+def _reset_widget_tuples(*args: tuple[QWidget, ...]):
+    for tuple_of_widgets in args:
+        for widget in tuple_of_widgets:
+            widget.setParent(None)
+            widget.deleteLater()
+    return tuple(() for _ in range(len(args)))
+
+
+@_axis_metadata_component
 class AxisLabels:
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
     _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'AxisMetadata'
 
-    _index_labels_tuple: tuple[QLabel, ...]
+    _axis_name_labels_tuple: tuple[QLabel, ...]
     _name_line_edit_tuple: tuple[QLineEdit, ...]
     _inherit_checkbox_tuple: tuple[QCheckBox, ...]
+    _selected_layer: 'Layer | None'
 
     _NAME_LINE_EDIT_CALLING_METHOD = '_on_axis_labels_lines_edited'
-
-    _selected_layer: 'Layer | None'
 
     def __init__(
         self, napari_viewer: 'ViewerModel', main_widget: QWidget
@@ -481,57 +134,56 @@ class AxisLabels:
         component_qlabel.setStyleSheet('font-weight: bold')
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
-        self._under_label = False
         self._selected_layer = None
 
-        self._index_labels_tuple = ()
+        self._axis_name_labels_tuple = ()
         self._name_line_edit_tuple = ()
         self._inherit_checkbox_tuple = ()
 
     def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-
+        active_layer: Layer | None = resolve_layer(self._napari_viewer, layer)
         if active_layer != self._selected_layer or active_layer is None:
             self._reset_tuples()
             self._create_tuples(active_layer)
             return
-
         layer_labels = get_axes_labels(self._napari_viewer, active_layer)  # type: ignore
         for i in range(len(layer_labels)):
             with QSignalBlocker(self._name_line_edit_tuple[i]):
                 self._name_line_edit_tuple[i].setText(layer_labels[i])
 
     def get_entries_dict(
-        self, layout_mode: str
+        self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
-        for i in range(len(self._index_labels_tuple)):
+        for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['index_label'] = (
-                self._index_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['name_line_edit'] = (
-                self._name_line_edit_tuple[i],
+                [self._name_line_edit_tuple[i]],
                 1,
                 1,
                 self._NAME_LINE_EDIT_CALLING_METHOD,
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -539,24 +191,17 @@ class AxisLabels:
             )
         return returning_dict
 
-    def get_under_label(self, layout_mode: str) -> bool:
-        return False
+    def _reset_tuples(self) -> None: ...
+
+    def _set_axis_name_labels(self) -> None: ...
+
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
 
     def get_line_edit_labels(self) -> tuple[str, ...]:
         return tuple(
             self._name_line_edit_tuple[i].text()
             for i in range(len(self._name_line_edit_tuple))
-        )
-
-    def _reset_tuples(self) -> None:
-        (
-            self._index_labels_tuple,
-            self._name_line_edit_tuple,
-            self._inherit_checkbox_tuple,
-        ) = _reset_widget_tuples(
-            cast(tuple[QWidget, ...], self._index_labels_tuple),
-            cast(tuple[QWidget, ...], self._name_line_edit_tuple),
-            cast(tuple[QWidget, ...], self._inherit_checkbox_tuple),
         )
 
     def _create_tuples(self, layer: 'Layer | None') -> None:
@@ -580,13 +225,28 @@ class AxisLabels:
             name_line_edit: QLineEdit = QLineEdit()
             name_line_edit.setText(layer_labels[i])
             setting_name_tuple += (name_line_edit,)
-        self._index_labels_tuple = setting_index_tuple
+        self._axis_name_labels_tuple = setting_index_tuple
         self._name_line_edit_tuple = setting_name_tuple
         self._inherit_checkbox_tuple = setting_inherit_checkbox_tuple
         self._selected_layer = layer
 
-        main_widget: MetadataWidgetAPI = self._main_widget  # type: ignore
-        main_widget.connect_axis_components(self)
+        for name_line_edit in self._name_line_edit_tuple:
+            name_line_edit.editingFinished.connect(
+                self._on_line_edit_finished_edited
+            )
+
+    def _on_line_edit_finished_edited(self) -> None:
+        line_edits_text: tuple[str, ...] = self.get_line_edit_labels()
+        set_axes_labels(
+            self._napari_viewer, line_edits_text, self._selected_layer
+        )
+        main_widget_api: MetadataWidgetAPI = cast(
+            MetadataWidgetAPI, self._main_widget
+        )
+        meta_data_instances: AxesMetadataComponentsInstanceAPI = (
+            main_widget_api.get_axes_metadata_instance()
+        )
+        meta_data_instances._update_axes_labels()
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
         current_layer: Layer | None = resolve_layer(self._napari_viewer)
@@ -609,14 +269,12 @@ class AxisLabels:
         self._selected_layer = None
 
 
-@_metadata_component
+@_axis_metadata_component
 class AxisTranslations:
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
     _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'AxisMetadata'
 
     _axis_name_labels_tuple: tuple[QLabel, ...]
     _translation_spinbox_tuple: tuple[QDoubleSpinBox, ...]
@@ -633,7 +291,6 @@ class AxisTranslations:
         component_qlabel.setStyleSheet('font-weight: bold')
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
-        self._under_label = False
         self._selected_layer = None
 
         self._axis_name_labels_tuple: tuple[QLabel, ...] = ()
@@ -641,12 +298,7 @@ class AxisTranslations:
         self._inherit_checkbox_tuple: tuple[QCheckBox, ...] = ()
 
     def load_entries(self, layer: 'Layer | None' = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-
+        active_layer = resolve_layer(self._napari_viewer, layer)
         if active_layer != self._selected_layer or active_layer is None:
             self._reset_tuples()
             self._create_tuples(active_layer)
@@ -654,7 +306,7 @@ class AxisTranslations:
 
         layer_translates = get_axes_translations(
             self._napari_viewer, active_layer
-        )  # type: ignore
+        )
         for i in range(len(layer_translates)):
             with QSignalBlocker(self._translation_spinbox_tuple[i]):
                 self._translation_spinbox_tuple[i].setValue(
@@ -662,32 +314,38 @@ class AxisTranslations:
                 )
 
     def get_entries_dict(
-        self, layout_mode: str
+        self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['axis_name_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['translate_spinbox'] = (
-                self._translation_spinbox_tuple[i],
+                [self._translation_spinbox_tuple[i]],
                 1,
                 1,
                 '_on_axis_translate_spin_box_adjusted',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -695,19 +353,7 @@ class AxisTranslations:
             )
         return returning_dict
 
-    def get_under_label(self, layout_mode: str) -> bool:
-        return False
-
-    def _reset_tuples(self) -> None:
-        (
-            self._axis_name_labels_tuple,
-            self._translation_spinbox_tuple,
-            self._inherit_checkbox_tuple,
-        ) = _reset_widget_tuples(
-            cast(tuple[QWidget, ...], self._axis_name_labels_tuple),
-            cast(tuple[QWidget, ...], self._translation_spinbox_tuple),
-            cast(tuple[QWidget, ...], self._inherit_checkbox_tuple),
-        )
+    def _reset_tuples(self) -> None: ...
 
     def _create_tuples(self, layer: 'Layer | None') -> None:
         if layer is None or layer == self._selected_layer:
@@ -717,7 +363,7 @@ class AxisTranslations:
             return
         setting_name_tuple: tuple[QLabel, ...] = _get_axis_label_tuple(
             self._napari_viewer, layer
-        )  # type: ignore
+        )
         setting_translation_tuple: tuple[QDoubleSpinBox, ...] = (
             _get_double_spinbox_tuple(
                 self._napari_viewer,
@@ -728,7 +374,7 @@ class AxisTranslations:
                 1.0,
                 'none',
             )
-        )  # type: ignore
+        )
         setting_inherit_checkbox_tuple: tuple[QCheckBox, ...] = (
             _get_checkbox_tuple(layer)
         )
@@ -737,20 +383,23 @@ class AxisTranslations:
         self._inherit_checkbox_tuple = setting_inherit_checkbox_tuple
         self._selected_layer = layer
 
-        main_widget: MetadataWidgetAPI = self._main_widget  # type: ignore
-        main_widget.connect_axis_components(self)  # type: ignore
+        for translation_spinbox in self._translation_spinbox_tuple:
+            translation_spinbox.valueChanged.connect(
+                self._on_spinbox_value_changed
+            )
 
-    def set_line_edit_labels(self, axes_tuples: tuple[str, ...]) -> None:
-        if len(self._axis_name_labels_tuple) != len(axes_tuples):
-            show_info('Number of axes does not match number of labels')
-        for i in range(len(self._axis_name_labels_tuple)):
-            if self._axis_name_labels_tuple[i].text() != axes_tuples[i]:
-                if axes_tuples[i] == '':
-                    self._axis_name_labels_tuple[i].setText(f'{i}')
-                    continue
-                self._axis_name_labels_tuple[i].setText(axes_tuples[i])
+    def _set_axis_name_labels(self) -> None: ...
 
-    def get_spin_box_values(self) -> tuple[float, ...]:
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
+
+    def _on_spinbox_value_changed(self) -> None:
+        spin_box_values: tuple[float, ...] = self._get_spin_box_values()
+        set_axes_translations(
+            self._napari_viewer, spin_box_values, self._selected_layer
+        )
+
+    def _get_spin_box_values(self) -> tuple[float, ...]:
         return tuple(
             self._translation_spinbox_tuple[i].value()
             for i in range(len(self._translation_spinbox_tuple))
@@ -777,14 +426,12 @@ class AxisTranslations:
         self._selected_layer = None
 
 
-@_metadata_component
+@_axis_metadata_component
 class AxisScales:
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
     _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'AxisMetadata'
 
     _axis_name_labels_tuple: tuple[QLabel, ...]
     _scale_spinbox_tuple: tuple[QDoubleSpinBox, ...]
@@ -826,32 +473,38 @@ class AxisScales:
                 self._scale_spinbox_tuple[i].setValue(layer_scales[i])
 
     def get_entries_dict(
-        self, layout_mode: str
+        self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['axis_name_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['scale_spinbox'] = (
-                self._scale_spinbox_tuple[i],
+                [self._scale_spinbox_tuple[i]],
                 1,
                 1,
                 '_on_axis_scale_spin_box_adjusted',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -859,19 +512,7 @@ class AxisScales:
             )
         return returning_dict
 
-    def get_under_label(self, layout_mode: str) -> bool:
-        return False
-
-    def _reset_tuples(self) -> None:
-        (
-            self._axis_name_labels_tuple,
-            self._scale_spinbox_tuple,
-            self._inherit_checkbox_tuple,
-        ) = _reset_widget_tuples(
-            cast(tuple[QWidget, ...], self._axis_name_labels_tuple),
-            cast(tuple[QWidget, ...], self._scale_spinbox_tuple),
-            cast(tuple[QWidget, ...], self._inherit_checkbox_tuple),
-        )
+    def _reset_tuples(self) -> None: ...
 
     def _create_tuples(self, layer: 'Layer | None') -> None:
         if layer is None or layer == self._selected_layer:
@@ -901,18 +542,21 @@ class AxisScales:
         self._inherit_checkbox_tuple = setting_inherit_checkbox_tuple
         self._selected_layer = layer
 
-        main_widget: MetadataWidgetAPI = self._main_widget  # type: ignore
-        main_widget.connect_axis_components(self)  # type: ignore
+        for scale_spinbox in self._scale_spinbox_tuple:
+            scale_spinbox.valueChanged.connect(
+                self._on_axis_scale_spin_box_adjusted
+            )
 
-    def set_line_edit_labels(self, axes_tuples: tuple[str, ...]) -> None:
-        if len(self._axis_name_labels_tuple) != len(axes_tuples):
-            show_info('Number of axes does not match number of labels')
-        for i in range(len(self._axis_name_labels_tuple)):
-            if self._axis_name_labels_tuple[i].text() != axes_tuples[i]:
-                if axes_tuples[i] == '':
-                    self._axis_name_labels_tuple[i].setText(f'{i}')
-                    continue
-                self._axis_name_labels_tuple[i].setText(axes_tuples[i])
+    def _set_axis_name_labels(self) -> None: ...
+
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
+
+    def _on_axis_scale_spin_box_adjusted(self) -> None:
+        spin_box_values: tuple[float, ...] = self.get_spin_box_values()
+        set_axes_scales(
+            self._napari_viewer, spin_box_values, self._selected_layer
+        )
 
     def get_spin_box_values(self) -> tuple[float, ...]:
         return tuple(
@@ -941,18 +585,17 @@ class AxisScales:
         self._selected_layer = None
 
 
-@_metadata_component
+@_axis_metadata_component
 class AxisUnits:
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
     _component_qlabel: QLabel
-    _under_label: bool
-    SUBMENU: str = 'AxisMetadata'
 
     _axis_name_labels_tuple: tuple[QLabel, ...]
     _type_combobox_tuple: tuple[QComboBox, ...]
     _unit_combobox_tuple: tuple[QComboBox, ...]
+    _unit_line_edit_tuple: tuple[QLineEdit, ...]
     _inherit_checkbox_tuple: tuple[QCheckBox, ...]
     _selected_layer: 'Layer | None'
 
@@ -966,7 +609,6 @@ class AxisUnits:
         component_qlabel.setStyleSheet('font-weight: bold')
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
-        self._under_label = False
         self._selected_layer = None
 
         self._axis_name_labels_tuple: tuple[QLabel, ...] = ()
@@ -1023,41 +665,49 @@ class AxisUnits:
                         self._type_combobox_tuple[i].setCurrentIndex(
                             self._type_combobox_tuple[i].findText('string')
                         )
+            self._update_unit_line_edits_texts()
+            self._update_units_visibilities()
 
     def get_entries_dict(
-        self, layout_mode: str
+        self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['axis_name_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['type_combobox'] = (
-                self._type_combobox_tuple[i],
+                [self._type_combobox_tuple[i]],
                 1,
                 1,
                 '_on_type_combobox_changed',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['unit_combobox'] = (
-                self._unit_combobox_tuple[i],
+                [self._unit_combobox_tuple[i], self._unit_line_edit_tuple[i]],
                 1,
                 1,
                 '_on_unit_combobox_changed',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -1065,21 +715,7 @@ class AxisUnits:
             )
         return returning_dict
 
-    def get_under_label(self, layout_mode: str) -> bool:
-        return False
-
-    def _reset_tuples(self) -> None:
-        (
-            self._axis_name_labels_tuple,
-            self._type_combobox_tuple,
-            self._unit_combobox_tuple,
-            self._inherit_checkbox_tuple,
-        ) = _reset_widget_tuples(
-            self._axis_name_labels_tuple,
-            self._type_combobox_tuple,
-            self._unit_combobox_tuple,
-            self._inherit_checkbox_tuple,
-        )
+    def _reset_tuples(self) -> None: ...
 
     def _create_tuples(self, layer: 'Layer | None') -> None:
         if layer is None or layer == self._selected_layer:
@@ -1089,77 +725,206 @@ class AxisUnits:
             return
         setting_name_tuple: tuple[QLabel, ...] = _get_axis_label_tuple(
             self._napari_viewer, layer
-        )  # type: ignore
+        )
         setting_type_combobox_tuple: tuple[QComboBox, ...] = ()
         setting_unit_combobox_tuple: tuple[QComboBox, ...] = ()
+        setting_unit_line_edit_tuple: tuple[QLineEdit, ...] = ()
         setting_inherit_checkbox_tuple: tuple[QCheckBox, ...] = (
             _get_checkbox_tuple(layer)
         )
-        layer_units: tuple[pint.Unit, ...] = get_axes_units(
+        layer_units: tuple[pint.Unit | None, ...] = get_axes_units(
             self._napari_viewer, layer
-        )  # type: ignore
+        )
         for i in range(layer_dimensions):
             setting_unit_string: str = str(layer_units[i])
             setting_type_combobox: QComboBox = QComboBox()
-            setting_type_combobox.addItems(AxisType.names())
             setting_unit_combobox: QComboBox = QComboBox()
-            if setting_unit_string in SpaceUnits.names():
-                setting_unit_combobox.addItems(SpaceUnits.names())
-                setting_unit_combobox.setCurrentIndex(
-                    setting_unit_combobox.findText(setting_unit_string)
-                )
-                setting_type_combobox.setCurrentIndex(
-                    setting_type_combobox.findText('space')
-                )
-            elif setting_unit_string in TimeUnits.names():
-                setting_unit_combobox.addItems(TimeUnits.names())
-                setting_unit_combobox.setCurrentIndex(
-                    setting_unit_combobox.findText(setting_unit_string)
-                )
-                setting_type_combobox.setCurrentIndex(
-                    setting_type_combobox.findText('time')
-                )
+            setting_unit_line_edit: QLineEdit = QLineEdit()
+            for axis_type in AxisType:
+                setting_type_combobox.addItem(str(axis_type), axis_type)
+            setting_axis_type: AxisType | None = self._set_unit_combobox(
+                setting_unit_string, setting_unit_combobox
+            )
+            if setting_axis_type is None:
+                setting_index = setting_type_combobox.findData(AxisType.STRING)
             else:
-                setting_unit_combobox.addItems(TimeUnits.names())
-                setting_unit_combobox.addItems(SpaceUnits.names())
-                setting_unit_combobox.setCurrentIndex(
-                    setting_unit_combobox.findText('none')
+                setting_index = setting_type_combobox.findData(
+                    setting_axis_type
                 )
-                setting_type_combobox.setCurrentIndex(
-                    setting_type_combobox.findText('string')
-                )
+            setting_type_combobox.setCurrentIndex(setting_index)
             setting_type_combobox_tuple += (setting_type_combobox,)
             setting_unit_combobox_tuple += (setting_unit_combobox,)
+            setting_unit_line_edit_tuple += (setting_unit_line_edit,)
         self._axis_name_labels_tuple = setting_name_tuple
         self._type_combobox_tuple = setting_type_combobox_tuple
         self._unit_combobox_tuple = setting_unit_combobox_tuple
+        self._unit_line_edit_tuple = setting_unit_line_edit_tuple
         self._inherit_checkbox_tuple = setting_inherit_checkbox_tuple
         self._selected_layer = layer
 
-        main_widget: MetadataWidgetAPI = self._main_widget  # type: ignore
-        main_widget.connect_axis_components(self)  # type: ignore
+        for type_combobox in self._type_combobox_tuple:
+            type_combobox.currentIndexChanged.connect(
+                self._on_type_combobox_changed
+            )
+        for unit_combobox in self._unit_combobox_tuple:
+            unit_combobox.currentIndexChanged.connect(
+                self._on_unit_combobox_changed
+            )
+        for line_edit in self._unit_line_edit_tuple:
+            line_edit.editingFinished.connect(self._on_unit_combobox_changed)
 
-    def set_line_edit_labels(self, axes_tuples: tuple[str, ...]) -> None:
-        if len(self._axis_name_labels_tuple) != len(axes_tuples):
-            show_info('Number of axes does not match number of labels')
-        for i in range(len(self._axis_name_labels_tuple)):
-            if self._axis_name_labels_tuple[i].text() != axes_tuples[i]:
-                if axes_tuples[i] == '':
-                    self._axis_name_labels_tuple[i].setText(f'{i}')
+        self._update_units_visibilities()
+        self._update_unit_line_edits_texts()
+
+    def _update_units_visibilities(self) -> None:
+        number_of_axis: int = len(self._axis_name_labels_tuple)
+        for axis_index in range(number_of_axis):
+            type_combobox: QComboBox = self._type_combobox_tuple[axis_index]
+            unit_combobox: QComboBox = self._unit_combobox_tuple[axis_index]
+            unit_line_edit: QLineEdit = self._unit_line_edit_tuple[axis_index]
+            axis_type: AxisType | None = type_combobox.currentData()
+            if axis_type is None:
+                unit_combobox.setVisible(False)
+                unit_line_edit.setVisible(True)
+            if axis_type == AxisType.STRING:
+                unit_combobox.setVisible(False)
+                unit_line_edit.setVisible(True)
+            else:
+                unit_combobox.setVisible(True)
+                unit_line_edit.setVisible(False)
+
+    def _set_unit_combobox(
+        self, unit_type_string: str | None, combobox: QComboBox
+    ) -> AxisType | None:
+        with QSignalBlocker(combobox):
+            combobox.clear()
+        combined_pint_units_list: list[pint.Unit] = []
+        found_type: AxisType | None = None
+        for axis_type in AxisType:
+            type_enum: PossibleUnitEnum | None = axis_type.unit_enum()
+            if type_enum is None:
+                continue
+            combined_pint_units_list.extend(type_enum.pint_units())
+            if (
+                unit_type_string is not None
+                and unit_type_string in type_enum.names()
+            ):
+                found_type = axis_type
+        if found_type is not None:
+            chosen_enum = found_type.unit_enum()
+            if chosen_enum is None:
+                return AxisType.STRING
+            pint_units = chosen_enum.pint_units()
+        else:
+            pint_units = combined_pint_units_list
+        applicatin_reg: ApplicationRegistry = get_pint_ureg()
+        with QSignalBlocker(combobox):
+            combobox.addItem('none', None)
+            for pint_unit in pint_units:
+                combobox.addItem(str(pint_unit), pint_unit)
+            if found_type is None:
+                combobox.setCurrentIndex(0)
+            else:
+                setting_pint_unit: pint.Unit = applicatin_reg.Unit(
+                    unit_type_string
+                )
+                index: int = combobox.findText(str(setting_pint_unit))
+                combobox.setCurrentIndex(index)
+        return found_type
+
+    def _set_axis_name_labels(self) -> None: ...
+
+    def _set_checkboxes_visibility(self, visible: bool) -> None:
+        _ = visible
+
+    def _set_current_combobox_units_to_layer(self) -> None:
+        units_list: list[str] = []
+        number_of_axis: int = len(self._axis_name_labels_tuple)
+        for axis_index in range(number_of_axis):
+            type_combobox: QComboBox = self._type_combobox_tuple[axis_index]
+            unit_combobox: QComboBox = self._unit_combobox_tuple[axis_index]
+            unit_line_edit: QLineEdit = self._unit_line_edit_tuple[axis_index]
+            axis_type: AxisType | None = type_combobox.currentData()
+            pint_unit_text: str | None = None
+            if axis_type is None:
+                pint_unit_text = None
+                units_list.append(None)  # type: ignore
+                continue
+            elif axis_type == AxisType.STRING:
+                line_edit_text: str = unit_line_edit.text()
+                if line_edit_text.strip().lower() == 'none':
+                    units_list.append(None)  # type: ignore
                     continue
-                self._axis_name_labels_tuple[i].setText(axes_tuples[i])
+                units_list.append(line_edit_text)
+                continue
+            pint_unit_text = unit_combobox.currentText()
+            if pint_unit_text.strip().lower() == 'none':
+                units_list.append(None)  # type: ignore
+                continue
+            units_list.append(pint_unit_text)
+        try:
+            set_axes_units(self._napari_viewer, tuple(units_list))
+        except (AttributeError, ValueError):
+            show_error(
+                f'The layer units {units_list} has no pint.Unit equivalents'
+            )
+        self._update_unit_line_edits_texts()
+
+    def _on_type_combobox_changed(self) -> None:
+        number_of_axis: int = len(self._axis_name_labels_tuple)
+        current_units: tuple[pint.Unit | None, ...] = get_axes_units(
+            self._napari_viewer, resolve_layer(self._napari_viewer)
+        )
+        for axis_number in range(number_of_axis):
+            type_combobox: QComboBox = self._type_combobox_tuple[axis_number]
+            unit_combobox: QComboBox = self._unit_combobox_tuple[axis_number]
+            current_unit = str(current_units[axis_number])
+            axis_type = type_combobox.currentData()
+            if not isinstance(axis_type, AxisType):
+                continue
+            unit_enum = axis_type.unit_enum()
+            with QSignalBlocker(unit_combobox):
+                unit_combobox.clear()
+                unit_combobox.addItem('none', None)
+                if unit_enum is not None:
+                    for unit in unit_enum.pint_units():
+                        unit_combobox.addItem(str(unit), unit)
+                setting_index: int = unit_combobox.findText(current_unit)
+                if setting_index == -1 and unit_enum is not None:
+                    setting_index = unit_combobox.findText(
+                        unit_enum.default_unit()
+                    )
+                unit_combobox.setCurrentIndex(setting_index)
+        self._set_current_combobox_units_to_layer()
+        self._update_units_visibilities()
+
+    def _update_unit_line_edits_texts(self) -> None:
+        current_units = get_axes_units(
+            self._napari_viewer, resolve_layer(self._napari_viewer)
+        )
+        number_of_axis: int = len(self._axis_name_labels_tuple)
+        for axis_index in range(number_of_axis):
+            unit_line_edit = self._unit_line_edit_tuple[axis_index]
+            with QSignalBlocker(unit_line_edit):
+                unit_line_edit.setText(str(current_units[axis_index]))
+
+    def _on_unit_combobox_changed(self) -> None:
+        self._set_current_combobox_units_to_layer()
+        self._update_units_visibilities()
+        return
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
         current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
             return
-        current_layer_units: tuple[float, ...] = get_axes_units(
+        self._set_axis_name_labels()
+        current_layer_units: tuple[pint.Unit | None, ...] = get_axes_units(
             self._napari_viewer, current_layer
-        )  # type: ignore
-        template_units: tuple[float, ...] = get_axes_units(
+        )
+        template_units: tuple[pint.Unit | None, ...] = get_axes_units(
             self._napari_viewer, template_layer
-        )  # type: ignore
-        setting_units: list[float] = []
+        )
+        setting_units: list[pint.Unit | None] = []
         checkbox_list: tuple[QCheckBox, ...] = self._inherit_checkbox_tuple
         for i in range(len(checkbox_list)):
             if checkbox_list[i].isChecked():
@@ -1167,15 +932,6 @@ class AxisUnits:
             else:
                 setting_units.append(current_layer_units[i])
         set_axes_units(self._napari_viewer, tuple(setting_units))  # type: ignore
-        self._selected_layer = None
-
-
-def _reset_widget_tuples(*args: tuple[QWidget, ...]):
-    for tuple_of_widgets in args:
-        for widget in tuple_of_widgets:
-            widget.setParent(None)
-            widget.deleteLater()
-    return tuple(() for _ in range(len(args)))
 
 
 def _get_axis_label_tuple(
@@ -1249,20 +1005,24 @@ components instances and everything else is handled in the MetadataWidgetAPI cla
 class AxisMetadata:
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
-    _axis_metadata_components_dict: dict[str, MetadataComponent]
+    _axis_metadata_components_dict: dict[str, AxisComponent]
 
     def __init__(
         self, napari_viewer: 'ViewerModel', main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
-        self._axis_metadata_components_dict: dict[str, MetadataComponent] = {}
+        self._axis_metadata_components_dict: dict[str, AxisComponent] = {}
 
         for (
             metadata_comp_name,
             metadata_component_class,
-        ) in METADATA_COMPONENTS_DICT.items():
-            if metadata_component_class.SUBMENU == 'AxisMetadata':
-                self._axis_metadata_components_dict[metadata_comp_name] = (
-                    metadata_component_class(napari_viewer, main_widget)
-                )
+        ) in AXIS_METADATA_COMPONENTS_DICT.items():
+            self._axis_metadata_components_dict[metadata_comp_name] = (
+                metadata_component_class(napari_viewer, main_widget)
+            )
+
+    def _update_axes_labels(self) -> None:
+        for axis_component in self._axis_metadata_components_dict.values():
+            cast_component: AxisComponent = cast(AxisComponent, axis_component)
+            cast_component._set_axis_name_labels()
