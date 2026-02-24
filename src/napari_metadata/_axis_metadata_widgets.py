@@ -38,6 +38,7 @@ from napari_metadata._protocols import (
     AxesMetadataComponentsInstanceAPI,
     AxisComponent,
 )
+from napari.utils.notifications import show_error
 
 if TYPE_CHECKING:
     from napari.viewer import ViewerModel
@@ -153,30 +154,36 @@ class AxisLabels:
     def get_entries_dict(
         self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['index_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['name_line_edit'] = (
-                self._name_line_edit_tuple[i],
+                [self._name_line_edit_tuple[i]],
                 1,
                 1,
                 self._NAME_LINE_EDIT_CALLING_METHOD,
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -309,30 +316,36 @@ class AxisTranslations:
     def get_entries_dict(
         self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['axis_name_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['translate_spinbox'] = (
-                self._translation_spinbox_tuple[i],
+                [self._translation_spinbox_tuple[i]],
                 1,
                 1,
                 '_on_axis_translate_spin_box_adjusted',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -462,30 +475,36 @@ class AxisScales:
     def get_entries_dict(
         self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+            dict[
+                str,
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
+            ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['axis_name_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['scale_spinbox'] = (
-                self._scale_spinbox_tuple[i],
+                [self._scale_spinbox_tuple[i]],
                 1,
                 1,
                 '_on_axis_scale_spin_box_adjusted',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -576,6 +595,7 @@ class AxisUnits:
     _axis_name_labels_tuple: tuple[QLabel, ...]
     _type_combobox_tuple: tuple[QComboBox, ...]
     _unit_combobox_tuple: tuple[QComboBox, ...]
+    _unit_line_edit_tuple: tuple[QLineEdit, ...]
     _inherit_checkbox_tuple: tuple[QCheckBox, ...]
     _selected_layer: 'Layer | None'
 
@@ -645,45 +665,49 @@ class AxisUnits:
                         self._type_combobox_tuple[i].setCurrentIndex(
                             self._type_combobox_tuple[i].findText('string')
                         )
+            self._update_unit_line_edits_texts()
+            self._update_units_visibilities()
 
     def get_entries_dict(
         self,
     ) -> dict[
         int,
-        dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]:
         returning_dict: dict[
             int,
             dict[
                 str,
-                tuple[QWidget, int, int, str, Qt.AlignmentFlag | None],
+                tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None],
             ],
         ] = {}
         for i in range(len(self._axis_name_labels_tuple)):
             returning_dict[i] = {}
             returning_dict[i]['axis_name_label'] = (
-                self._axis_name_labels_tuple[i],
+                [self._axis_name_labels_tuple[i]],
                 1,
                 1,
                 '',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['type_combobox'] = (
-                self._type_combobox_tuple[i],
+                [self._type_combobox_tuple[i]],
                 1,
                 1,
                 '_on_type_combobox_changed',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['unit_combobox'] = (
-                self._unit_combobox_tuple[i],
+                [self._unit_combobox_tuple[i], self._unit_line_edit_tuple[i]],
                 1,
                 1,
                 '_on_unit_combobox_changed',
                 Qt.AlignmentFlag.AlignVCenter,
             )
             returning_dict[i]['inherit_checkbox'] = (
-                self._inherit_checkbox_tuple[i],
+                [self._inherit_checkbox_tuple[i]],
                 1,
                 1,
                 '',
@@ -704,6 +728,7 @@ class AxisUnits:
         )
         setting_type_combobox_tuple: tuple[QComboBox, ...] = ()
         setting_unit_combobox_tuple: tuple[QComboBox, ...] = ()
+        setting_unit_line_edit_tuple: tuple[QLineEdit, ...] = ()
         setting_inherit_checkbox_tuple: tuple[QCheckBox, ...] = (
             _get_checkbox_tuple(layer)
         )
@@ -714,6 +739,7 @@ class AxisUnits:
             setting_unit_string: str = str(layer_units[i])
             setting_type_combobox: QComboBox = QComboBox()
             setting_unit_combobox: QComboBox = QComboBox()
+            setting_unit_line_edit: QLineEdit = QLineEdit()
             for axis_type in AxisType:
                 setting_type_combobox.addItem(str(axis_type), axis_type)
             setting_axis_type: AxisType | None = self._set_unit_combobox(
@@ -728,9 +754,11 @@ class AxisUnits:
             setting_type_combobox.setCurrentIndex(setting_index)
             setting_type_combobox_tuple += (setting_type_combobox,)
             setting_unit_combobox_tuple += (setting_unit_combobox,)
+            setting_unit_line_edit_tuple += (setting_unit_line_edit,)
         self._axis_name_labels_tuple = setting_name_tuple
         self._type_combobox_tuple = setting_type_combobox_tuple
         self._unit_combobox_tuple = setting_unit_combobox_tuple
+        self._unit_line_edit_tuple = setting_unit_line_edit_tuple
         self._inherit_checkbox_tuple = setting_inherit_checkbox_tuple
         self._selected_layer = layer
 
@@ -742,6 +770,28 @@ class AxisUnits:
             unit_combobox.currentIndexChanged.connect(
                 self._on_unit_combobox_changed
             )
+        for line_edit in self._unit_line_edit_tuple:
+            line_edit.editingFinished.connect(self._on_unit_combobox_changed)
+
+        self._update_units_visibilities()
+        self._update_unit_line_edits_texts()
+
+    def _update_units_visibilities(self) -> None:
+        number_of_axis: int = len(self._axis_name_labels_tuple)
+        for axis_index in range(number_of_axis):
+            type_combobox: QComboBox = self._type_combobox_tuple[axis_index]
+            unit_combobox: QComboBox = self._unit_combobox_tuple[axis_index]
+            unit_line_edit: QLineEdit = self._unit_line_edit_tuple[axis_index]
+            axis_type: AxisType | None = type_combobox.currentData()
+            if axis_type is None:
+                unit_combobox.setVisible(False)
+                unit_line_edit.setVisible(True)
+            if axis_type == AxisType.STRING:
+                unit_combobox.setVisible(False)
+                unit_line_edit.setVisible(True)
+            else:
+                unit_combobox.setVisible(True)
+                unit_line_edit.setVisible(False)
 
     def _set_unit_combobox(
         self, unit_type_string: str | None, combobox: QComboBox
@@ -791,44 +841,76 @@ class AxisUnits:
         units_list: list[str] = []
         number_of_axis: int = len(self._axis_name_labels_tuple)
         for axis_index in range(number_of_axis):
+            type_combobox: QComboBox = self._type_combobox_tuple[axis_index]
             unit_combobox: QComboBox = self._unit_combobox_tuple[axis_index]
-            pint_unit: pint.Unit | None = unit_combobox.currentData()
-            if pint_unit is None:
+            unit_line_edit: QLineEdit = self._unit_line_edit_tuple[axis_index]
+            axis_type: AxisType | None = type_combobox.currentData()
+            pint_unit_text: str | None = None
+            if axis_type is None:
+                pint_unit_text = None
                 units_list.append(None)  # type: ignore
                 continue
-            units_list.append(str(pint_unit))
-        set_axes_units(self._napari_viewer, tuple(units_list))
+            elif axis_type == AxisType.STRING:
+                line_edit_text: str = unit_line_edit.text()
+                if line_edit_text.strip().lower() == 'none':
+                    units_list.append(None)  # type: ignore
+                    continue
+                units_list.append(line_edit_text)
+                continue
+            pint_unit_text = unit_combobox.currentText()
+            if pint_unit_text.strip().lower() == 'none':
+                units_list.append(None)  # type: ignore
+                continue
+            units_list.append(pint_unit_text)
+        try:
+            set_axes_units(self._napari_viewer, tuple(units_list))
+        except (AttributeError, ValueError):
+            show_error(
+                f'The layer units {units_list} has no pint.Unit equivalents'
+            )
+        self._update_unit_line_edits_texts()
 
     def _on_type_combobox_changed(self) -> None:
         number_of_axis: int = len(self._axis_name_labels_tuple)
+        current_units: tuple[pint.Unit | None, ...] = get_axes_units(
+            self._napari_viewer, resolve_layer(self._napari_viewer)
+        )
         for axis_number in range(number_of_axis):
             type_combobox: QComboBox = self._type_combobox_tuple[axis_number]
             unit_combobox: QComboBox = self._unit_combobox_tuple[axis_number]
-
+            current_unit = str(current_units[axis_number])
             axis_type = type_combobox.currentData()
             if not isinstance(axis_type, AxisType):
                 continue
             unit_enum = axis_type.unit_enum()
-
-            previous_unit_combobox_text: str = unit_combobox.currentText()
             with QSignalBlocker(unit_combobox):
                 unit_combobox.clear()
                 unit_combobox.addItem('none', None)
                 if unit_enum is not None:
                     for unit in unit_enum.pint_units():
                         unit_combobox.addItem(str(unit), unit)
-                setting_index: int = unit_combobox.findText(
-                    previous_unit_combobox_text
-                )
+                setting_index: int = unit_combobox.findText(current_unit)
                 if setting_index == -1 and unit_enum is not None:
                     setting_index = unit_combobox.findText(
                         unit_enum.default_unit()
                     )
                 unit_combobox.setCurrentIndex(setting_index)
         self._set_current_combobox_units_to_layer()
+        self._update_units_visibilities()
+
+    def _update_unit_line_edits_texts(self) -> None:
+        current_units = get_axes_units(
+            self._napari_viewer, resolve_layer(self._napari_viewer)
+        )
+        number_of_axis: int = len(self._axis_name_labels_tuple)
+        for axis_index in range(number_of_axis):
+            unit_line_edit = self._unit_line_edit_tuple[axis_index]
+            with QSignalBlocker(unit_line_edit):
+                unit_line_edit.setText(str(current_units[axis_index]))
 
     def _on_unit_combobox_changed(self) -> None:
         self._set_current_combobox_units_to_layer()
+        self._update_units_visibilities()
         return
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:

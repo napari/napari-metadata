@@ -30,7 +30,10 @@ class AxisComponent(Protocol):
     def get_entries_dict(
         self,
     ) -> dict[
-        int, dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        int,
+        dict[
+            str, tuple[list[QWidget], int, int, str, Qt.AlignmentFlag | None]
+        ],
     ]: ...
     def _reset_tuples(self) -> None: ...
     def _set_axis_name_labels(self) -> None: ...
