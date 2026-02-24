@@ -28,6 +28,7 @@ from napari_metadata._collapsible_containers import (
 )
 from napari_metadata._inheritance_widget import InheritanceWidget
 from napari_metadata._model import (
+    get_axes_labels,
     get_pint_ureg,
     get_axes_units,
     resolve_layer,
@@ -38,7 +39,11 @@ from napari_metadata._model import (
 )
 from napari_metadata._space_units import SpaceUnits
 from napari_metadata._time_units import TimeUnits
-from napari_metadata._protocols import AxisComponent, MetadataComponent
+from napari_metadata._protocols import (
+    AxesMetadataComponentsInstanceAPI,
+    AxisComponent,
+    MetadataComponent,
+)
 from napari_metadata._axis_metadata_widgets import (
     AxisMetadata,
     AxisLabels,
@@ -876,15 +881,14 @@ class MetadataWidget(QWidget):
                         getattr(self, method_name)
                     )
 
+    def get_axes_metadata_instance(self) -> AxesMetadataComponentsInstanceAPI:
+        axes_metadata_api: AxesMetadataComponentsInstanceAPI = cast(
+            AxesMetadataComponentsInstanceAPI, self._axis_metadata_instance
+        )
+        return axes_metadata_api
+
     def _on_name_line_changed(self, text: str) -> None:
-        sender_line_edit: QLineEdit = cast(QLineEdit, self.sender())
-        active_layer: Layer | None = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            sender_line_edit.setText('No layer selected')
-            return
-        if text == active_layer.name:
-            return
-        active_layer.name = text
+        return
 
     def _set_layout_type(self, layout_type: str) -> None:
         if layout_type == 'vertical':

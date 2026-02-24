@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pint
 from pint.registry import ApplicationRegistry
@@ -34,6 +34,8 @@ from qtpy.QtWidgets import (
 from qtpy.QtCore import Qt, QSignalBlocker
 
 from napari_metadata._protocols import (
+    MetadataWidgetAPI,
+    AxesMetadataComponentsInstanceAPI,
     AxisComponent,
 )
 
@@ -231,6 +233,13 @@ class AxisLabels:
         set_axes_labels(
             self._napari_viewer, line_edits_text, self._selected_layer
         )
+        main_widget_api: MetadataWidgetAPI = cast(
+            MetadataWidgetAPI, self._main_widget
+        )
+        meta_data_instances: AxesMetadataComponentsInstanceAPI = (
+            main_widget_api.get_axes_metadata_instance()
+        )
+        meta_data_instances._update_axes_labels()
 
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
         current_layer: Layer | None = resolve_layer(self._napari_viewer)
@@ -822,28 +831,6 @@ class AxisUnits:
         self._set_current_combobox_units_to_layer()
         return
 
-        # def apply_inheritance_to_current_layer(
-
-    #    self, template_layer: 'Layer'
-    # ) -> None:
-    #    active_layer = resolve_layer(self._napari_viewer)
-    #    if active_layer is None:
-    #        return
-
-    #    if active_layer.ndim != template_layer.ndim:
-    #        show_info(
-    #            'Inheritance layer must have same number of dimensions as current layer'
-    #        )
-    #        return
-
-    #    axis_component: AxisComponent
-    #    for axis_component in self._axis_metadata_instance._axis_metadata_components_dict.values():
-    #        axis_component.inherit_layer_properties(template_layer)
-    #    if self._current_orientation == 'horizontal':
-    #        self._set_layout_type('horizontal')
-    #    else:
-    #        self._set_layout_type('vertical')
-
     def inherit_layer_properties(self, template_layer: 'Layer') -> None:
         current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
@@ -951,3 +938,8 @@ class AxisMetadata:
             self._axis_metadata_components_dict[metadata_comp_name] = (
                 metadata_component_class(napari_viewer, main_widget)
             )
+
+    def _update_axes_labels(self) -> None:
+        for axis_component in self._axis_metadata_components_dict.values():
+            cast_component: AxisComponent = cast(AxisComponent, axis_component)
+            cast_component._set_axis_name_labels()

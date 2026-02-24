@@ -59,6 +59,9 @@ class LayerNameComponent:
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
             )
         )
+        self._layer_name_line_edit.editingFinished.connect(
+            self._on_name_line_changed
+        )
         self._component_name = 'LayerName'
 
     def load_entries(self, layer: 'Layer | None' = None) -> None:
@@ -98,6 +101,17 @@ class LayerNameComponent:
 
     def get_under_label(self, layout_mode: str = 'vertical') -> bool:
         return layout_mode == 'vertical'
+
+    def _on_name_line_changed(self) -> None:
+        line_edit: QLineEdit = self._layer_name_line_edit
+        text: str = line_edit.text()
+        active_layer: Layer | None = resolve_layer(self._napari_viewer)  # type: ignore
+        if active_layer is None:
+            line_edit.setText('No layer selected')
+            return
+        if text == active_layer.name:
+            return
+        active_layer.name = text
 
 
 @_metadata_component
