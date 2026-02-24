@@ -835,6 +835,7 @@ class AxisUnits:
         current_layer: Layer | None = resolve_layer(self._napari_viewer)
         if current_layer is None:
             return
+        self._set_axis_name_labels()
         current_layer_units: tuple[pint.Unit | None, ...] = get_axes_units(
             self._napari_viewer, current_layer
         )
