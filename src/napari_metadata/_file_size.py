@@ -15,7 +15,7 @@ from napari.layers import Layer
 logger = logging.getLogger()
 
 
-def generate_text_for_size(size: Union[int, float], suffix: str = '') -> str:
+def _generate_text_for_size(size: Union[int, float], suffix: str = '') -> str:
     """Generate the text for the file size widget. Consumes size in bytes,
     reduces the order of magnitude and appends the units. Optionally adds
     an addition suffix to the end of the string.
@@ -73,7 +73,8 @@ def generate_display_size(layer: Layer) -> str:
     )
     # data exists in file on disk
     if layer.source.path and not is_url:
-        size = os.path.getsize(str(layer.source.path))
+        p = Path(layer.source.path)
+        size = directory_size(p) if p.is_dir() else p.stat().st_size
         suffix = ''
     # data exists only in memory
     else:
@@ -86,7 +87,7 @@ def generate_display_size(layer: Layer) -> str:
         else:
             size = layer.data.nbytes
         suffix = ' (in memory)'
-    text = generate_text_for_size(size, suffix=suffix)
+    text = _generate_text_for_size(size, suffix=suffix)
 
     return text
 
@@ -103,7 +104,7 @@ def directory_size(path: Union[str, Path]) -> int:
 
     Returns
     -------
-    str
+    int
         Number of bytes in directory
 
     Raises

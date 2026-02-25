@@ -10,38 +10,38 @@ import pytest
 from napari_metadata._file_size import (
     directory_size,
     generate_display_size,
-    generate_text_for_size,
+    _generate_text_for_size,
 )
 
 
 class TestGenerateTextForSize:
     def test_zero_bytes(self):
-        assert generate_text_for_size(0) == '0.00 bytes'
+        assert _generate_text_for_size(0) == '0.00 bytes'
 
     def test_small_bytes(self):
-        assert generate_text_for_size(13) == '13.00 bytes'
+        assert _generate_text_for_size(13) == '13.00 bytes'
 
     def test_upper_byte_boundary(self):
         # order == 2 (999 bytes) → still bytes
-        assert generate_text_for_size(999) == '999.00 bytes'
+        assert _generate_text_for_size(999) == '999.00 bytes'
 
     def test_kilobytes(self):
-        assert generate_text_for_size(1_000) == '1.00 KB'
-        assert generate_text_for_size(1_500) == '1.50 KB'
+        assert _generate_text_for_size(1_000) == '1.00 KB'
+        assert _generate_text_for_size(1_500) == '1.50 KB'
 
     def test_megabytes(self):
-        assert generate_text_for_size(1_000_000) == '1.00 MB'
-        assert generate_text_for_size(1_303_131) == '1.30 MB'
+        assert _generate_text_for_size(1_000_000) == '1.00 MB'
+        assert _generate_text_for_size(1_303_131) == '1.30 MB'
 
     def test_gigabytes(self):
-        assert generate_text_for_size(1_000_000_000) == '1.00 GB'
+        assert _generate_text_for_size(1_000_000_000) == '1.00 GB'
 
     def test_suffix_appended(self):
-        result = generate_text_for_size(1_303_131, suffix=' (in memory)')
+        result = _generate_text_for_size(1_303_131, suffix=' (in memory)')
         assert result == '1.30 MB (in memory)'
 
     def test_suffix_empty_string_default(self):
-        result = generate_text_for_size(100)
+        result = _generate_text_for_size(100)
         assert '(in memory)' not in result
 
 
@@ -50,21 +50,21 @@ class TestGenerateDisplaySize:
         data = np.zeros((10, 10), dtype=np.uint8)
         layer = napari.layers.Image(data)
         result = generate_display_size(layer)
-        assert result == generate_text_for_size(data.nbytes, suffix=' (in memory)')
+        assert result == _generate_text_for_size(data.nbytes, suffix=' (in memory)')
 
     def test_in_memory_multiscale_image(self):
         scales = [np.zeros((20, 20), dtype=np.uint8), np.zeros((10, 10), dtype=np.uint8)]
         layer = napari.layers.Image(scales, multiscale=True)
         expected_size = sum(s.nbytes for s in scales)
         result = generate_display_size(layer)
-        assert result == generate_text_for_size(expected_size, suffix=' (in memory)')
+        assert result == _generate_text_for_size(expected_size, suffix=' (in memory)')
 
     def test_in_memory_shapes(self):
         shape_data = [np.array([[0, 0], [1, 1], [1, 0]], dtype=np.float32)]
         layer = napari.layers.Shapes(shape_data, shape_type='polygon')
         expected_size = sum(d.nbytes for d in layer.data)
         result = generate_display_size(layer)
-        assert result == generate_text_for_size(expected_size, suffix=' (in memory)')
+        assert result == _generate_text_for_size(expected_size, suffix=' (in memory)')
 
     def test_in_memory_surface(self):
         vertices = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32)
@@ -72,7 +72,7 @@ class TestGenerateDisplaySize:
         layer = napari.layers.Surface((vertices, faces))
         expected_size = sum(d.nbytes for d in layer.data)
         result = generate_display_size(layer)
-        assert result == generate_text_for_size(expected_size, suffix=' (in memory)')
+        assert result == _generate_text_for_size(expected_size, suffix=' (in memory)')
 
     def test_from_disk_path(self, tmp_path):
         data = np.zeros((10, 10), dtype=np.uint8)
@@ -82,7 +82,7 @@ class TestGenerateDisplaySize:
         layer.source.path = str(file_path)
         result = generate_display_size(layer)
         expected_size = os.path.getsize(str(file_path))
-        assert result == generate_text_for_size(expected_size)
+        assert result == _generate_text_for_size(expected_size)
         assert '(in memory)' not in result
 
     def test_in_memory_suffix_present(self):
