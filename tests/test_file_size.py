@@ -85,6 +85,20 @@ class TestGenerateDisplaySize:
         assert result == _generate_text_for_size(expected_size)
         assert '(in memory)' not in result
 
+    def test_from_disk_directory(self, tmp_path):
+        dir_path = tmp_path / 'test_dir'
+        dir_path.mkdir()
+        file1 = dir_path / 'a.npy'
+        file2 = dir_path / 'b.npy'
+        np.save(file1, np.zeros((10, 10), dtype=np.uint8))
+        np.save(file2, np.zeros((20, 20), dtype=np.uint8))
+        layer = MagicMock(spec=napari.layers.Image)
+        layer.source.path = str(dir_path)
+        result = generate_display_size(layer)
+        expected_size = os.path.getsize(str(file1)) + os.path.getsize(str(file2))
+        assert result == _generate_text_for_size(expected_size)
+        assert '(in memory)' not in result
+
     def test_in_memory_suffix_present(self):
         # data is not on disk, so in memory will be appended
         data = np.zeros((4, 4), dtype=np.uint8)
