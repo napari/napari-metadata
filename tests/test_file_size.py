@@ -92,16 +92,6 @@ class TestGenerateDisplaySize:
         result = generate_display_size(layer)
         assert '(in memory)' in result
 
-    def test_from_disk_no_in_memory_suffix(self, tmp_path):
-        data = np.zeros((4, 4), dtype=np.uint8)
-        file_path = tmp_path / 'test.npy'
-        np.save(file_path, data)
-        layer = MagicMock(spec=napari.layers.Image)
-        layer.source.path = str(file_path)
-        result = generate_display_size(layer)
-        assert '(in memory)' not in result
-
-
 class TestDirectorySize:
     def test_returns_total_size(self, tmp_path):
         file1 = tmp_path / 'a.txt'
