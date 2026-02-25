@@ -74,7 +74,10 @@ def generate_display_size(layer: Layer) -> str:
     # data exists in file on disk
     if layer.source.path and not is_url:
         p = Path(layer.source.path)
-        size = directory_size(p) if p.is_dir() else p.stat().st_size
+        if p.is_dir():
+            size = sum(file.stat().st_size for file in p.rglob('*') if file.is_file())
+        else:
+            size = p.stat().st_size
         suffix = ''
     # data exists only in memory
     else:
@@ -91,30 +94,3 @@ def generate_display_size(layer: Layer) -> str:
 
     return text
 
-
-def directory_size(path: Union[str, Path]) -> int:
-    """Recursively walk a directory and add up total size on disk in bytes.
-    Note that the napari-ome-zarr plugin doesn't store the path to a local
-    zarr file. Until this is resolved, this will be unused.
-
-    Parameters
-    ----------
-    path: str
-        Path to directory
-
-    Returns
-    -------
-    int
-        Number of bytes in directory
-
-    Raises
-    ------
-    RuntimeError
-        If the path provided is not a directory
-    """
-    p = Path(path)
-    if not p.is_dir():
-        raise RuntimeError(
-            'Path provided is not a directory. Unable to get directory size.'
-        )
-    return sum(file.stat().st_size for file in p.rglob('*') if file.is_file())

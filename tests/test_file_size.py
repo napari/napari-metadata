@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from napari_metadata._file_size import (
-    directory_size,
     generate_display_size,
     _generate_text_for_size,
 )
@@ -99,6 +98,22 @@ class TestGenerateDisplaySize:
         assert result == _generate_text_for_size(expected_size)
         assert '(in memory)' not in result
 
+    def test_from_disk_directory_with_subdirectory(self, tmp_path):
+        dir_path = tmp_path / 'test_dir'
+        dir_path.mkdir()
+        sub_dir = dir_path / 'sub_dir'
+        sub_dir.mkdir()
+        file1 = dir_path / 'a.npy'
+        file2 = sub_dir / 'b.npy'
+        np.save(file1, np.zeros((10, 10), dtype=np.uint8))
+        np.save(file2, np.zeros((20, 20), dtype=np.uint8))
+        layer = MagicMock(spec=napari.layers.Image)
+        layer.source.path = str(dir_path)
+        result = generate_display_size(layer)
+        expected_size = os.path.getsize(str(file1)) + os.path.getsize(str(file2))
+        assert result == _generate_text_for_size(expected_size)
+        assert '(in memory)' not in result
+
     def test_in_memory_suffix_present(self):
         # data is not on disk, so in memory will be appended
         data = np.zeros((4, 4), dtype=np.uint8)
@@ -106,30 +121,3 @@ class TestGenerateDisplaySize:
         result = generate_display_size(layer)
         assert '(in memory)' in result
 
-class TestDirectorySize:
-    def test_returns_total_size(self, tmp_path):
-        file1 = tmp_path / 'a.txt'
-        file2 = tmp_path / 'b.txt'
-        file1.write_bytes(b'hello')   # 5 bytes
-        file2.write_bytes(b'world!')  # 6 bytes
-        assert directory_size(tmp_path) == 11
-
-    def test_nested_directory(self, tmp_path):
-        sub = tmp_path / 'sub'
-        sub.mkdir()
-        (tmp_path / 'root.txt').write_bytes(b'abc')  # 3 bytes
-        (sub / 'child.txt').write_bytes(b'de')       # 2 bytes
-        assert directory_size(tmp_path) == 5
-
-    def test_empty_directory(self, tmp_path):
-        assert directory_size(tmp_path) == 0
-
-    def test_accepts_string_path(self, tmp_path):
-        (tmp_path / 'f.txt').write_bytes(b'x')
-        assert directory_size(str(tmp_path)) == 1
-
-    def test_raises_for_non_directory(self, tmp_path):
-        file = tmp_path / 'file.txt'
-        file.write_bytes(b'data')
-        with pytest.raises(RuntimeError, match='not a directory'):
-            directory_size(file)
