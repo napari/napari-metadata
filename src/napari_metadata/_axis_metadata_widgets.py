@@ -819,7 +819,6 @@ class AxisUnits:
             pint_units = combined_pint_units_list
         applicatin_reg: ApplicationRegistry = get_pint_ureg()
         with QSignalBlocker(combobox):
-            combobox.addItem('none', None)
             for pint_unit in pint_units:
                 combobox.addItem(str(pint_unit), pint_unit)
             if found_type is None:
@@ -857,7 +856,7 @@ class AxisUnits:
                     continue
                 units_list.append(line_edit_text)
                 continue
-            pint_unit_text = unit_combobox.currentText()
+            pint_unit_text = unit_combobox.currentText().strip()
             if pint_unit_text.strip().lower() == 'none':
                 units_list.append(None)  # type: ignore
                 continue
@@ -885,7 +884,6 @@ class AxisUnits:
             unit_enum = axis_type.unit_enum()
             with QSignalBlocker(unit_combobox):
                 unit_combobox.clear()
-                unit_combobox.addItem('none', None)
                 if unit_enum is not None:
                     for unit in unit_enum.pint_units():
                         unit_combobox.addItem(str(unit), unit)

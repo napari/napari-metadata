@@ -10,7 +10,6 @@ from napari_metadata._model import get_pint_ureg
 class SpaceUnits(Enum):
     """Supported units for a spatial axis."""
 
-    NONE = auto()
     PIXEL = auto()
     FEMTOMETER = auto()
     PICOMETER = auto()

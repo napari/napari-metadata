@@ -10,7 +10,6 @@ from napari_metadata._model import get_pint_ureg
 class TimeUnits(Enum):
     """Supported units for a temporal axis."""
 
-    NONE = auto()
     FEMTOSECOND = auto()
     PICOSECOND = auto()
     NANOSECOND = auto()
