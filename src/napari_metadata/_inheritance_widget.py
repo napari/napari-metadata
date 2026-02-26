@@ -12,7 +12,6 @@ from qtpy.QtWidgets import (
 
 from napari_metadata._model import (
     connect_callback_to_layer_name_changed,
-    connect_callback_to_layer_selection_changed,
     connect_callback_to_layer_selection_events,
     connect_callback_to_list_events,
     disconnect_callback_to_layer_name_changed,
@@ -107,7 +106,7 @@ class InheritanceWidget(QWidget):
             self._on_layer_selection_changed
         )
         self._layer_name_changed_callback = self._on_layer_name_changed
-        connect_callback_to_layer_selection_changed(
+        connect_callback_to_layer_selection_events(
             self._napari_viewer, self._layer_selection_changed_callback
         )
 
