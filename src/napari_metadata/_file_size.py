@@ -15,7 +15,7 @@ from napari.layers import Layer
 logger = logging.getLogger()
 
 
-def generate_text_for_size(size: Union[int, float], suffix: str = '') -> str:
+def _generate_text_for_size(size: Union[int, float], suffix: str = '') -> str:
     """Generate the text for the file size widget. Consumes size in bytes,
     reduces the order of magnitude and appends the units. Optionally adds
     an addition suffix to the end of the string.
@@ -73,48 +73,24 @@ def generate_display_size(layer: Layer) -> str:
     )
     # data exists in file on disk
     if layer.source.path and not is_url:
-        size = os.path.getsize(str(layer.source.path))
+        p = Path(layer.source.path)
+        if p.is_dir():
+            size = sum(file.stat().st_size for file in p.rglob('*') if file.is_file())
+        else:
+            size = p.stat().st_size
         suffix = ''
     # data exists only in memory
     else:
         if (
             type(layer).__name__ == 'Shapes'
             or type(layer).__name__ == 'Surface'
+            or layer.multiscale is True
         ):
-            size = 0
-            for shape in layer.data:
-                size += shape.nbytes
+            size = sum(d.nbytes for d in layer.data)
         else:
             size = layer.data.nbytes
         suffix = ' (in memory)'
-    text = generate_text_for_size(size, suffix=suffix)
+    text = _generate_text_for_size(size, suffix=suffix)
 
     return text
 
-
-def directory_size(path: Union[str, Path]) -> str:
-    """Recursively walk a directory and add up total size on disk in bytes.
-    Note that the napari-ome-zarr plugin doesn't store the path to a local
-    zarr file. Until this is resolved, this will be unused.
-
-    Parameters
-    ----------
-    path: str
-        Path to directory
-
-    Returns
-    -------
-    str
-        Number of bytes in directory
-
-    Raises
-    ------
-    RuntimeError
-        If the path provided is not a directory
-    """
-    p = Path(path)
-    if not p.is_dir():
-        raise RuntimeError(
-            'Path provided is not a directory. Unable to get directory size.'
-        )
-    return sum(file.stat().st_size for file in p.rglob('*'))
