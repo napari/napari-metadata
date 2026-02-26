@@ -1,4 +1,3 @@
-from re import A
 from typing import TYPE_CHECKING
 
 from qtpy.QtCore import QSignalBlocker, Qt
@@ -12,18 +11,16 @@ from qtpy.QtWidgets import (
 )
 
 from napari_metadata._model import (
-    connect_callback_to_layer_selection_events,
-    connect_callback_to_list_events,
     connect_callback_to_layer_name_changed,
     connect_callback_to_layer_selection_changed,
+    connect_callback_to_layer_selection_events,
+    connect_callback_to_list_events,
+    disconnect_callback_to_layer_name_changed,
     disconnect_callback_to_layer_selection_events,
     disconnect_callback_to_list_events,
-    disconnect_callback_to_layer_name_changed,
-    disconnect_callback_to_layer_selection_changed,
     get_layers_list,
     resolve_layer,
 )
-
 from napari_metadata._protocols import MetadataWidgetAPI
 
 if TYPE_CHECKING:

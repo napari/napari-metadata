@@ -1,48 +1,44 @@
-from enum import Enum
 from typing import TYPE_CHECKING, cast
 
 import pint
+from napari.utils.notifications import show_error
 from pint.registry import ApplicationRegistry
+from qtpy.QtCore import QSignalBlocker, Qt
+from qtpy.QtWidgets import (
+    QAbstractSpinBox,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QLabel,
+    QLineEdit,
+    QWidget,
+)
 
+from napari_metadata._axis_type import AxisType, PossibleUnitEnum
 from napari_metadata._model import (
-    resolve_layer,
     get_axes_labels,
-    get_layer_dimensions,
     get_axes_scales,
     get_axes_translations,
     get_axes_units,
+    get_layer_dimensions,
     get_pint_ureg,
-    set_axes_translations,
+    resolve_layer,
     set_axes_labels,
     set_axes_scales,
+    set_axes_translations,
     set_axes_units,
 )
-
-from napari_metadata._space_units import SpaceUnits
-from napari_metadata._time_units import TimeUnits
-from napari_metadata._axis_type import AxisType, PossibleUnitEnum
-
-from qtpy.QtWidgets import (
-    QLabel,
-    QWidget,
-    QLineEdit,
-    QDoubleSpinBox,
-    QCheckBox,
-    QComboBox,
-    QAbstractSpinBox,
-)
-from qtpy.QtCore import Qt, QSignalBlocker
-
 from napari_metadata._protocols import (
-    MetadataWidgetAPI,
     AxesMetadataComponentsInstanceAPI,
     AxisComponent,
+    MetadataWidgetAPI,
 )
-from napari.utils.notifications import show_error
+from napari_metadata._space_units import SpaceUnits
+from napari_metadata._time_units import TimeUnits
 
 if TYPE_CHECKING:
-    from napari.viewer import ViewerModel
     from napari.layers import Layer
+    from napari.viewer import ViewerModel
 
 INHERIT_STRING = ''
 

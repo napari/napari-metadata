@@ -1,7 +1,7 @@
-from typing import Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-from qtpy.QtWidgets import QWidget, QCheckBox, QLabel
 from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QCheckBox, QLabel, QWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel

@@ -22,35 +22,33 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from napari_metadata._axis_metadata_widgets import (
+    AxisLabels,
+    AxisMetadata,
+    AxisScales,
+    AxisTranslations,
+)
 from napari_metadata._collapsible_containers import (
     CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
 )
+from napari_metadata._file_metadata_widgets import FileGeneralMetadata
 from napari_metadata._inheritance_widget import InheritanceWidget
 from napari_metadata._model import (
-    get_axes_labels,
     get_pint_ureg,
-    get_axes_units,
     resolve_layer,
     set_axes_labels,
     set_axes_scales,
     set_axes_translations,
     set_axes_units,
 )
-from napari_metadata._space_units import SpaceUnits
-from napari_metadata._time_units import TimeUnits
 from napari_metadata._protocols import (
     AxesMetadataComponentsInstanceAPI,
     AxisComponent,
     MetadataComponent,
 )
-from napari_metadata._axis_metadata_widgets import (
-    AxisMetadata,
-    AxisLabels,
-    AxisTranslations,
-    AxisScales,
-)
-from napari_metadata._file_metadata_widgets import FileGeneralMetadata
+from napari_metadata._space_units import SpaceUnits
+from napari_metadata._time_units import TimeUnits
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -1049,9 +1047,6 @@ class MetadataWidget(QWidget):
         unit_combobox_tuple: tuple[QComboBox, ...] = (
             unit_axis_component._unit_combobox_tuple
         )  # type: ignore
-        current_units: tuple[pint.Unit | str, ...] = get_axes_units(
-            self._napari_viewer, self._selected_layer
-        )
         unit_registry: pint.registry.ApplicationRegistry = get_pint_ureg()
         for axis_number in range(len(type_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
@@ -1115,9 +1110,6 @@ class MetadataWidget(QWidget):
         type_combobox_tuple: tuple[QComboBox, ...] = (
             unit_axis_component._type_combobox_tuple
         )  # type: ignore
-        current_units: tuple[pint.Unit | str, ...] = get_axes_units(
-            self._napari_viewer, self._selected_layer
-        )
         unit_registry: pint.registry.ApplicationRegistry = get_pint_ureg()
         setting_units_list: list[pint.Unit | str | None] = []
         for axis_number in range(len(unit_combobox_tuple)):  # type: ignore

@@ -1,23 +1,21 @@
 from typing import TYPE_CHECKING
 
-from qtpy.QtCore import Qt, QSize
-
-from qtpy.QtWidgets import QLabel, QLineEdit, QSizePolicy, QWidget, QTextEdit
+from qtpy.QtCore import QSize, Qt
 from qtpy.QtGui import QFontMetrics
+from qtpy.QtWidgets import QLabel, QLineEdit, QSizePolicy, QTextEdit, QWidget
 
-from napari_metadata._protocols import MetadataComponent
-from napari_metadata._model import (
-    resolve_layer,
-    get_layer_data_shape,
-    get_layer_data_dtype,
-    get_layer_source_path,
-)
 from napari_metadata._file_size import generate_display_size
-
+from napari_metadata._model import (
+    get_layer_data_dtype,
+    get_layer_data_shape,
+    get_layer_source_path,
+    resolve_layer,
+)
+from napari_metadata._protocols import MetadataComponent
 
 if TYPE_CHECKING:
-    from napari.viewer import ViewerModel
     from napari.layers import Layer
+    from napari.viewer import ViewerModel
 
 FILE_METADATA_COMPONENTS_DICT: dict[str, type[MetadataComponent]] = {}
 
