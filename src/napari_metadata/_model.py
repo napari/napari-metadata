@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pint
-from pint.registry import ApplicationRegistry
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -43,13 +42,6 @@ def set_axes_labels(
     resolved_layer = resolve_layer(viewer, layer)
     if resolved_layer is not None:
         resolved_layer.axis_labels = axes_labels
-
-
-APPLICATION_REGISTRY: ApplicationRegistry = pint.get_application_registry()
-
-
-def get_pint_ureg() -> pint.registry.ApplicationRegistry:
-    return APPLICATION_REGISTRY
 
 
 def get_axes_units(
