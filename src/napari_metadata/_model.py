@@ -191,21 +191,6 @@ def disconnect_callback_to_list_events(
         viewer.layers.events.changed.disconnect(cb_function)
 
 
-def connect_callback_to_layer_selection_changed(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Connect a callback to layer name change Aevent."""
-    viewer.layers.selection.events.active.connect(cb_function)
-
-
-def disconnect_callback_to_layer_selection_changed(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Disconnect a callback from layer name change event."""
-    with suppress(TypeError, ValueError):
-        viewer.layers.selection.events.active.disconnect(cb_function)
-
-
 def connect_callback_to_layer_name_changed(
     viewer: 'ViewerModel', cb_function: Callable, layer: 'Layer | None' = None
 ) -> None:
