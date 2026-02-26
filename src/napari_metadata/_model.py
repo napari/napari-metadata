@@ -88,10 +88,9 @@ def set_axes_scales(
     for scale in axes_scales:
         if not isinstance(scale, float):
             return
-        if scale <= 0:
-            scale = 0.001
 
-    resolved_layer.scale = np.array(axes_scales)
+    clamped = tuple(max(s, 0.001) for s in axes_scales)
+    resolved_layer.scale = np.array(clamped)
 
 
 def get_axes_translations(
