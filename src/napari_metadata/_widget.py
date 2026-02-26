@@ -35,7 +35,6 @@ from napari_metadata._collapsible_containers import (
 from napari_metadata._file_metadata_widgets import FileGeneralMetadata
 from napari_metadata._inheritance_widget import InheritanceWidget
 from napari_metadata._model import (
-    get_pint_ureg,
     resolve_layer,
     set_axes_labels,
     set_axes_scales,
@@ -47,8 +46,7 @@ from napari_metadata._protocols import (
     AxisComponent,
     MetadataComponent,
 )
-from napari_metadata._space_units import SpaceUnits
-from napari_metadata._time_units import TimeUnits
+from napari_metadata._axis_units import AxisType
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -1047,42 +1045,27 @@ class MetadataWidget(QWidget):
         unit_combobox_tuple: tuple[QComboBox, ...] = (
             unit_axis_component._unit_combobox_tuple
         )  # type: ignore
-        unit_registry: pint.registry.ApplicationRegistry = get_pint_ureg()
+        unit_registry: pint.registry.ApplicationRegistry = pint.get_application_registry()
         for axis_number in range(len(type_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            type_string: str = type_combobox_tuple[axis_number].currentText()  # type: ignore
-            if (
-                type_string == 'space'
-                and unit_string not in SpaceUnits.names()
-            ):
+            axis_type: AxisType | None = AxisType.from_name(
+                type_combobox_tuple[axis_number].currentText()  # type: ignore
+            )
+            unit_cfg = axis_type.value if isinstance(axis_type, AxisType) else None
+            if unit_cfg is not None and unit_string not in unit_cfg.units:
                 with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
                     unit_combobox_tuple[axis_number].clear()  # type: ignore
-                    unit_combobox_tuple[axis_number].addItems(
-                        SpaceUnits.names()
-                    )  # type: ignore
+                    unit_combobox_tuple[axis_number].addItems(unit_cfg.units)  # type: ignore
                     unit_combobox_tuple[axis_number].setCurrentIndex(
-                        unit_combobox_tuple[axis_number].findText('pixel')
-                    )  # type: ignore
-            elif (
-                type_string == 'time' and unit_string not in TimeUnits.names()
-            ):
-                with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
-                    unit_combobox_tuple[axis_number].clear()  # type: ignore
-                    unit_combobox_tuple[axis_number].addItems(
-                        TimeUnits.names()
-                    )  # type: ignore
-                    unit_combobox_tuple[axis_number].setCurrentIndex(
-                        unit_combobox_tuple[axis_number].findText('second')
+                        unit_combobox_tuple[axis_number].findText(unit_cfg.default)
                     )  # type: ignore
             else:
                 with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
                     unit_combobox_tuple[axis_number].clear()  # type: ignore
-                    unit_combobox_tuple[axis_number].addItems(
-                        SpaceUnits.names()
-                    )  # type: ignore
-                    unit_combobox_tuple[axis_number].addItems(
-                        TimeUnits.names()
-                    )  # type: ignore
+                    for at in AxisType:
+                        at_cfg = at.value
+                        if at_cfg is not None:
+                            unit_combobox_tuple[axis_number].addItems(at_cfg.units)  # type: ignore
                     unit_combobox_tuple[axis_number].setCurrentIndex(
                         unit_combobox_tuple[axis_number].findText(unit_string)
                     )  # type: ignore
@@ -1110,25 +1093,20 @@ class MetadataWidget(QWidget):
         type_combobox_tuple: tuple[QComboBox, ...] = (
             unit_axis_component._type_combobox_tuple
         )  # type: ignore
-        unit_registry: pint.registry.ApplicationRegistry = get_pint_ureg()
+        unit_registry: pint.registry.ApplicationRegistry = pint.get_application_registry()
         setting_units_list: list[pint.Unit | str | None] = []
         for axis_number in range(len(unit_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            if unit_string in SpaceUnits.names():
-                with QSignalBlocker(type_combobox_tuple[axis_number]):  # type: ignore
-                    type_combobox_tuple[axis_number].setCurrentIndex(
-                        type_combobox_tuple[axis_number].findText('space')
-                    )  # type: ignore
-            elif unit_string in TimeUnits.names():
-                with QSignalBlocker(type_combobox_tuple[axis_number]):  # type: ignore
-                    type_combobox_tuple[axis_number].setCurrentIndex(
-                        type_combobox_tuple[axis_number].findText('time')
-                    )  # type: ignore
-            else:
-                with QSignalBlocker(type_combobox_tuple[axis_number]):  # type: ignore
-                    type_combobox_tuple[axis_number].setCurrentIndex(
-                        type_combobox_tuple[axis_number].findText('string')
-                    )  # type: ignore
+            inferred_type: AxisType = AxisType.STRING
+            for at in AxisType:
+                at_cfg = at.value
+                if at_cfg is not None and unit_string in at_cfg.units:
+                    inferred_type = at
+                    break
+            with QSignalBlocker(type_combobox_tuple[axis_number]):  # type: ignore
+                type_combobox_tuple[axis_number].setCurrentIndex(
+                    type_combobox_tuple[axis_number].findText(str(inferred_type))
+                )  # type: ignore
             unit_pint: pint.Unit | None
             if unit_string == 'none' or not unit_string:
                 unit_pint = None
