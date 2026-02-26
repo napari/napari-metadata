@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING, cast
 
 import pint
 from napari.utils.notifications import show_error
-from pint.registry import ApplicationRegistry
 from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QAbstractSpinBox,
@@ -14,14 +13,13 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata._axis_type import AxisType, PossibleUnitEnum
+from napari_metadata._axis_units import AxisType
 from napari_metadata._model import (
     get_axes_labels,
     get_axes_scales,
     get_axes_translations,
     get_axes_units,
     get_layer_dimensions,
-    get_pint_ureg,
     resolve_layer,
     set_axes_labels,
     set_axes_scales,
@@ -33,9 +31,6 @@ from napari_metadata._protocols import (
     AxisComponent,
     MetadataWidgetAPI,
 )
-from napari_metadata._space_units import SpaceUnits
-from napari_metadata._time_units import TimeUnits
-
 if TYPE_CHECKING:
     from napari.layers import Layer
     from napari.viewer import ViewerModel
@@ -629,38 +624,33 @@ class AxisUnits:
             with QSignalBlocker(self._unit_combobox_tuple[i]):
                 # remove all items from the combobox
                 self._unit_combobox_tuple[i].clear()
-                if str(layer_units[i]) in SpaceUnits.names():
-                    self._unit_combobox_tuple[i].addItems(SpaceUnits.names())
+                unit_str = str(layer_units[i])
+                matched_type: AxisType = AxisType.STRING
+                for at in AxisType:
+                    unit_cfg = at.value
+                    if unit_cfg is not None and unit_str in unit_cfg.units:
+                        matched_type = at
+                        break
+                matched_cfg = matched_type.value
+                if matched_cfg is not None:
+                    self._unit_combobox_tuple[i].addItems(matched_cfg.units)
                     self._unit_combobox_tuple[i].setCurrentIndex(
-                        self._unit_combobox_tuple[i].findText(
-                            str(layer_units[i])
-                        )
+                        self._unit_combobox_tuple[i].findText(unit_str)
                     )
-                    with QSignalBlocker(self._type_combobox_tuple[i]):
-                        self._type_combobox_tuple[i].setCurrentIndex(
-                            self._type_combobox_tuple[i].findText('space')
-                        )
-                elif str(layer_units[i]) in TimeUnits.names():
-                    self._unit_combobox_tuple[i].addItems(TimeUnits.names())
-                    self._unit_combobox_tuple[i].setCurrentIndex(
-                        self._unit_combobox_tuple[i].findText(
-                            str(layer_units[i])
-                        )
-                    )
-                    with QSignalBlocker(self._type_combobox_tuple[i]):
-                        self._type_combobox_tuple[i].setCurrentIndex(
-                            self._type_combobox_tuple[i].findText('time')
-                        )
                 else:
-                    self._unit_combobox_tuple[i].addItems(SpaceUnits.names())
-                    self._unit_combobox_tuple[i].addItems(TimeUnits.names())
+                    for at in AxisType:
+                        unit_cfg = at.value
+                        if unit_cfg is not None:
+                            self._unit_combobox_tuple[i].addItems(unit_cfg.units)
                     self._unit_combobox_tuple[i].setCurrentIndex(
-                        self._unit_combobox_tuple[i].findText('pixel')
-                    )
-                    with QSignalBlocker(self._type_combobox_tuple[i]):
-                        self._type_combobox_tuple[i].setCurrentIndex(
-                            self._type_combobox_tuple[i].findText('string')
+                        self._unit_combobox_tuple[i].findText(
+                            AxisType.SPACE.value.default
                         )
+                    )
+                with QSignalBlocker(self._type_combobox_tuple[i]):
+                    self._type_combobox_tuple[i].setCurrentIndex(
+                        self._type_combobox_tuple[i].findText(str(matched_type))
+                    )
             self._update_unit_line_edits_texts()
             self._update_units_visibilities()
 
@@ -797,23 +787,23 @@ class AxisUnits:
         combined_pint_units_list: list[pint.Unit] = []
         found_type: AxisType | None = None
         for axis_type in AxisType:
-            type_enum: PossibleUnitEnum | None = axis_type.unit_enum()
-            if type_enum is None:
+            unit_cfg = axis_type.value
+            if unit_cfg is None:
                 continue
-            combined_pint_units_list.extend(type_enum.pint_units())
+            combined_pint_units_list.extend(unit_cfg.pint_units())
             if (
                 unit_type_string is not None
-                and unit_type_string in type_enum.names()
+                and unit_type_string in unit_cfg.units
             ):
                 found_type = axis_type
         if found_type is not None:
-            chosen_enum = found_type.unit_enum()
-            if chosen_enum is None:
+            chosen_cfg = found_type.value
+            if chosen_cfg is None:
                 return AxisType.STRING
-            pint_units = chosen_enum.pint_units()
+            pint_units = chosen_cfg.pint_units()
         else:
             pint_units = combined_pint_units_list
-        applicatin_reg: ApplicationRegistry = get_pint_ureg()
+        applicatin_reg: pint.registry.ApplicationRegistry = pint.get_application_registry()
         with QSignalBlocker(combobox):
             for pint_unit in pint_units:
                 combobox.addItem(str(pint_unit), pint_unit)
@@ -877,17 +867,15 @@ class AxisUnits:
             axis_type = type_combobox.currentData()
             if not isinstance(axis_type, AxisType):
                 continue
-            unit_enum = axis_type.unit_enum()
+            unit_cfg = axis_type.value
             with QSignalBlocker(unit_combobox):
                 unit_combobox.clear()
-                if unit_enum is not None:
-                    for unit in unit_enum.pint_units():
+                if unit_cfg is not None:
+                    for unit in unit_cfg.pint_units():
                         unit_combobox.addItem(str(unit), unit)
                 setting_index: int = unit_combobox.findText(current_unit)
-                if setting_index == -1 and unit_enum is not None:
-                    setting_index = unit_combobox.findText(
-                        unit_enum.default_unit()
-                    )
+                if setting_index == -1 and unit_cfg is not None:
+                    setting_index = unit_combobox.findText(unit_cfg.default)
                 unit_combobox.setCurrentIndex(setting_index)
         self._set_current_combobox_units_to_layer()
         self._update_units_visibilities()
