@@ -3,6 +3,4 @@ try:
 except ImportError:
     __version__ = 'unknown'
 
-from ._widget import MetadataWidget
-
-__all__ = ('MetadataWidget',)
+__all__ = ()
