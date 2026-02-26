@@ -46,7 +46,7 @@ from napari_metadata._protocols import (
     AxisComponent,
     MetadataComponent,
 )
-from napari_metadata._axis_units import AxisType
+from napari_metadata._axis_units import AxisUnitEnum
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -1048,10 +1048,10 @@ class MetadataWidget(QWidget):
         unit_registry: pint.registry.ApplicationRegistry = pint.get_application_registry()
         for axis_number in range(len(type_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            axis_type: AxisType | None = AxisType.from_name(
+            axis_type: AxisUnitEnum | None = AxisUnitEnum.from_name(
                 type_combobox_tuple[axis_number].currentText()  # type: ignore
             )
-            unit_cfg = axis_type.value if isinstance(axis_type, AxisType) else None
+            unit_cfg = axis_type.value if isinstance(axis_type, AxisUnitEnum) else None
             if unit_cfg is not None and unit_string not in unit_cfg.units:
                 with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
                     unit_combobox_tuple[axis_number].clear()  # type: ignore
@@ -1062,7 +1062,7 @@ class MetadataWidget(QWidget):
             else:
                 with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
                     unit_combobox_tuple[axis_number].clear()  # type: ignore
-                    for at in AxisType:
+                    for at in AxisUnitEnum:
                         at_cfg = at.value
                         if at_cfg is not None:
                             unit_combobox_tuple[axis_number].addItems(at_cfg.units)  # type: ignore
@@ -1097,8 +1097,8 @@ class MetadataWidget(QWidget):
         setting_units_list: list[pint.Unit | str | None] = []
         for axis_number in range(len(unit_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            inferred_type: AxisType = AxisType.STRING
-            for at in AxisType:
+            inferred_type: AxisUnitEnum = AxisUnitEnum.STRING
+            for at in AxisUnitEnum:
                 at_cfg = at.value
                 if at_cfg is not None and unit_string in at_cfg.units:
                     inferred_type = at

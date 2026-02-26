@@ -13,7 +13,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata._axis_units import AxisType
+from napari_metadata._axis_units import AxisUnitEnum
 from napari_metadata._model import (
     get_axes_labels,
     get_axes_scales,
@@ -625,8 +625,8 @@ class AxisUnits:
                 # remove all items from the combobox
                 self._unit_combobox_tuple[i].clear()
                 unit_str = str(layer_units[i])
-                matched_type: AxisType = AxisType.STRING
-                for at in AxisType:
+                matched_type: AxisUnitEnum = AxisUnitEnum.STRING
+                for at in AxisUnitEnum:
                     unit_cfg = at.value
                     if unit_cfg is not None and unit_str in unit_cfg.units:
                         matched_type = at
@@ -638,13 +638,13 @@ class AxisUnits:
                         self._unit_combobox_tuple[i].findText(unit_str)
                     )
                 else:
-                    for at in AxisType:
+                    for at in AxisUnitEnum:
                         unit_cfg = at.value
                         if unit_cfg is not None:
                             self._unit_combobox_tuple[i].addItems(unit_cfg.units)
                     self._unit_combobox_tuple[i].setCurrentIndex(
                         self._unit_combobox_tuple[i].findText(
-                            AxisType.SPACE.value.default
+                            AxisUnitEnum.SPACE.value.default
                         )
                     )
                 with QSignalBlocker(self._type_combobox_tuple[i]):
@@ -726,13 +726,13 @@ class AxisUnits:
             setting_type_combobox: QComboBox = QComboBox()
             setting_unit_combobox: QComboBox = QComboBox()
             setting_unit_line_edit: QLineEdit = QLineEdit()
-            for axis_type in AxisType:
+            for axis_type in AxisUnitEnum:
                 setting_type_combobox.addItem(str(axis_type), axis_type)
-            setting_axis_type: AxisType | None = self._set_unit_combobox(
+            setting_axis_type: AxisUnitEnum | None = self._set_unit_combobox(
                 setting_unit_string, setting_unit_combobox
             )
             if setting_axis_type is None:
-                setting_index = setting_type_combobox.findData(AxisType.STRING)
+                setting_index = setting_type_combobox.findData(AxisUnitEnum.STRING)
             else:
                 setting_index = setting_type_combobox.findData(
                     setting_axis_type
@@ -768,11 +768,11 @@ class AxisUnits:
             type_combobox: QComboBox = self._type_combobox_tuple[axis_index]
             unit_combobox: QComboBox = self._unit_combobox_tuple[axis_index]
             unit_line_edit: QLineEdit = self._unit_line_edit_tuple[axis_index]
-            axis_type: AxisType | None = type_combobox.currentData()
+            axis_type: AxisUnitEnum | None = type_combobox.currentData()
             if axis_type is None:
                 unit_combobox.setVisible(False)
                 unit_line_edit.setVisible(True)
-            if axis_type == AxisType.STRING:
+            if axis_type == AxisUnitEnum.STRING:
                 unit_combobox.setVisible(False)
                 unit_line_edit.setVisible(True)
             else:
@@ -781,12 +781,12 @@ class AxisUnits:
 
     def _set_unit_combobox(
         self, unit_type_string: str | None, combobox: QComboBox
-    ) -> AxisType | None:
+    ) -> AxisUnitEnum | None:
         with QSignalBlocker(combobox):
             combobox.clear()
         combined_pint_units_list: list[pint.Unit] = []
-        found_type: AxisType | None = None
-        for axis_type in AxisType:
+        found_type: AxisUnitEnum | None = None
+        for axis_type in AxisUnitEnum:
             unit_cfg = axis_type.value
             if unit_cfg is None:
                 continue
@@ -799,7 +799,7 @@ class AxisUnits:
         if found_type is not None:
             chosen_cfg = found_type.value
             if chosen_cfg is None:
-                return AxisType.STRING
+                return AxisUnitEnum.STRING
             pint_units = chosen_cfg.pint_units()
         else:
             pint_units = combined_pint_units_list
@@ -829,13 +829,13 @@ class AxisUnits:
             type_combobox: QComboBox = self._type_combobox_tuple[axis_index]
             unit_combobox: QComboBox = self._unit_combobox_tuple[axis_index]
             unit_line_edit: QLineEdit = self._unit_line_edit_tuple[axis_index]
-            axis_type: AxisType | None = type_combobox.currentData()
+            axis_type: AxisUnitEnum | None = type_combobox.currentData()
             pint_unit_text: str | None = None
             if axis_type is None:
                 pint_unit_text = None
                 units_list.append(None)  # type: ignore
                 continue
-            elif axis_type == AxisType.STRING:
+            elif axis_type == AxisUnitEnum.STRING:
                 line_edit_text: str = unit_line_edit.text()
                 if line_edit_text.strip().lower() == 'none':
                     units_list.append(None)  # type: ignore
@@ -865,7 +865,7 @@ class AxisUnits:
             unit_combobox: QComboBox = self._unit_combobox_tuple[axis_number]
             current_unit = str(current_units[axis_number])
             axis_type = type_combobox.currentData()
-            if not isinstance(axis_type, AxisType):
+            if not isinstance(axis_type, AxisUnitEnum):
                 continue
             unit_cfg = axis_type.value
             with QSignalBlocker(unit_combobox):

@@ -38,7 +38,7 @@ class _UnitConfig:
         return [ureg.Unit(u) for u in self.units]
 
 
-class AxisType(Enum):
+class AxisUnitEnum(Enum):
     """Classifies an axis as spatial, temporal, or free-form string.
 
     SPACE and TIME carry a ``_UnitConfig`` as ``.value``; access the curated
