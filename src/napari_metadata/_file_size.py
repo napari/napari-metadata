@@ -5,7 +5,6 @@ a property which is populated on the fly at runtime.
 
 import logging
 import math
-import os
 import urllib
 from pathlib import Path
 from typing import Union
@@ -75,7 +74,9 @@ def generate_display_size(layer: Layer) -> str:
     if layer.source.path and not is_url:
         p = Path(layer.source.path)
         if p.is_dir():
-            size = sum(file.stat().st_size for file in p.rglob('*') if file.is_file())
+            size = sum(
+                file.stat().st_size for file in p.rglob('*') if file.is_file()
+            )
         else:
             size = p.stat().st_size
         suffix = ''
@@ -93,4 +94,3 @@ def generate_display_size(layer: Layer) -> str:
     text = _generate_text_for_size(size, suffix=suffix)
 
     return text
-

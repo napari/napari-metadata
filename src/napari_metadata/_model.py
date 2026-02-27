@@ -44,22 +44,9 @@ def set_axes_labels(
         resolved_layer.axis_labels = axes_labels
 
 
-def get_pint_ureg(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> pint.UnitRegistry | None:
-    """Extract pint UnitRegistry from layer units if available."""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is None:
-        return None
-    for unit in resolved_layer.units:
-        if not isinstance(unit, str) and hasattr(unit, '_REGISTRY'):
-            return unit._REGISTRY
-    return None
-
-
 def get_axes_units(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[pint.Unit | str, ...]:
+) -> tuple[pint.Unit | None, ...]:
     """Get axis units from the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
     return resolved_layer.units if resolved_layer is not None else ()
@@ -101,10 +88,9 @@ def set_axes_scales(
     for scale in axes_scales:
         if not isinstance(scale, float):
             return
-        if scale <= 0:
-            scale = 0.001
 
-    resolved_layer.scale = np.array(axes_scales)
+    clamped = tuple(max(s, 0.001) for s in axes_scales)
+    resolved_layer.scale = np.array(clamped)
 
 
 def get_axes_translations(
@@ -203,21 +189,6 @@ def disconnect_callback_to_list_events(
         viewer.layers.events.removed.disconnect(cb_function)
     with suppress(TypeError, ValueError):
         viewer.layers.events.changed.disconnect(cb_function)
-
-
-def connect_callback_to_layer_selection_changed(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Connect a callback to layer name change Aevent."""
-    viewer.layers.selection.events.active.connect(cb_function)
-
-
-def disconnect_callback_to_layer_selection_changed(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Disconnect a callback from layer name change event."""
-    with suppress(TypeError, ValueError):
-        viewer.layers.selection.events.active.disconnect(cb_function)
 
 
 def connect_callback_to_layer_name_changed(
