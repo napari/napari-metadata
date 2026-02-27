@@ -5,11 +5,10 @@ from unittest.mock import MagicMock
 
 import napari.layers
 import numpy as np
-import pytest
 
 from napari_metadata._file_size import (
-    generate_display_size,
     _generate_text_for_size,
+    generate_display_size,
 )
 
 
@@ -49,29 +48,42 @@ class TestGenerateDisplaySize:
         data = np.zeros((10, 10), dtype=np.uint8)
         layer = napari.layers.Image(data)
         result = generate_display_size(layer)
-        assert result == _generate_text_for_size(data.nbytes, suffix=' (in memory)')
+        assert result == _generate_text_for_size(
+            data.nbytes, suffix=' (in memory)'
+        )
 
     def test_in_memory_multiscale_image(self):
-        scales = [np.zeros((20, 20), dtype=np.uint8), np.zeros((10, 10), dtype=np.uint8)]
+        scales = [
+            np.zeros((20, 20), dtype=np.uint8),
+            np.zeros((10, 10), dtype=np.uint8),
+        ]
         layer = napari.layers.Image(scales, multiscale=True)
         expected_size = sum(s.nbytes for s in scales)
         result = generate_display_size(layer)
-        assert result == _generate_text_for_size(expected_size, suffix=' (in memory)')
+        assert result == _generate_text_for_size(
+            expected_size, suffix=' (in memory)'
+        )
 
     def test_in_memory_shapes(self):
         shape_data = [np.array([[0, 0], [1, 1], [1, 0]], dtype=np.float32)]
         layer = napari.layers.Shapes(shape_data, shape_type='polygon')
         expected_size = sum(d.nbytes for d in layer.data)
         result = generate_display_size(layer)
-        assert result == _generate_text_for_size(expected_size, suffix=' (in memory)')
+        assert result == _generate_text_for_size(
+            expected_size, suffix=' (in memory)'
+        )
 
     def test_in_memory_surface(self):
-        vertices = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32)
+        vertices = np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32
+        )
         faces = np.array([[0, 1, 2]], dtype=np.int32)
         layer = napari.layers.Surface((vertices, faces))
         expected_size = sum(d.nbytes for d in layer.data)
         result = generate_display_size(layer)
-        assert result == _generate_text_for_size(expected_size, suffix=' (in memory)')
+        assert result == _generate_text_for_size(
+            expected_size, suffix=' (in memory)'
+        )
 
     def test_from_disk_path(self, tmp_path):
         data = np.zeros((10, 10), dtype=np.uint8)
@@ -94,7 +106,9 @@ class TestGenerateDisplaySize:
         layer = MagicMock(spec=napari.layers.Image)
         layer.source.path = str(dir_path)
         result = generate_display_size(layer)
-        expected_size = os.path.getsize(str(file1)) + os.path.getsize(str(file2))
+        expected_size = os.path.getsize(str(file1)) + os.path.getsize(
+            str(file2)
+        )
         assert result == _generate_text_for_size(expected_size)
         assert '(in memory)' not in result
 
@@ -110,7 +124,9 @@ class TestGenerateDisplaySize:
         layer = MagicMock(spec=napari.layers.Image)
         layer.source.path = str(dir_path)
         result = generate_display_size(layer)
-        expected_size = os.path.getsize(str(file1)) + os.path.getsize(str(file2))
+        expected_size = os.path.getsize(str(file1)) + os.path.getsize(
+            str(file2)
+        )
         assert result == _generate_text_for_size(expected_size)
         assert '(in memory)' not in result
 
@@ -120,4 +136,3 @@ class TestGenerateDisplaySize:
         layer = napari.layers.Image(data)
         result = generate_display_size(layer)
         assert '(in memory)' in result
-

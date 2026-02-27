@@ -16,6 +16,8 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from napari_metadata._protocols import MetadataWidgetAPI
+
 if TYPE_CHECKING:
     import napari.viewer
 
@@ -39,11 +41,13 @@ class CollapsibleSectionContainer(QWidget):
         self,
         viewer: 'napari.viewer.Viewer',
         container_name: str,
+        main_widget: MetadataWidgetAPI,
         orientation: Literal['vertical', 'horizontal'] = 'vertical',
     ):
         super().__init__()
         self._viewer = viewer
         self._container_name = container_name
+        self._main_widget = main_widget
         self._orientation = orientation
         self._set_text = ' '
 
@@ -111,6 +115,14 @@ class CollapsibleSectionContainer(QWidget):
         """Toggle the visibility of the expanding area."""
         self._expanding_area.setVisible(checked)
         self._sync_body_size()
+
+        if (
+            self._container_name == 'vertical_inheritance'
+            or self._container_name == 'horizontal_inheritance'
+        ):
+            self._main_widget._resolve_show_inheritance_checkboxes(
+                self._orientation, checked
+            )
 
         # Update button text
         if not checked:
