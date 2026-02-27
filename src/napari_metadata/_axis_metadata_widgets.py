@@ -1,3 +1,9 @@
+"""Contains the axis metadata widgets along with the AxisMetadata class that
+incorporates all widget instances.
+"""
+
+# TODO:Add docstring about classes, injections and definitions
+
 from typing import TYPE_CHECKING, cast
 
 import pint
@@ -31,6 +37,7 @@ from napari_metadata._protocols import (
     AxisComponent,
     MetadataWidgetAPI,
 )
+
 if TYPE_CHECKING:
     from napari.layers import Layer
     from napari.viewer import ViewerModel
@@ -80,7 +87,6 @@ def _axis_metadata_component(
         checkbox_tuple = self._inherit_checkbox_tuple
         for checkbox in checkbox_tuple:
             checkbox.setVisible(visible)
-        self._component_qlabel.setVisible(visible)
 
     _setting_class._set_checkboxes_visibility = (
         set_checkboxes_visibility_injection
@@ -641,7 +647,9 @@ class AxisUnits:
                     for at in AxisUnitEnum:
                         unit_cfg = at.value
                         if unit_cfg is not None:
-                            self._unit_combobox_tuple[i].addItems(unit_cfg.units)
+                            self._unit_combobox_tuple[i].addItems(
+                                unit_cfg.units
+                            )
                     self._unit_combobox_tuple[i].setCurrentIndex(
                         self._unit_combobox_tuple[i].findText(
                             AxisUnitEnum.SPACE.value.default
@@ -649,7 +657,9 @@ class AxisUnits:
                     )
                 with QSignalBlocker(self._type_combobox_tuple[i]):
                     self._type_combobox_tuple[i].setCurrentIndex(
-                        self._type_combobox_tuple[i].findText(str(matched_type))
+                        self._type_combobox_tuple[i].findText(
+                            str(matched_type)
+                        )
                     )
             self._update_unit_line_edits_texts()
             self._update_units_visibilities()
@@ -732,7 +742,9 @@ class AxisUnits:
                 setting_unit_string, setting_unit_combobox
             )
             if setting_axis_type is None:
-                setting_index = setting_type_combobox.findData(AxisUnitEnum.STRING)
+                setting_index = setting_type_combobox.findData(
+                    AxisUnitEnum.STRING
+                )
             else:
                 setting_index = setting_type_combobox.findData(
                     setting_axis_type
@@ -803,7 +815,9 @@ class AxisUnits:
             pint_units = chosen_cfg.pint_units()
         else:
             pint_units = combined_pint_units_list
-        applicatin_reg: pint.registry.ApplicationRegistry = pint.get_application_registry()
+        applicatin_reg: pint.registry.ApplicationRegistry = (
+            pint.get_application_registry()
+        )
         with QSignalBlocker(combobox):
             for pint_unit in pint_units:
                 combobox.addItem(str(pint_unit), pint_unit)
@@ -1004,7 +1018,14 @@ class AxisMetadata:
                 metadata_component_class(napari_viewer, main_widget)
             )
 
+        self._set_inheritance_checkbox_visibility(False)
+
     def _update_axes_labels(self) -> None:
         for axis_component in self._axis_metadata_components_dict.values():
             cast_component: AxisComponent = cast(AxisComponent, axis_component)
             cast_component._set_axis_name_labels()
+
+    def _set_inheritance_checkbox_visibility(self, visible: bool) -> None:
+        for axis_component in self._axis_metadata_components_dict.values():
+            cast_component: AxisComponent = cast(AxisComponent, axis_component)
+            cast_component._set_checkboxes_visibility(visible)

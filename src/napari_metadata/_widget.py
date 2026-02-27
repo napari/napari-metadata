@@ -28,6 +28,7 @@ from napari_metadata._axis_metadata_widgets import (
     AxisScales,
     AxisTranslations,
 )
+from napari_metadata._axis_units import AxisUnitEnum
 from napari_metadata._collapsible_containers import (
     CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
@@ -46,7 +47,6 @@ from napari_metadata._protocols import (
     AxisComponent,
     MetadataComponent,
 )
-from napari_metadata._axis_units import AxisUnitEnum
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -159,6 +159,7 @@ class MetadataWidget(QWidget):
         self._collapsible_vertical_file_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
             self._napari_viewer,
             'vertical_file_metadata',
+            self,
             orientation='vertical',
         )
         self._collapsible_vertical_file_metadata._set_button_text(
@@ -171,6 +172,7 @@ class MetadataWidget(QWidget):
         self._collapsible_vertical_editable_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
             self._napari_viewer,
             'vertical_axes_metadata',
+            self,
             orientation='vertical',
         )
         self._collapsible_vertical_editable_metadata._set_button_text(
@@ -184,6 +186,7 @@ class MetadataWidget(QWidget):
             CollapsibleSectionContainer(
                 self._napari_viewer,
                 'vertical_inheritance',
+                self,
                 orientation='vertical',
             )
         )
@@ -224,6 +227,7 @@ class MetadataWidget(QWidget):
         self._collapsible_horizontal_file_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
             self._napari_viewer,
             'horizontal_file_metadata',
+            self,
             orientation='horizontal',
         )
         self._collapsible_horizontal_file_metadata._set_button_text(
@@ -236,6 +240,7 @@ class MetadataWidget(QWidget):
         self._collapsible_horizontal_editable_metadata: CollapsibleSectionContainer = CollapsibleSectionContainer(
             self._napari_viewer,
             'horizontal_axes_metadata',
+            self,
             orientation='horizontal',
         )
         self._collapsible_horizontal_editable_metadata._set_button_text(
@@ -248,6 +253,7 @@ class MetadataWidget(QWidget):
         self._collapsible_horizontal_inheritance: CollapsibleSectionContainer = CollapsibleSectionContainer(
             self._napari_viewer,
             'horizontal_inheritance',
+            self,
             orientation='horizontal',
         )
         self._collapsible_horizontal_inheritance._set_button_text(
@@ -315,6 +321,20 @@ class MetadataWidget(QWidget):
             self._selected_layer = layer
 
         self._update_orientation()
+
+        current_orientation: str = self._current_orientation
+        inheritance_expanded: bool
+        if current_orientation == 'horizontal':
+            inheritance_expanded = (
+                self._collapsible_horizontal_inheritance.isExpanded()
+            )
+        else:
+            inheritance_expanded = (
+                self._collapsible_vertical_inheritance.isExpanded()
+            )
+        self._resolve_show_inheritance_checkboxes(
+            current_orientation, inheritance_expanded
+        )
 
     def showEvent(self, a0: QShowEvent | None) -> None:
         if self._already_shown:
@@ -1045,19 +1065,27 @@ class MetadataWidget(QWidget):
         unit_combobox_tuple: tuple[QComboBox, ...] = (
             unit_axis_component._unit_combobox_tuple
         )  # type: ignore
-        unit_registry: pint.registry.ApplicationRegistry = pint.get_application_registry()
+        unit_registry: pint.registry.ApplicationRegistry = (
+            pint.get_application_registry()
+        )
         for axis_number in range(len(type_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
             axis_type: AxisUnitEnum | None = AxisUnitEnum.from_name(
                 type_combobox_tuple[axis_number].currentText()  # type: ignore
             )
-            unit_cfg = axis_type.value if isinstance(axis_type, AxisUnitEnum) else None
+            unit_cfg = (
+                axis_type.value
+                if isinstance(axis_type, AxisUnitEnum)
+                else None
+            )
             if unit_cfg is not None and unit_string not in unit_cfg.units:
                 with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
                     unit_combobox_tuple[axis_number].clear()  # type: ignore
                     unit_combobox_tuple[axis_number].addItems(unit_cfg.units)  # type: ignore
                     unit_combobox_tuple[axis_number].setCurrentIndex(
-                        unit_combobox_tuple[axis_number].findText(unit_cfg.default)
+                        unit_combobox_tuple[axis_number].findText(
+                            unit_cfg.default
+                        )
                     )  # type: ignore
             else:
                 with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
@@ -1065,7 +1093,9 @@ class MetadataWidget(QWidget):
                     for at in AxisUnitEnum:
                         at_cfg = at.value
                         if at_cfg is not None:
-                            unit_combobox_tuple[axis_number].addItems(at_cfg.units)  # type: ignore
+                            unit_combobox_tuple[axis_number].addItems(
+                                at_cfg.units
+                            )  # type: ignore
                     unit_combobox_tuple[axis_number].setCurrentIndex(
                         unit_combobox_tuple[axis_number].findText(unit_string)
                     )  # type: ignore
@@ -1093,7 +1123,9 @@ class MetadataWidget(QWidget):
         type_combobox_tuple: tuple[QComboBox, ...] = (
             unit_axis_component._type_combobox_tuple
         )  # type: ignore
-        unit_registry: pint.registry.ApplicationRegistry = pint.get_application_registry()
+        unit_registry: pint.registry.ApplicationRegistry = (
+            pint.get_application_registry()
+        )
         setting_units_list: list[pint.Unit | str | None] = []
         for axis_number in range(len(unit_combobox_tuple)):  # type: ignore
             unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
@@ -1105,7 +1137,9 @@ class MetadataWidget(QWidget):
                     break
             with QSignalBlocker(type_combobox_tuple[axis_number]):  # type: ignore
                 type_combobox_tuple[axis_number].setCurrentIndex(
-                    type_combobox_tuple[axis_number].findText(str(inferred_type))
+                    type_combobox_tuple[axis_number].findText(
+                        str(inferred_type)
+                    )
                 )  # type: ignore
             unit_pint: pint.Unit | None
             if unit_string == 'none' or not unit_string:
@@ -1114,6 +1148,14 @@ class MetadataWidget(QWidget):
                 unit_pint = unit_registry.Unit(unit_string)
             setting_units_list.append(unit_pint)
         set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
+
+    def _resolve_show_inheritance_checkboxes(
+        self, orientation: str, checked: bool
+    ) -> None:
+        if self._current_orientation == orientation:
+            axis_metadata: AxisMetadata = self._axis_metadata_instance
+            axis_metadata._set_inheritance_checkbox_visibility(checked)
+        return
 
     def apply_inheritance_to_current_layer(
         self, template_layer: 'Layer'
