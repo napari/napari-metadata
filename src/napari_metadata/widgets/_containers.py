@@ -44,7 +44,7 @@ class CollapsibleSectionContainer(QWidget):
         main_widget: MetadataWidgetAPI,
         orientation: Literal['vertical', 'horizontal'] = 'vertical',
     ):
-        super().__init__()
+        super().__init__(parent=main_widget)
         self._viewer = viewer
         self._container_name = container_name
         self._main_widget = main_widget
@@ -72,7 +72,7 @@ class CollapsibleSectionContainer(QWidget):
         self._layout.addWidget(self._button, 0)
 
         # Create expanding area
-        self._expanding_area = QScrollArea()
+        self._expanding_area = QScrollArea(self)
         self._expanding_area.setWidgetResizable(True)
 
         if orientation == 'vertical':
@@ -191,7 +191,7 @@ class CollapsibleSectionContainer(QWidget):
             self._expanding_area.setWidget(setting_widget)
         else:  # horizontal
             # Horizontal containers need a wrapper with stretch
-            wrapper = QWidget()
+            wrapper = QWidget(self._expanding_area)
             wrapper_layout = QVBoxLayout(wrapper)
             wrapper_layout.setContentsMargins(0, 0, 0, 0)
             wrapper_layout.addWidget(setting_widget)
