@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
 
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtGui import QFontMetrics
@@ -11,11 +13,41 @@ from napari_metadata.layer_utils import (
     get_layer_source_path,
     resolve_layer,
 )
-from napari_metadata.widgets._protocols import MetadataComponent
 
 if TYPE_CHECKING:
     from napari.layers import Layer
     from napari.viewer import ViewerModel
+
+
+class MetadataComponent(Protocol):
+    """Structural typing interface for file metadata components.
+
+    This protocol is temporary will replace with a concrete
+    ``FileComponentBase`` class.
+    """
+
+    _component_name: str
+    _napari_viewer: ViewerModel
+    _component_qlabel: QLabel
+
+    def __init__(
+        self, napari_viewer: ViewerModel, main_widget: QWidget
+    ) -> None: ...
+
+    def load_entries(self, layer: Layer | None = None) -> None: ...
+
+    def get_entries_dict(
+        self, layout_mode: str
+    ) -> (
+        dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        | dict[
+            int,
+            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+        ]
+    ): ...
+
+    def get_under_label(self, layout_mode: str) -> bool: ...
+
 
 FILE_METADATA_COMPONENTS_DICT: dict[str, type[MetadataComponent]] = {}
 
@@ -33,7 +65,7 @@ def _metadata_component(
 @_metadata_component
 class LayerNameComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
@@ -41,7 +73,7 @@ class LayerNameComponent:
     _layer_name_line_edit: QLineEdit
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
@@ -63,7 +95,7 @@ class LayerNameComponent:
         )
         self._component_name = 'LayerName'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -116,7 +148,7 @@ class LayerNameComponent:
 @_metadata_component
 class LayerShapeComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
@@ -124,7 +156,7 @@ class LayerShapeComponent:
     _layer_shape_label: QLabel
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
@@ -140,7 +172,7 @@ class LayerShapeComponent:
 
         self._component_name = 'LayerShape'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -184,13 +216,13 @@ class LayerShapeComponent:
 @_metadata_component
 class LayerDataTypeComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
@@ -206,7 +238,7 @@ class LayerDataTypeComponent:
 
         self._component_name = 'LayerDataType'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -250,13 +282,13 @@ class LayerDataTypeComponent:
 @_metadata_component
 class LayerFileSizeComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
@@ -272,7 +304,7 @@ class LayerFileSizeComponent:
 
         self._component_name = 'LayerFileSize'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -316,13 +348,13 @@ class LayerFileSizeComponent:
 @_metadata_component
 class SourcePathComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._component_name = 'SourcePath'
         self._napari_viewer = napari_viewer
@@ -342,7 +374,7 @@ class SourcePathComponent:
         source_path_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self._source_path_text_edit = source_path_text_edit
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -397,12 +429,12 @@ class FileGeneralMetadata:
     components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes.
     """
 
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _file_metadata_components_dict: dict[str, MetadataComponent]
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
