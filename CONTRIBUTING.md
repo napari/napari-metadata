@@ -33,23 +33,27 @@ Or equivalently with `pip`:
 pip install -e . --group dev
 ```
 
-We use [`pre-commit`](https://pre-commit.com) to format and lint code
-automatically prior to each commit as implemented in `ruff`.
-To minimize test errors when submitting pull requests, please install `pre-commit`
-in your environment as follows:
+We use pre-commit hooks to format and lint code automatically prior to each
+commit. The hooks are configured in `.pre-commit-config.yaml` and run `ruff`
+for formatting and linting, among other checks.
+
+We recommend using [`prek`](https://github.com/j178/prek), a faster
+drop-in replacement for `pre-commit` written in Rust with no Python runtime
+dependency. `prek` is included with the development dependencies.
+Register the git hooks with:
 
 ```sh
-pre-commit install
+prek install
 ```
 
 Upon committing, your code will be formatted and linted according to our
 [`ruff` configuration](https://github.com/napari/napari-metadata/blob/main/pyproject.toml).
 To learn more, see [`ruff`'s documentation](https://docs.astral.sh/ruff/).
 
-You can also execute `pre-commit` at any moment by running the following:
+You can run all hooks against the entire codebase at any time:
 
 ```sh
-pre-commit run -a
+prek run --all-files
 ```
 
 If you wish to tell the linter to ignore a specific line use the `# noqa`

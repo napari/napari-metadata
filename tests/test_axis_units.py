@@ -38,22 +38,22 @@ class TestUnitConfig:
 class TestAxisType:
     def test_members(self):
         names = AxisUnitEnum.names()
-        assert "space" in names
-        assert "time" in names
-        assert "string" in names
+        assert 'space' in names
+        assert 'time' in names
+        assert 'string' in names
 
     def test_str(self):
-        assert str(AxisUnitEnum.SPACE) == "space"
-        assert str(AxisUnitEnum.TIME) == "time"
-        assert str(AxisUnitEnum.STRING) == "string"
+        assert str(AxisUnitEnum.SPACE) == 'space'
+        assert str(AxisUnitEnum.TIME) == 'time'
+        assert str(AxisUnitEnum.STRING) == 'string'
 
     def test_from_name_valid(self):
-        assert AxisUnitEnum.from_name("space") is AxisUnitEnum.SPACE
-        assert AxisUnitEnum.from_name("time") is AxisUnitEnum.TIME
-        assert AxisUnitEnum.from_name("string") is AxisUnitEnum.STRING
+        assert AxisUnitEnum.from_name('space') is AxisUnitEnum.SPACE
+        assert AxisUnitEnum.from_name('time') is AxisUnitEnum.TIME
+        assert AxisUnitEnum.from_name('string') is AxisUnitEnum.STRING
 
     def test_from_name_invalid(self):
-        assert AxisUnitEnum.from_name("nonexistent") is None
+        assert AxisUnitEnum.from_name('nonexistent') is None
 
     def test_names_returns_all_members(self):
         assert len(AxisUnitEnum.names()) == len(list(AxisUnitEnum))
@@ -69,29 +69,31 @@ class TestAxisType:
 
     def test_space_units_contain_expected(self):
         units = AxisUnitEnum.SPACE.value.units
-        assert "pixel" in units
-        assert "micrometer" in units
-        assert "meter" in units
-        assert "none" not in units
+        assert 'pixel' in units
+        assert 'micrometer' in units
+        assert 'meter' in units
+        assert 'none' not in units
 
     def test_time_units_contain_expected(self):
         units = AxisUnitEnum.TIME.value.units
-        assert "second" in units
-        assert "millisecond" in units
-        assert "hour" in units
-        assert "none" not in units
+        assert 'second' in units
+        assert 'millisecond' in units
+        assert 'hour' in units
+        assert 'none' not in units
 
     def test_space_default_unit(self):
-        assert AxisUnitEnum.SPACE.value.default == "pixel"
+        assert AxisUnitEnum.SPACE.value.default == 'pixel'
 
     def test_time_default_unit(self):
-        assert AxisUnitEnum.TIME.value.default == "second"
+        assert AxisUnitEnum.TIME.value.default == 'second'
 
     @pytest.mark.parametrize(
-        "axis_type",
+        'axis_type',
         list(AxisUnitEnum),
         ids=[str(a) for a in AxisUnitEnum],
     )
     def test_value_is_config_or_none(self, axis_type):
         """Every AxisType member has either a _UnitConfig or None."""
-        assert axis_type.value is None or isinstance(axis_type.value, _UnitConfig)
+        assert axis_type.value is None or isinstance(
+            axis_type.value, _UnitConfig
+        )

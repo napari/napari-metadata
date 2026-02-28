@@ -15,11 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
-
-from typing_extensions import Self
 
 import pint
+from typing_extensions import Self
 
 
 @dataclass(frozen=True)
@@ -53,16 +51,32 @@ class AxisUnitEnum(Enum):
 
     SPACE = _UnitConfig(
         units=(
-            'pixel', 'femtometer', 'picometer', 'nanometer',
-            'micrometer', 'millimeter', 'centimeter', 'meter',
+            'pixel',
+            'femtometer',
+            'picometer',
+            'nanometer',
+            'micrometer',
+            'millimeter',
+            'centimeter',
+            'meter',
         ),
         default='pixel',
     )
     TIME = _UnitConfig(
         units=(
-            'femtosecond', 'picosecond', 'nanosecond', 'microsecond',
-            'millisecond', 'second', 'minute', 'hour',
-            'day', 'year', 'decade', 'century', 'millennium',
+            'femtosecond',
+            'picosecond',
+            'nanosecond',
+            'microsecond',
+            'millisecond',
+            'second',
+            'minute',
+            'hour',
+            'day',
+            'year',
+            'decade',
+            'century',
+            'millennium',
         ),
         default='second',
     )
@@ -72,7 +86,7 @@ class AxisUnitEnum(Enum):
         return self.name.lower()
 
     @classmethod
-    def from_name(cls, name: str) -> Optional[Self]:
+    def from_name(cls, name: str) -> Self | None:
         """Return the member whose ``str()`` matches *name*, or ``None``."""
         for m in cls:
             if str(m) == name:

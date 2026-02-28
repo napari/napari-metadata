@@ -10,12 +10,13 @@ if TYPE_CHECKING:
     from napari.layers import Layer
 
 
-""" This protocol is used to define the structure of the AxisComponent class.
-NOTE: Again, it is possible to integrate the metadata into a single type of component by passing lists instead of single values in the get_entries_dict,
-but it might complicate even more the already complicated extension patterns."""
-
-
 class AxisComponent(Protocol):
+    """This protocol is used to define the structure of the AxisComponent class.
+    NOTE: Again, it is possible to integrate the metadata into a single type of
+    component by passing lists instead of single values in the get_entries_dict,
+    but it might complicate even more the already complicated extension patterns.
+    """
+
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
@@ -43,13 +44,14 @@ class AxisComponent(Protocol):
     def _set_checkboxes_visibility(self, visible: bool) -> None: ...
 
 
-"""This protocol is made to store the general metadata components that are not the axis components. They differn from the axis components
-because they only get one widget per entry and I didn't wanto to complicate (complicate more) the extension patterns so it'll have to stay like this.
-It might be best if the plugin won't allow the user to modify any of these except for the layer name.
-NOTE: It is 100% possible to integrate them into a single type of component by passing lists instead of single values in the get_entries_dict but It might get too complex to extend?"""
-
-
 class MetadataComponent(Protocol):
+    """This protocol is made to store the general metadata components that are not the axis components. They differn from the axis components
+    because they only get one widget per entry and I didn't wanto to complicate (complicate more) the extension patterns so it'll have to stay like this.
+    It might be best if the plugin won't allow the user to modify any of these except for the layer name.
+    NOTE: It is 100% possible to integrate them into a single type of component
+    by passing lists instead of single values in the get_entries_dict but It might get too complex to extend?
+    """
+
     _component_name: str
     _napari_viewer: 'ViewerModel'
     _component_qlabel: QLabel

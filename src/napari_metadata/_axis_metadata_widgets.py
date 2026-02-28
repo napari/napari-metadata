@@ -47,12 +47,14 @@ INHERIT_STRING = ''
 
 AXIS_METADATA_COMPONENTS_DICT: dict[str, type[AxisComponent]] = {}
 
-""" This decorator is used to register the MetadataComponent class in the METADATA_COMPONENTS_DICT dictionary."""
-
 
 def _axis_metadata_component(
     _setting_class: type[AxisComponent],
 ) -> type[AxisComponent]:
+    """This decorator is used to register the MetadataComponent
+    class in the METADATA_COMPONENTS_DICT dictionary
+    """
+
     def reset_tuples_injection(self: AxisComponent) -> None:
         tuple_names = [name for name in vars(self) if name.endswith('_tuple')]
         if not tuple_names:
@@ -993,12 +995,11 @@ def _get_checkbox_tuple(layer: 'Layer | None') -> tuple[QCheckBox, ...]:
     return returning_tuple
 
 
-""" This is the class that integrates all of the axis metadata components together and instantiates them. This class itself
-is instantiated in the MetadataWidgetAPI class, which is ultimately the main class passed to napari. This class will only hold the
-components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes."""
-
-
 class AxisMetadata:
+    """This is the class that integrates all of the axis metadata components together and instantiates them. This class itself
+    is instantiated in the MetadataWidgetAPI class, which is ultimately the main class passed to napari. This class will only hold the
+    components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes."""
+
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
     _axis_metadata_components_dict: dict[str, AxisComponent]

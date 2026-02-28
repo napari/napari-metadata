@@ -19,12 +19,13 @@ if TYPE_CHECKING:
 
 FILE_METADATA_COMPONENTS_DICT: dict[str, type[MetadataComponent]] = {}
 
-""" This decorator is used to register the MetadataComponent class in the METADATA_COMPONENTS_DICT dictionary."""
-
 
 def _metadata_component(
     _setting_class: type[MetadataComponent],
 ) -> type[MetadataComponent]:
+    """This decorator is used to register the MetadataComponent
+    class in the METADATA_COMPONENTS_DICT dictionary.
+    """
     FILE_METADATA_COMPONENTS_DICT[_setting_class.__name__] = _setting_class
     return _setting_class
 
@@ -390,12 +391,12 @@ class SourcePathComponent:
         return layout_mode == 'vertical'
 
 
-""" This is the class that integrates all of the general metadata components together and instantiates them. This class itself
-is instantiated in the MetadataWidgetAPI class, which is ultimately the main class passed to napari. This class will only hold the
-components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes."""
-
-
 class FileGeneralMetadata:
+    """This is the class that integrates all of the general metadata components together and instantiates them. This class itself
+    is instantiated in the MetadataWidgetAPI class, which is ultimately the main class passed to napari. This class will only hold the
+    components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes.
+    """
+
     _napari_viewer: 'ViewerModel'
     _main_widget: QWidget
     _file_metadata_components_dict: dict[str, MetadataComponent]
