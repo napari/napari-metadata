@@ -76,13 +76,13 @@ class AxisComponentBase(ABC):
     def __init__(
         self,
         viewer: ViewerModel,
-        main_widget: QWidget,
+        parent_widget: QWidget,
     ) -> None:
         self._napari_viewer: ViewerModel = viewer
-        self._main_widget = main_widget
+        self._parent_widget = parent_widget
         self._selected_layer: Layer | None = None
 
-        self._component_qlabel = QLabel(self._label_text)
+        self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
         self._component_qlabel.setStyleSheet('font-weight: bold')
         self._component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -163,7 +163,7 @@ class AxisComponentBase(ABC):
         merged: list[Any] = [
             tv if self._inherit_checkboxes[i].isChecked() else cv
             for i, (cv, tv) in enumerate(
-                zip(current_values, template_values, strict=False)
+                zip(current_values, template_values, strict=True)
             )
         ]
         self._apply_values(merged)
@@ -229,14 +229,17 @@ class AxisComponentBase(ABC):
         """
         labels = get_axes_labels(self._napari_viewer, layer)
         for i, label in enumerate(labels):
-            qlabel = QLabel(label if label else str(i))
+            qlabel = QLabel(
+                label if label else str(i),
+                parent=self._parent_widget,
+            )
             qlabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._axis_name_labels.append(qlabel)
 
     def _create_inherit_checkboxes(self, layer: Layer) -> None:
         """Create one inherit ``QCheckBox`` per axis (all checked)."""
         for _ in range(get_layer_dimensions(layer)):
-            cb = QCheckBox('')
+            cb = QCheckBox('', parent=self._parent_widget)
             cb.setChecked(True)
             cb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             self._inherit_checkboxes.append(cb)

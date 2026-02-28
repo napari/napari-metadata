@@ -69,11 +69,11 @@ class AxisLabels(AxisComponentBase):
     def __init__(
         self,
         viewer: ViewerModel,
-        main_widget: QWidget,
+        parent_widget: QWidget,
         *,
         on_labels_changed: Callable[[], None] | None = None,
     ) -> None:
-        super().__init__(viewer, main_widget)
+        super().__init__(viewer, parent_widget)
         self._on_labels_changed = on_labels_changed
         self._line_edits: list[QLineEdit] = []
 
@@ -87,11 +87,11 @@ class AxisLabels(AxisComponentBase):
             return
         for i in range(ndim):
             # Index label (not the axis name)
-            index_label = QLabel(str(i))
+            index_label = QLabel(str(i), parent=self._parent_widget)
             index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._axis_name_labels.append(index_label)
 
-            line_edit = QLineEdit()
+            line_edit = QLineEdit(parent=self._parent_widget)
             line_edit.setText(labels[i] if i < len(labels) else '')
             line_edit.editingFinished.connect(self._on_editing_finished)
             self._line_edits.append(line_edit)
@@ -135,8 +135,8 @@ class AxisTranslations(AxisComponentBase):
 
     _label_text = 'Translate:'
 
-    def __init__(self, viewer: ViewerModel, main_widget: QWidget) -> None:
-        super().__init__(viewer, main_widget)
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        super().__init__(viewer, parent_widget)
         self._spinboxes: list[QDoubleSpinBox] = []
 
     def _all_widget_lists(self) -> list[list[QWidget]]:
@@ -149,7 +149,7 @@ class AxisTranslations(AxisComponentBase):
         if ndim == 0:
             return
         for value in translations:
-            sb = QDoubleSpinBox()
+            sb = QDoubleSpinBox(parent=self._parent_widget)
             sb.setDecimals(1)
             sb.setSingleStep(1.0)
             sb.setRange(-1_000_000, 1_000_000)
@@ -193,8 +193,8 @@ class AxisScales(AxisComponentBase):
 
     _label_text = 'Scale:'
 
-    def __init__(self, viewer: ViewerModel, main_widget: QWidget) -> None:
-        super().__init__(viewer, main_widget)
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        super().__init__(viewer, parent_widget)
         self._spinboxes: list[QDoubleSpinBox] = []
 
     # -- AxisComponentBase overrides ----------------------------------------
@@ -209,7 +209,7 @@ class AxisScales(AxisComponentBase):
         if ndim == 0:
             return
         for value in scales:
-            sb = QDoubleSpinBox()
+            sb = QDoubleSpinBox(parent=self._parent_widget)
             sb.setDecimals(3)
             sb.setSingleStep(0.1)
             sb.setRange(0.001, 1_000_000)
@@ -262,8 +262,8 @@ class AxisUnits(AxisComponentBase):
 
     _label_text = 'Units:'
 
-    def __init__(self, viewer: ViewerModel, main_widget: QWidget) -> None:
-        super().__init__(viewer, main_widget)
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        super().__init__(viewer, parent_widget)
         self._type_comboboxes: list[QComboBox] = []
         self._unit_comboboxes: list[QComboBox] = []
         self._unit_line_edits: list[QLineEdit] = []
@@ -287,12 +287,12 @@ class AxisUnits(AxisComponentBase):
             unit_str = str(layer_units[i]) if i < len(layer_units) else ''
 
             # Type combobox (space / time / string)
-            type_cb = QComboBox()
+            type_cb = QComboBox(parent=self._parent_widget)
             for axis_type in AxisUnitEnum:
                 type_cb.addItem(str(axis_type), axis_type)
 
             # Unit combobox (curated pint units)
-            unit_cb = QComboBox()
+            unit_cb = QComboBox(parent=self._parent_widget)
             matched_type = self._populate_unit_combobox(unit_str, unit_cb)
             type_index = type_cb.findData(
                 matched_type
@@ -302,7 +302,7 @@ class AxisUnits(AxisComponentBase):
             type_cb.setCurrentIndex(type_index)
 
             # Free-form line edit for STRING type
-            line_edit = QLineEdit()
+            line_edit = QLineEdit(parent=self._parent_widget)
 
             self._type_comboboxes.append(type_cb)
             self._unit_comboboxes.append(unit_cb)
@@ -500,15 +500,15 @@ class AxisMetadata:
     * Toggle inheritance checkboxes globally
     """
 
-    def __init__(self, viewer: ViewerModel, main_widget: QWidget) -> None:
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
         self._labels = AxisLabels(
             viewer,
-            main_widget,
+            parent_widget,
             on_labels_changed=self._on_labels_changed,
         )
-        self._translations = AxisTranslations(viewer, main_widget)
-        self._scales = AxisScales(viewer, main_widget)
-        self._units = AxisUnits(viewer, main_widget)
+        self._translations = AxisTranslations(viewer, parent_widget)
+        self._scales = AxisScales(viewer, parent_widget)
+        self._units = AxisUnits(viewer, parent_widget)
 
         self._components: list[AxisComponentBase] = [
             self._labels,

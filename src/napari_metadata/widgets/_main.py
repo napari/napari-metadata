@@ -13,7 +13,6 @@ from qtpy.QtWidgets import (
     QLabel,
     QLayout,
     QLayoutItem,
-    QLineEdit,
     QMainWindow,
     QScrollArea,
     QSizePolicy,
@@ -87,7 +86,6 @@ class MetadataWidget(QWidget):
         self._general_metadata_instance = FileGeneralMetadata(
             napari_viewer, self
         )
-        self._connect_file_general_metadata_components()
 
         self._vert_file_general_metadata_container: QWidget = QWidget()
         self._vert_file_general_metadata_layout: QGridLayout = QGridLayout()
@@ -119,9 +117,9 @@ class MetadataWidget(QWidget):
         )
 
         self._vert_inheritance_container: QWidget = QWidget()
-        self._vert_inhertiance_layout: QGridLayout = QGridLayout()
+        self._vert_inheritance_layout: QGridLayout = QGridLayout()
         self._vert_inheritance_container.setLayout(
-            self._vert_inhertiance_layout
+            self._vert_inheritance_layout
         )
         self._hori_inheritance_container: QWidget = QWidget()
         self._hori_inheritance_layout: QGridLayout = QGridLayout()
@@ -784,7 +782,7 @@ class MetadataWidget(QWidget):
             hori_axis_layout.parentWidget().updateGeometry()
 
     def _set_inheritance_orientation(self, orientation: str) -> None:
-        vert_inheritance_layout: QGridLayout = self._vert_inhertiance_layout
+        vert_inheritance_layout: QGridLayout = self._vert_inheritance_layout
         vert_inheritance_layout.setVerticalSpacing(8)
         hori_inheritance_layout: QGridLayout = self._hori_inheritance_layout
 
@@ -798,34 +796,6 @@ class MetadataWidget(QWidget):
             setting_layout = hori_inheritance_layout
 
         setting_layout.addWidget(self._inheritance_instance)
-
-    def _connect_file_general_metadata_components(self) -> None:
-        file_general_meta_instance: FileGeneralMetadata = (
-            self._general_metadata_instance
-        )
-        components_dict = (
-            file_general_meta_instance._file_metadata_components_dict
-        )  # type: ignore
-
-        for name in components_dict:
-            general_component: MetadataComponent = components_dict[name]  # type: ignore
-            entries_dict: dict[str, tuple[QWidget, int, int, str]] = (
-                general_component.get_entries_dict(self._current_orientation)
-            )
-            for entry_name in entries_dict:
-                entry_widget: QWidget = entries_dict[entry_name][0]
-                method_name: str = entries_dict[entry_name][3]
-                if method_name == '':
-                    continue
-                if isinstance(entry_widget, QLineEdit):
-                    entry_line_edit: QLineEdit = cast(QLineEdit, entry_widget)
-                    entry_line_edit.textEdited.connect(
-                        getattr(self, method_name)
-                    )
-
-    def _on_name_line_changed(self, text: str) -> None:
-        """Connected by _connect_file_general_metadata_components (PR 4 cleanup)."""
-        return
 
     def _set_layout_type(self, layout_type: str) -> None:
         if layout_type == 'vertical':
