@@ -87,3 +87,7 @@ venv/
 
 # lock files
 pixi.lock
+
+# LLMs
+AGENTS.md
+PLAN.md
