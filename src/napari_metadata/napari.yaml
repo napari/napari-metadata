@@ -3,7 +3,7 @@ display_name: Layer metadata
 contributions:
   commands:
     - id: napari-metadata.make_metadata_qwidget
-      python_name: napari_metadata._widget:MetadataWidget
+      python_name: napari_metadata.widgets:MetadataWidget
       title: Make metadata widget
   widgets:
     - command: napari-metadata.make_metadata_qwidget

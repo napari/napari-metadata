@@ -1,4 +1,4 @@
-from napari_metadata._widget import MetadataWidget
+from napari_metadata.widgets import MetadataWidget
 
 
 def test_add_widget_to_napari(make_napari_viewer):

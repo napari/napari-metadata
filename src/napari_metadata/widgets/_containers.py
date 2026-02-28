@@ -16,7 +16,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata._protocols import MetadataWidgetAPI
+from napari_metadata.widgets._protocols import MetadataWidgetAPI
 
 if TYPE_CHECKING:
     import napari.viewer

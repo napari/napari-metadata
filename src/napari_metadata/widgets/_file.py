@@ -4,14 +4,14 @@ from qtpy.QtCore import QSize, Qt
 from qtpy.QtGui import QFontMetrics
 from qtpy.QtWidgets import QLabel, QLineEdit, QSizePolicy, QTextEdit, QWidget
 
-from napari_metadata._file_size import generate_display_size
-from napari_metadata._model import (
+from napari_metadata.file_size import generate_display_size
+from napari_metadata.layer_utils import (
     get_layer_data_dtype,
     get_layer_data_shape,
     get_layer_source_path,
     resolve_layer,
 )
-from napari_metadata._protocols import MetadataComponent
+from napari_metadata.widgets._protocols import MetadataComponent
 
 if TYPE_CHECKING:
     from napari.layers import Layer

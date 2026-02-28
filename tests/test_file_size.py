@@ -1,4 +1,4 @@
-"""Tests for napari_metadata._file_size."""
+"""Tests for napari_metadata.file_size."""
 
 import os
 from unittest.mock import MagicMock
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import napari.layers
 import numpy as np
 
-from napari_metadata._file_size import (
+from napari_metadata.file_size import (
     _generate_text_for_size,
     generate_display_size,
 )

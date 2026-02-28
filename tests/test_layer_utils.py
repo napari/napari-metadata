@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from napari.components import ViewerModel
 
-from napari_metadata._model import (
+from napari_metadata.layer_utils import (
     connect_callback_to_layer_name_changed,
     connect_callback_to_layer_selection_events,
     connect_callback_to_list_events,

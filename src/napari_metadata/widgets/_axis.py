@@ -19,8 +19,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata._axis_units import AxisUnitEnum
-from napari_metadata._model import (
+from napari_metadata.layer_utils import (
     get_axes_labels,
     get_axes_scales,
     get_axes_translations,
@@ -32,7 +31,8 @@ from napari_metadata._model import (
     set_axes_translations,
     set_axes_units,
 )
-from napari_metadata._protocols import (
+from napari_metadata.units import AxisUnitEnum
+from napari_metadata.widgets._protocols import (
     AxesMetadataComponentsInstanceAPI,
     AxisComponent,
     MetadataWidgetAPI,

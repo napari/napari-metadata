@@ -22,27 +22,27 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata._axis_metadata_widgets import (
-    AxisLabels,
-    AxisMetadata,
-    AxisScales,
-    AxisTranslations,
-)
-from napari_metadata._axis_units import AxisUnitEnum
-from napari_metadata._collapsible_containers import (
-    CollapsibleSectionContainer,
-    HorizontalOnlyOuterScrollArea,
-)
-from napari_metadata._file_metadata_widgets import FileGeneralMetadata
-from napari_metadata._inheritance_widget import InheritanceWidget
-from napari_metadata._model import (
+from napari_metadata.layer_utils import (
     resolve_layer,
     set_axes_labels,
     set_axes_scales,
     set_axes_translations,
     set_axes_units,
 )
-from napari_metadata._protocols import (
+from napari_metadata.units import AxisUnitEnum
+from napari_metadata.widgets._axis import (
+    AxisLabels,
+    AxisMetadata,
+    AxisScales,
+    AxisTranslations,
+)
+from napari_metadata.widgets._containers import (
+    CollapsibleSectionContainer,
+    HorizontalOnlyOuterScrollArea,
+)
+from napari_metadata.widgets._file import FileGeneralMetadata
+from napari_metadata.widgets._inheritance import InheritanceWidget
+from napari_metadata.widgets._protocols import (
     AxesMetadataComponentsInstanceAPI,
     AxisComponent,
     MetadataComponent,

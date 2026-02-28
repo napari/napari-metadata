@@ -10,7 +10,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata._model import (
+from napari_metadata.layer_utils import (
     connect_callback_to_layer_name_changed,
     connect_callback_to_layer_selection_events,
     connect_callback_to_list_events,
@@ -20,7 +20,7 @@ from napari_metadata._model import (
     get_layers_list,
     resolve_layer,
 )
-from napari_metadata._protocols import MetadataWidgetAPI
+from napari_metadata.widgets._protocols import MetadataWidgetAPI
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
