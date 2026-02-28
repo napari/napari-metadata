@@ -186,8 +186,9 @@ class AxisTranslations(AxisComponentBase):
 class AxisScales(AxisComponentBase):
     """Per-axis scale editor using ``QDoubleSpinBox`` widgets.
 
-    After the user changes a value, the spinbox display is updated to
-    reflect the clamped value (``set_axes_scales`` enforces >= 0.001).
+    ``set_axes_scales`` enforces a lower bound of ``0.001`` in the layer
+    model. The spinbox keeps live updates while typing and only syncs its
+    displayed value back to the model value when editing is committed.
     """
 
     _label_text = 'Scale:'
@@ -211,9 +212,10 @@ class AxisScales(AxisComponentBase):
             sb = QDoubleSpinBox()
             sb.setDecimals(3)
             sb.setSingleStep(0.1)
-            sb.setRange(0, 1_000_000)
+            sb.setRange(0.001, 1_000_000)
             sb.setValue(value)
             sb.valueChanged.connect(self._on_value_changed)
+            sb.editingFinished.connect(self._on_editing_finished)
             self._spinboxes.append(sb)
 
         self._create_inherit_checkboxes(layer)
@@ -237,14 +239,15 @@ class AxisScales(AxisComponentBase):
 
     def _on_value_changed(self) -> None:
         values = tuple(sb.value() for sb in self._spinboxes)
-        # set_axes_scales clamps each axis to >= 0.001.
         set_axes_scales(self._napari_viewer, values, self._selected_layer)
-        # Reflect the clamped values back in the spinboxes so the user
-        for sb in self._spinboxes:
-            clamped = max(sb.value(), 0.001)
-            if sb.value() != clamped:
-                with QSignalBlocker(sb):
-                    sb.setValue(clamped)
+
+    def _on_editing_finished(self) -> None:
+        """Sync displayed values to the layer values after edit commit."""
+        scales = get_axes_scales(self._napari_viewer, self._selected_layer)
+        for i, value in enumerate(scales):
+            if i < len(self._spinboxes):
+                with QSignalBlocker(self._spinboxes[i]):
+                    self._spinboxes[i].setValue(value)
 
 
 class AxisUnits(AxisComponentBase):

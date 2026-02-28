@@ -44,6 +44,30 @@ class TestAxisScales:
         assert layer.scale[0] == pytest.approx(0.001)
         assert spinbox.value() == pytest.approx(0.001)
 
+    def test_can_type_decimal_with_intermediate_zeros(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
+        scales = AxisScales(viewer_model, parent_widget)
+
+        scales.load_entries(layer)
+        spinbox = scales._spinboxes[0]
+        line_edit = spinbox.lineEdit()
+        assert line_edit is not None
+
+        line_edit.selectAll()
+        # this types '0.020' in one go, which is important to test that the
+        # intermediate '0.0' is accepted and doesn't reset to the clamped
+        # value of 0.001 before the full value is entered.
+        qtbot.keyClicks(line_edit, '0.020')
+        spinbox.editingFinished.emit()
+
+        assert spinbox.value() == pytest.approx(0.02)
+        assert layer.scale[0] == pytest.approx(0.02)
+
 
 class TestAxisLabels:
     def test_shows_index_labels_and_update_is_noop(
