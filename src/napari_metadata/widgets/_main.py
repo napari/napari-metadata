@@ -30,7 +30,7 @@ from napari_metadata.layer_utils import (
     set_axes_units,
 )
 from napari_metadata.units import AxisUnitEnum
-from napari_metadata.widgets._axis_components import (
+from napari_metadata.widgets._axis import (
     AxisLabels,
     AxisMetadata,
     AxisScales,
@@ -40,7 +40,7 @@ from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
 )
-from napari_metadata.widgets._file_components import FileGeneralMetadata
+from napari_metadata.widgets._file import FileGeneralMetadata
 from napari_metadata.widgets._inheritance import InheritanceWidget
 from napari_metadata.widgets._protocols import (
     AxesMetadataComponentsInstanceAPI,
