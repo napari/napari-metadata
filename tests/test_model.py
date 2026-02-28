@@ -296,7 +296,10 @@ class TestCallbackHelpers:
 
     def test_connect_disconnect_selection_events(self, viewer_model):
         calls = []
-        cb = lambda event: calls.append(event)
+
+        def cb(event):
+            return calls.append(event)
+
         connect_callback_to_layer_selection_events(viewer_model, cb)
 
         layer = viewer_model.add_image(np.zeros((4, 3)))
@@ -308,13 +311,18 @@ class TestCallbackHelpers:
     def test_disconnect_selection_events_no_error_when_not_connected(
         self, viewer_model
     ):
-        cb = lambda event: None
+        def cb(event):
+            return None
+
         # Should not raise even though cb was never connected
         disconnect_callback_to_layer_selection_events(viewer_model, cb)
 
     def test_connect_disconnect_list_events(self, viewer_model):
         calls = []
-        cb = lambda event: calls.append(event)
+
+        def cb(event):
+            return calls.append(event)
+
         connect_callback_to_list_events(viewer_model, cb)
 
         viewer_model.add_image(np.zeros((4, 3)))
@@ -325,13 +333,17 @@ class TestCallbackHelpers:
     def test_disconnect_list_events_no_error_when_not_connected(
         self, viewer_model
     ):
-        cb = lambda event: None
+        def cb(event):
+            return None
+
         disconnect_callback_to_list_events(viewer_model, cb)
 
     def test_connect_disconnect_layer_name_changed(self, viewer_model):
         layer = viewer_model.add_image(np.zeros((4, 3)), name='original')
         calls = []
-        cb = lambda event: calls.append(event)
+
+        def cb(event):
+            return calls.append(event)
 
         connect_callback_to_layer_name_changed(viewer_model, cb, layer)
         layer.name = 'renamed'
@@ -341,10 +353,16 @@ class TestCallbackHelpers:
 
     def test_connect_layer_name_changed_no_layer(self, viewer_model):
         """When no layer exists, connect is a no-op."""
-        cb = lambda event: None
+
+        def cb(event):
+            return None
+
         connect_callback_to_layer_name_changed(viewer_model, cb, None)
 
     def test_disconnect_layer_name_changed_none_layer(self, viewer_model):
         """Disconnecting with None layer is a no-op."""
-        cb = lambda event: None
+
+        def cb(event):
+            return None
+
         disconnect_callback_to_layer_name_changed(viewer_model, cb, None)
