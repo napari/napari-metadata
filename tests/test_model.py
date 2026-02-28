@@ -1,5 +1,4 @@
 import numpy as np
-import pint
 import pytest
 from napari.components import ViewerModel
 
@@ -31,11 +30,12 @@ from napari_metadata._model import (
 def viewer_model() -> ViewerModel:
     return ViewerModel()
 
+
 @pytest.fixture
 def viewer_model_with_layers(viewer_model: ViewerModel):
     """Viewer with two image layers; layer2 is active."""
-    layer1 = viewer_model.add_image(np.zeros((4, 3)), name="layer1")
-    layer2 = viewer_model.add_image(np.zeros((2, 2)), name="layer2")
+    layer1 = viewer_model.add_image(np.zeros((4, 3)), name='layer1')
+    layer2 = viewer_model.add_image(np.zeros((2, 2)), name='layer2')
     assert viewer_model.layers.selection.active is layer2
     return viewer_model, layer1, layer2
 
@@ -77,31 +77,33 @@ class TestAxesLabels:
         assert get_axes_labels(viewer_model) == ()
 
     def test_get_active_layer_labels(self, viewer_model):
-        viewer_model.add_image(np.zeros((4, 3)), axis_labels=("ay", "bee"))
-        viewer_model.add_image(np.zeros((2, 2)), axis_labels=("cee", "dee"))
-        assert get_axes_labels(viewer_model) == ("cee", "dee")
+        viewer_model.add_image(np.zeros((4, 3)), axis_labels=('ay', 'bee'))
+        viewer_model.add_image(np.zeros((2, 2)), axis_labels=('cee', 'dee'))
+        assert get_axes_labels(viewer_model) == ('cee', 'dee')
 
     def test_get_explicit_layer_labels(self, viewer_model):
         layer1 = viewer_model.add_image(
-            np.zeros((4, 3)), axis_labels=("ay", "bee")
+            np.zeros((4, 3)), axis_labels=('ay', 'bee')
         )
-        viewer_model.add_image(np.zeros((2, 2)), axis_labels=("cee", "dee"))
-        assert get_axes_labels(viewer_model, layer1) == ("ay", "bee")
+        viewer_model.add_image(np.zeros((2, 2)), axis_labels=('cee', 'dee'))
+        assert get_axes_labels(viewer_model, layer1) == ('ay', 'bee')
 
     def test_set_no_op_when_no_layers(self, viewer_model):
-        set_axes_labels(viewer_model, ("x", "y", "z"))  # should not raise
+        set_axes_labels(viewer_model, ('x', 'y', 'z'))  # should not raise
 
     def test_set_active_layer_labels(self, viewer_model):
-        layer = viewer_model.add_image(np.zeros((4, 3)), axis_labels=("a", "b"))
-        set_axes_labels(viewer_model, ("x", "y"))
-        assert layer.axis_labels == ("x", "y")
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)), axis_labels=('a', 'b')
+        )
+        set_axes_labels(viewer_model, ('x', 'y'))
+        assert layer.axis_labels == ('x', 'y')
 
     def test_set_explicit_layer_labels(self, viewer_model_with_layers):
         viewer, layer1, layer2 = viewer_model_with_layers
-        set_axes_labels(viewer, ("x", "y"), layer=layer1)
-        assert layer1.axis_labels == ("x", "y")
+        set_axes_labels(viewer, ('x', 'y'), layer=layer1)
+        assert layer1.axis_labels == ('x', 'y')
         # layer2 unchanged — still has defaults
-        assert layer2.axis_labels != ("x", "y")
+        assert layer2.axis_labels != ('x', 'y')
 
 
 class TestAxesUnits:
@@ -110,32 +112,37 @@ class TestAxesUnits:
 
     def test_get_active_layer_units(self, viewer_model):
         viewer_model.add_image(
-            np.zeros((4, 3)), units=("micrometer", "micrometer")
+            np.zeros((4, 3)), units=('micrometer', 'micrometer')
         )
-        viewer_model.add_image(np.zeros((2, 2)), units=("pixel", "pixel"))
-        assert get_axes_units(viewer_model) == ("pixel", "pixel")
+        viewer_model.add_image(np.zeros((2, 2)), units=('pixel', 'pixel'))
+        assert get_axes_units(viewer_model) == ('pixel', 'pixel')
 
     def test_get_explicit_layer_units(self, viewer_model):
         layer1 = viewer_model.add_image(
-            np.zeros((4, 3)), units=("micrometer", "micrometer")
+            np.zeros((4, 3)), units=('micrometer', 'micrometer')
         )
-        viewer_model.add_image(np.zeros((2, 2)), units=("pixel", "pixel"))
-        assert get_axes_units(viewer_model, layer1) == ("micrometer", "micrometer")
+        viewer_model.add_image(np.zeros((2, 2)), units=('pixel', 'pixel'))
+        assert get_axes_units(viewer_model, layer1) == (
+            'micrometer',
+            'micrometer',
+        )
 
     def test_set_no_op_when_no_layers(self, viewer_model):
         set_axes_units(
-            viewer_model, ("micrometer", "micrometer")
+            viewer_model, ('micrometer', 'micrometer')
         )  # should not raise
 
     def test_set_active_layer_units(self, viewer_model):
-        layer = viewer_model.add_image(np.zeros((4, 3)), units=("pixel", "pixel"))
-        set_axes_units(viewer_model, ("micrometer", "micrometer"))
-        assert layer.units == ("micrometer", "micrometer")
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)), units=('pixel', 'pixel')
+        )
+        set_axes_units(viewer_model, ('micrometer', 'micrometer'))
+        assert layer.units == ('micrometer', 'micrometer')
 
     def test_set_explicit_layer_units(self, viewer_model_with_layers):
         viewer, layer1, layer2 = viewer_model_with_layers
-        set_axes_units(viewer, ("nanometer", "nanometer"), layer=layer1)
-        assert layer1.units == ("nanometer", "nanometer")
+        set_axes_units(viewer, ('nanometer', 'nanometer'), layer=layer1)
+        assert layer1.units == ('nanometer', 'nanometer')
 
 
 class TestAxesScales:
@@ -169,7 +176,7 @@ class TestAxesScales:
     def test_set_rejects_non_float(self, viewer_model):
         """Non-float values cause early return without modification."""
         layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
-        set_axes_scales(viewer_model, ("bad", "values"))
+        set_axes_scales(viewer_model, ('bad', 'values'))
         assert np.allclose(layer.scale, (1.0, 1.0))  # unchanged
 
     def test_set_clamps_zero_scale(self, viewer_model):
@@ -226,7 +233,7 @@ class TestGetLayerDataShape:
 
     def test_shapes_layer(self, viewer_model):
         shape_data = [np.array([[0, 0], [1, 1], [1, 0]])]
-        layer = viewer_model.add_shapes(shape_data, shape_type="polygon")
+        layer = viewer_model.add_shapes(shape_data, shape_type='polygon')
         # Shapes.data is a list → falls into Sequence branch
         shape = get_layer_data_shape(layer)
         assert shape == (1,)
@@ -240,31 +247,31 @@ class TestGetLayerDataShape:
 
 class TestGetLayerDataDtype:
     def test_none_layer(self):
-        assert get_layer_data_dtype(None) == ""
+        assert get_layer_data_dtype(None) == ''
 
     def test_float32_layer(self, viewer_model):
         layer = viewer_model.add_image(np.zeros((4, 3), dtype=np.float32))
-        assert get_layer_data_dtype(layer) == "float32"
+        assert get_layer_data_dtype(layer) == 'float32'
 
     def test_uint8_layer(self, viewer_model):
         layer = viewer_model.add_image(np.zeros((2, 2), dtype=np.uint8))
-        assert get_layer_data_dtype(layer) == "uint8"
+        assert get_layer_data_dtype(layer) == 'uint8'
 
     def test_shapes_layer_dtype(self, viewer_model):
         shape_data = [np.array([[0, 0], [1, 1], [1, 0]], dtype=np.float32)]
-        layer = viewer_model.add_shapes(shape_data, shape_type="polygon")
+        layer = viewer_model.add_shapes(shape_data, shape_type='polygon')
         dtype = get_layer_data_dtype(layer)
-        assert dtype == "float32"
+        assert dtype == 'float32'
 
 
 class TestGetLayerSourcePath:
     def test_none_layer(self):
-        assert get_layer_source_path(None) == ""
+        assert get_layer_source_path(None) == ''
 
     def test_in_memory_layer_has_no_path(self, viewer_model):
         layer = viewer_model.add_image(np.zeros((4, 3)))
         path = get_layer_source_path(layer)
-        assert path == "" or isinstance(path, str)
+        assert path == '' or isinstance(path, str)
 
 
 class TestGetLayerDimensions:
@@ -315,17 +322,19 @@ class TestCallbackHelpers:
 
         disconnect_callback_to_list_events(viewer_model, cb)
 
-    def test_disconnect_list_events_no_error_when_not_connected(self, viewer_model):
+    def test_disconnect_list_events_no_error_when_not_connected(
+        self, viewer_model
+    ):
         cb = lambda event: None
         disconnect_callback_to_list_events(viewer_model, cb)
 
     def test_connect_disconnect_layer_name_changed(self, viewer_model):
-        layer = viewer_model.add_image(np.zeros((4, 3)), name="original")
+        layer = viewer_model.add_image(np.zeros((4, 3)), name='original')
         calls = []
         cb = lambda event: calls.append(event)
 
         connect_callback_to_layer_name_changed(viewer_model, cb, layer)
-        layer.name = "renamed"
+        layer.name = 'renamed'
         assert len(calls) > 0
 
         disconnect_callback_to_layer_name_changed(viewer_model, cb, layer)

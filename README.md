@@ -11,7 +11,7 @@ napari-metadata is a [napari](https://napari.org) plugin that visually exposes t
 
 > [!NOTE]
 > This plugin is in active development. *You should not depend on any API, as it is likely to change*. Instead, understand that this plugin intends to serve as a GUI to manage already available public API of napari layers.
-> If you find a feature of this plugin useful, but it is not available in napari's core API, please consider opening an issue here or in the [napari repository](https://github.com/napari/napari/issues/new/choose). 
+> If you find a feature of this plugin useful, but it is not available in napari's core API, please consider opening an issue here or in the [napari repository](https://github.com/napari/napari/issues/new/choose).
 
 ## Installation
 
@@ -44,7 +44,7 @@ The Axes Metadata section allows you to view and edit metadata related to the ax
 > [!TIP]
 > Layers can be linked using the napari layer context menu `Link Layers`. When `axes metadata` is changed in the widget, all linked layers will update their `axes metadata` accordingly.
 
-### Axes Inheritance 
+### Axes Inheritance
 
 The Axes Inheritance widget can be used to propagate axes metadata from one layer to other layers. Select a template layer from the dropdown, and apply any `axes metadata` with `checked` boolean boxes to the currently active layer and any linked layers.
 
