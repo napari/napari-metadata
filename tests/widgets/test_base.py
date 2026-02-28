@@ -1,10 +1,13 @@
 """Behavior tests for axis component base abstractions."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
-from napari.components import ViewerModel
 from qtpy.QtCore import QSignalBlocker
-from qtpy.QtWidgets import QLineEdit, QWidget
+from qtpy.QtWidgets import QLineEdit
 
 from napari_metadata.layer_utils import (
     get_axes_labels,
@@ -14,12 +17,16 @@ from napari_metadata.layer_utils import (
 )
 from napari_metadata.widgets._base import AxisComponentBase, LayoutEntry
 
+if TYPE_CHECKING:
+    from napari.components import ViewerModel
+    from qtpy.QtWidgets import QWidget
+
 
 class _DummyAxisComponent(AxisComponentBase):
     _label_text = 'Dummy:'
 
-    def __init__(self, viewer: ViewerModel, main_widget: QWidget) -> None:
-        super().__init__(viewer, main_widget)
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        super().__init__(viewer, parent_widget)
         self._value_line_edits: list[QLineEdit] = []
         self.create_count = 0
         self.refresh_count = 0
@@ -54,18 +61,6 @@ class _DummyAxisComponent(AxisComponentBase):
     def _apply_values(self, values: list) -> None:
         self.last_applied = list(values)
         set_axes_translations(self._napari_viewer, tuple(values))
-
-
-@pytest.fixture
-def viewer_model() -> ViewerModel:
-    return ViewerModel()
-
-
-@pytest.fixture
-def parent_widget(qtbot) -> QWidget:
-    widget = QWidget()
-    qtbot.addWidget(widget)
-    return widget
 
 
 class TestLayoutEntry:

@@ -4,10 +4,12 @@ These tests focus on intended logic and maintainability-critical behavior:
 axis-specific component behavior and coordinator semantics.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
-from napari.components import ViewerModel
-from qtpy.QtWidgets import QWidget
 
 from napari_metadata.units import AxisUnitEnum
 from napari_metadata.widgets._axis import (
@@ -17,17 +19,9 @@ from napari_metadata.widgets._axis import (
     AxisUnits,
 )
 
-
-@pytest.fixture
-def viewer_model() -> ViewerModel:
-    return ViewerModel()
-
-
-@pytest.fixture
-def parent_widget(qtbot) -> QWidget:
-    widget = QWidget()
-    qtbot.addWidget(widget)
-    return widget
+if TYPE_CHECKING:
+    from napari.components import ViewerModel
+    from qtpy.QtWidgets import QWidget
 
 
 class TestAxisScales:
