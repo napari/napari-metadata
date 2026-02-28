@@ -125,14 +125,14 @@ class TestAxisMetadataCoordinator:
         axis_metadata.set_checkboxes_visible(False)
         for component in axis_metadata.components:
             assert all(
-                not checkbox.isVisible()
+                checkbox.isHidden()
                 for checkbox in component._inherit_checkboxes
             )
 
         axis_metadata.set_checkboxes_visible(True)
         for component in axis_metadata.components:
             assert all(
-                checkbox.isVisible()
+                not checkbox.isHidden()
                 for checkbox in component._inherit_checkboxes
             )
 
@@ -178,12 +178,12 @@ class TestAxisUnits:
         units_component.load_entries(layer)
 
         # Initially SPACE/TIME shows combobox and hides line edit.
-        assert units_component._unit_comboboxes[0].isVisible()
-        assert not units_component._unit_line_edits[0].isVisible()
+        assert not units_component._unit_comboboxes[0].isHidden()
+        assert units_component._unit_line_edits[0].isHidden()
 
         type_combobox = units_component._type_comboboxes[0]
         string_index = type_combobox.findData(AxisUnitEnum.STRING)
         type_combobox.setCurrentIndex(string_index)
 
-        assert not units_component._unit_comboboxes[0].isVisible()
-        assert units_component._unit_line_edits[0].isVisible()
+        assert units_component._unit_comboboxes[0].isHidden()
+        assert not units_component._unit_line_edits[0].isHidden()

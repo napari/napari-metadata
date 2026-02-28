@@ -14,5 +14,4 @@ def viewer_model() -> ViewerModel:
 def parent_widget(qtbot) -> QWidget:
     widget = QWidget()
     qtbot.addWidget(widget)
-    widget.show()
     return widget

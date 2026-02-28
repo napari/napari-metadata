@@ -160,13 +160,13 @@ class TestAxisComponentBaseHelpers:
 
         component.set_checkboxes_visible(False)
         assert all(
-            not checkbox.isVisible()
-            for checkbox in component._inherit_checkboxes
+            checkbox.isHidden() for checkbox in component._inherit_checkboxes
         )
 
         component.set_checkboxes_visible(True)
         assert all(
-            checkbox.isVisible() for checkbox in component._inherit_checkboxes
+            not checkbox.isHidden()
+            for checkbox in component._inherit_checkboxes
         )
 
 
