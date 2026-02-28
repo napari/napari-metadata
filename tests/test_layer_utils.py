@@ -173,11 +173,17 @@ class TestAxesScales:
         assert np.allclose(layer1.scale, (0.1, 0.1))
         assert np.allclose(layer2.scale, (1.0, 1.0))  # default unchanged
 
-    def test_set_rejects_non_float(self, viewer_model):
-        """Non-float values cause early return without modification."""
+    def test_set_rejects_non_numeric(self, viewer_model):
+        """Non-numeric values cause early return without modification."""
         layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
         set_axes_scales(viewer_model, ('bad', 'values'))
         assert np.allclose(layer.scale, (1.0, 1.0))  # unchanged
+
+    def test_set_accepts_int(self, viewer_model):
+        """Integer scale values are accepted and applied."""
+        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
+        set_axes_scales(viewer_model, (2, 3))
+        assert np.allclose(layer.scale, (2.0, 3.0))
 
     def test_set_clamps_zero_scale(self, viewer_model):
         """Scales <= 0 are clamped to 0.001."""
