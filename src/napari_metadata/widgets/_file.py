@@ -1,10 +1,22 @@
+"""Concrete file/layer metadata display components.
+
+Each component presents one piece of layer metadata through the
+``FileComponentBase`` API defined in ``_base.py``:
+
+* ``LayerName``     — editable layer name (``QLineEdit``)
+* ``LayerShape``    — layer data shape (read-only ``QLabel``)
+* ``LayerDataType`` — layer data dtype (read-only ``QLabel``)
+* ``FileSize``      — file/memory size (read-only ``QLabel``)
+* ``SourcePath``    — layer source path (read-only ``QLineEdit``)
+
+``FileGeneralMetadata`` coordinates all five instances.
+"""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
-from qtpy.QtCore import QSize, Qt
-from qtpy.QtGui import QFontMetrics
-from qtpy.QtWidgets import QLabel, QLineEdit, QSizePolicy, QTextEdit, QWidget
+from qtpy.QtWidgets import QLineEdit, QSizePolicy, QWidget
 
 from napari_metadata.file_size import generate_display_size
 from napari_metadata.layer_utils import (
@@ -13,454 +25,140 @@ from napari_metadata.layer_utils import (
     get_layer_source_path,
     resolve_layer,
 )
+from napari_metadata.widgets._base import FileComponentBase
 
 if TYPE_CHECKING:
     from napari.layers import Layer
     from napari.viewer import ViewerModel
 
 
-class MetadataComponent(Protocol):
-    """Structural typing interface for file metadata components.
+class LayerName(FileComponentBase):
+    """Editable layer name using ``QLineEdit``.
 
-    This protocol is temporary will replace with a concrete
-    ``FileComponentBase`` class.
+    The only file component that writes back to the layer: editing the
+    text and pressing Enter renames the layer.
     """
 
-    _component_name: str
-    _napari_viewer: ViewerModel
-    _component_qlabel: QLabel
+    _label_text = 'Layer Name:'
+    _under_label_in_vertical = True
 
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None: ...
-
-    def load_entries(self, layer: Layer | None = None) -> None: ...
-
-    def get_entries_dict(
-        self, layout_mode: str
-    ) -> (
-        dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
-        | dict[
-            int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
-        ]
-    ): ...
-
-    def get_under_label(self, layout_mode: str) -> bool: ...
-
-
-FILE_METADATA_COMPONENTS_DICT: dict[str, type[MetadataComponent]] = {}
-
-
-def _metadata_component(
-    _setting_class: type[MetadataComponent],
-) -> type[MetadataComponent]:
-    """This decorator is used to register the MetadataComponent
-    class in the METADATA_COMPONENTS_DICT dictionary.
-    """
-    FILE_METADATA_COMPONENTS_DICT[_setting_class.__name__] = _setting_class
-    return _setting_class
-
-
-@_metadata_component
-class LayerNameComponent:
-    _component_name: str
-    _napari_viewer: ViewerModel
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
-
-    _layer_name_line_edit: QLineEdit
-
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('Layer Name:', parent=main_widget)
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        layer_name_line_edit = QLineEdit(parent=main_widget)
-        self._layer_name_line_edit = layer_name_line_edit
-        layer_name_line_edit.setSizePolicy(
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        super().__init__(viewer, parent_widget)
+        self._line_edit = QLineEdit(parent=parent_widget)
+        self._line_edit.setSizePolicy(
             QSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
             )
         )
-        self._layer_name_line_edit.editingFinished.connect(
-            self._on_name_line_changed
-        )
-        self._component_name = 'LayerName'
+        self._line_edit.editingFinished.connect(self._on_name_changed)
 
-    def load_entries(self, layer: Layer | None = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
+    @property
+    def value_widget(self) -> QWidget:
+        return self._line_edit
+
+    def _get_display_text(self, layer: Layer) -> str:
+        return layer.name
+
+    def _update_display(self, layer: Layer | None) -> None:
+        if layer is None:
+            self._line_edit.setText('None selected')
         else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
+            self._line_edit.setText(self._get_display_text(layer))
+
+    def _on_name_changed(self) -> None:
+        """Write the edited name back to the active layer."""
+        text = self._line_edit.text()
+        active_layer = resolve_layer(self._napari_viewer)
         if active_layer is None:
-            self._layer_name_line_edit.setText('None selected')  # type: ignore
-            return
-        self._layer_name_line_edit.setText(active_layer.name)  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerName'] = (
-                self._layer_name_line_edit,
-                1,
-                2,
-                '_on_name_line_changed',
-                Qt.AlignmentFlag.AlignTop,
-            )  # type: ignore
-        else:
-            returning_dict['LayerName'] = (
-                self._layer_name_line_edit,
-                1,
-                3,
-                '_on_name_line_changed',
-                Qt.AlignmentFlag.AlignTop,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return layout_mode == 'vertical'
-
-    def _on_name_line_changed(self) -> None:
-        line_edit: QLineEdit = self._layer_name_line_edit
-        text: str = line_edit.text()
-        active_layer: Layer | None = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            line_edit.setText('No layer selected')
+            self._line_edit.setText('No layer selected')
             return
         if text == active_layer.name:
             return
         active_layer.name = text
 
 
-@_metadata_component
-class LayerShapeComponent:
-    _component_name: str
-    _napari_viewer: ViewerModel
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
+class LayerShape(FileComponentBase):
+    """Read-only layer data shape display."""
 
-    _layer_shape_label: QLabel
+    _label_text = 'Layer Shape:'
 
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-
-        component_qlabel: QLabel = QLabel('Layer Shape:', parent=main_widget)
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        shape_label: QLabel = QLabel('None selected', parent=main_widget)
-        shape_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layer_shape_label = shape_label
-
-        self._component_name = 'LayerShape'
-
-    def load_entries(self, layer: Layer | None = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_shape_label.setText('None selected')  # type: ignore
-            return
-        self._layer_shape_label.setText(
-            str(get_layer_data_shape(active_layer))
-        )  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerShape'] = (
-                self._layer_shape_label,
-                1,
-                1,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        else:
-            returning_dict['LayerShape'] = (
-                self._layer_shape_label,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return False
+    def _get_display_text(self, layer: Layer) -> str:
+        return str(get_layer_data_shape(layer))
 
 
-@_metadata_component
-class LayerDataTypeComponent:
-    _component_name: str
-    _napari_viewer: ViewerModel
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
+class LayerDataType(FileComponentBase):
+    """Read-only layer data dtype display."""
 
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
+    _label_text = 'Layer DataType:'
 
-        component_qlabel: QLabel = QLabel(
-            'Layer DataType:', parent=main_widget
-        )
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        data_type_label: QLabel = QLabel('None selected', parent=main_widget)
-        data_type_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layer_data_type_label = data_type_label
-
-        self._component_name = 'LayerDataType'
-
-    def load_entries(self, layer: Layer | None = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_data_type_label.setText('None selected')  # type: ignore
-            return
-        self._layer_data_type_label.setText(
-            str(get_layer_data_dtype(active_layer))
-        )  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerDataType'] = (
-                self._layer_data_type_label,
-                1,
-                1,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        else:
-            returning_dict['LayerDataType'] = (
-                self._layer_data_type_label,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return False
+    def _get_display_text(self, layer: Layer) -> str:
+        return str(get_layer_data_dtype(layer))
 
 
-@_metadata_component
-class LayerFileSizeComponent:
-    _component_name: str
-    _napari_viewer: ViewerModel
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
+class FileSize(FileComponentBase):
+    """Read-only file/memory size display."""
 
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
+    _label_text = 'File Size:'
 
-        component_qlabel: QLabel = QLabel('File Size:', parent=main_widget)
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
-
-        file_size_label: QLabel = QLabel('None selected', parent=main_widget)
-        file_size_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layer_file_size_label = file_size_label
-
-        self._component_name = 'LayerFileSize'
-
-    def load_entries(self, layer: Layer | None = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._layer_file_size_label.setText('None selected')  # type: ignore
-            return
-        self._layer_file_size_label.setText(
-            str(generate_display_size(active_layer))
-        )  # type: ignore
-
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['LayerFileSize'] = (
-                self._layer_file_size_label,
-                1,
-                1,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        else:
-            returning_dict['LayerFileSize'] = (
-                self._layer_file_size_label,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignLeft,
-            )  # type: ignore
-        return returning_dict
-
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return False
+    def _get_display_text(self, layer: Layer) -> str:
+        return str(generate_display_size(layer))
 
 
-@_metadata_component
-class SourcePathComponent:
-    _component_name: str
-    _napari_viewer: ViewerModel
-    _main_widget: QWidget
-    _component_qlabel: QLabel
-    _under_label: bool
+class SourcePath(FileComponentBase):
+    """Read-only source path display using a ``QLineEdit``.
 
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None:
-        self._component_name = 'SourcePath'
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
+    Replaces the old ``SingleLineTextEdit(QTextEdit)`` with a simpler
+    read-only ``QLineEdit`` that natively handles single-line scrolling.
+    """
 
-        component_qlabel: QLabel = QLabel('Source Path:', parent=main_widget)
-        component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
-        component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._component_qlabel = component_qlabel
+    _label_text = 'Source Path:'
+    _under_label_in_vertical = True
 
-        source_path_text_edit: SingleLineTextEdit = SingleLineTextEdit(
-            parent=main_widget
-        )
-        source_path_text_edit.setPlainText('None selected')
-        source_path_text_edit.setReadOnly(True)
-        source_path_text_edit.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        source_path_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        self._source_path_text_edit = source_path_text_edit
-
-    def load_entries(self, layer: Layer | None = None) -> None:
-        active_layer: Layer | None = None
-        if layer is not None:
-            active_layer = layer
-        else:
-            active_layer = resolve_layer(self._napari_viewer)  # type: ignore
-        if active_layer is None:
-            self._source_path_text_edit.setPlainText('None selected')  # type: ignore
-            font_metrics = QFontMetrics(self._source_path_text_edit.font())
-            self._source_path_text_edit.setMaximumHeight(
-                font_metrics.height() + 30
-            )
-            return
-        self._source_path_text_edit.setPlainText(
-            str(get_layer_source_path(active_layer))
-        )  # type: ignore
-        font_metrics = QFontMetrics(self._source_path_text_edit.font())
-        self._source_path_text_edit.setMaximumHeight(
-            font_metrics.height() + 30
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        super().__init__(viewer, parent_widget)
+        self._path_line_edit = QLineEdit(parent=parent_widget)
+        self._path_line_edit.setReadOnly(True)
+        self._path_line_edit.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
 
-    def get_entries_dict(
-        self, layout_mode: str = 'vertical'
-    ) -> dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]:
-        returning_dict: dict[
-            str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-        ] = {}
-        if layout_mode == 'vertical':
-            returning_dict['SourcePath'] = (
-                self._source_path_text_edit,
-                1,
-                2,
-                '',
-                Qt.AlignmentFlag.AlignVCenter,
-            )  # type: ignore
-        else:
-            returning_dict['SourcePath'] = (
-                self._source_path_text_edit,
-                1,
-                3,
-                '',
-                Qt.AlignmentFlag.AlignTop,
-            )  # type: ignore
-        return returning_dict
+    @property
+    def value_widget(self) -> QWidget:
+        return self._path_line_edit
 
-    def get_under_label(self, layout_mode: str = 'vertical') -> bool:
-        return layout_mode == 'vertical'
+    def _get_display_text(self, layer: Layer) -> str:
+        return str(get_layer_source_path(layer))
+
+    def _update_display(self, layer: Layer | None) -> None:
+        if layer is None:
+            self._path_line_edit.setText('None selected')
+        else:
+            self._path_line_edit.setText(self._get_display_text(layer))
 
 
 class FileGeneralMetadata:
-    """This is the class that integrates all of the general metadata components together and instantiates them. This class itself
-    is instantiated in the MetadataWidgetAPI class, which is ultimately the main class passed to napari. This class will only hold the
-    components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes.
+    """Coordinator that owns all five file metadata component instances.
+
+    Mirrors the ``AxisMetadata`` coordinator pattern — provides a
+    ``components`` property for iteration by ``MetadataWidget``.
     """
 
-    _napari_viewer: ViewerModel
-    _main_widget: QWidget
-    _file_metadata_components_dict: dict[str, MetadataComponent]
+    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
+        self._layer_name = LayerName(viewer, parent_widget)
+        self._layer_shape = LayerShape(viewer, parent_widget)
+        self._layer_dtype = LayerDataType(viewer, parent_widget)
+        self._file_size = FileSize(viewer, parent_widget)
+        self._source_path = SourcePath(viewer, parent_widget)
 
-    def __init__(
-        self, napari_viewer: ViewerModel, main_widget: QWidget
-    ) -> None:
-        self._napari_viewer = napari_viewer
-        self._main_widget = main_widget
-        self._file_metadata_components_dict: dict[str, MetadataComponent] = {}
+        self._components: list[FileComponentBase] = [
+            self._layer_name,
+            self._layer_shape,
+            self._layer_dtype,
+            self._file_size,
+            self._source_path,
+        ]
 
-        for (
-            metadata_comp_name,
-            metadata_component_class,
-        ) in FILE_METADATA_COMPONENTS_DICT.items():
-            self._file_metadata_components_dict[metadata_comp_name] = (
-                metadata_component_class(napari_viewer, main_widget)
-            )
-
-
-class SingleLineTextEdit(QTextEdit):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-
-    def sizeHint(self):
-        font_metrics = QFontMetrics(self.font())
-        return QSize(50, font_metrics.height())
-
-    def maximumHeight(self) -> int:
-        font_metrics = QFontMetrics(self.font())
-        return font_metrics.height() + 6
+    @property
+    def components(self) -> list[FileComponentBase]:
+        """All file components in display order."""
+        return list(self._components)
