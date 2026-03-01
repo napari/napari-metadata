@@ -73,6 +73,9 @@ class TestMetadataWidgetInit:
     ):
         assert metadata_widget._selected_layer is None
 
+    def test_starts_on_no_layer_page(self, metadata_widget: MetadataWidget):
+        assert metadata_widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+
     def test_has_general_metadata_instance(
         self, metadata_widget: MetadataWidget
     ):

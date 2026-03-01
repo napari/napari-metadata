@@ -112,6 +112,9 @@ class MetadataWidget(QWidget):
         self._scroll_area: QScrollArea | None = None
         self._inheritance_section: CollapsibleSectionContainer | None = None
 
+        # Start on the no-layer page — no layer is selected at construction
+        self._stacked_layout.setCurrentIndex(_NO_LAYER_PAGE)
+
     # ------------------------------------------------------------------
     # Event handling
     # ------------------------------------------------------------------
