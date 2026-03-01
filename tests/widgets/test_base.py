@@ -15,11 +15,41 @@ from napari_metadata.layer_utils import (
     get_layer_dimensions,
     set_axes_translations,
 )
-from napari_metadata.widgets._base import AxisComponentBase, LayoutEntry
+from napari_metadata.widgets._base import (
+    AxisComponentBase,
+    ComponentBase,
+    FileComponentBase,
+    LayoutEntry,
+)
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
     from qtpy.QtWidgets import QWidget
+
+
+class TestComponentBase:
+    def test_cannot_instantiate_directly(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        with pytest.raises(TypeError):
+            ComponentBase(viewer_model, parent_widget)
+
+    def test_shared_init_sets_viewer_and_parent(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        component = _DummyFileComponent(viewer_model, parent_widget)
+
+        assert component._napari_viewer is viewer_model
+        assert component._parent_widget is parent_widget
+
+    def test_shared_init_creates_bold_label(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        component = _DummyFileComponent(viewer_model, parent_widget)
+
+        label = component.component_label
+        assert label.text() == 'Test:'
+        assert 'bold' in label.styleSheet()
 
 
 class _DummyAxisComponent(AxisComponentBase):
@@ -206,3 +236,70 @@ class TestAxisComponentBaseInheritance:
 
         assert component.last_applied is None
         assert component._selected_layer is None
+
+
+class _DummyFileComponent(FileComponentBase):
+    _label_text = 'Test:'
+    _under_label_in_vertical = True
+
+    def __init__(self, viewer, parent_widget):
+        super().__init__(viewer, parent_widget)
+        self.get_text_calls: list[str] = []
+
+    def _get_display_text(self, layer) -> str:
+        text = f'shape={layer.data.shape}'
+        self.get_text_calls.append(text)
+        return text
+
+
+class TestFileComponentBaseLifecycle:
+    def test_load_entries_shows_placeholder_when_no_layer(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        component = _DummyFileComponent(viewer_model, parent_widget)
+        viewer_model.layers.selection.active = None
+
+        component.load_entries()
+
+        assert component.value_widget.text() == 'None selected'
+        assert len(component.get_text_calls) == 0
+
+    def test_load_entries_updates_display_for_layer(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        component = _DummyFileComponent(viewer_model, parent_widget)
+
+        component.load_entries(layer)
+
+        assert component.value_widget.text() == 'shape=(4, 3)'
+        assert len(component.get_text_calls) == 1
+
+    def test_load_entries_uses_active_layer_when_none_passed(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((5, 5)))
+        viewer_model.layers.selection.active = layer
+        component = _DummyFileComponent(viewer_model, parent_widget)
+
+        component.load_entries()
+
+        assert component.value_widget.text() == 'shape=(5, 5)'
+
+    def test_default_value_widget_is_display_label(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        component = _DummyFileComponent(viewer_model, parent_widget)
+
+        assert component.value_widget is component._display_label
+
+    def test_under_label_in_vertical_default_is_false(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        assert FileComponentBase._under_label_in_vertical is False
+
+    def test_under_label_in_vertical_can_be_overridden(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        component = _DummyFileComponent(viewer_model, parent_widget)
+        assert component._under_label_in_vertical is True
