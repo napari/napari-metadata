@@ -1,4 +1,21 @@
-"""Unified collapsible section container supporting both vertical and horizontal orientations."""
+"""Container widgets for napari-metadata.
+
+``Orientation`` — type alias used by the collapsible section and the main widget.
+
+``CollapsibleSectionContainer`` — a button-gated, scrollable content area
+supporting both vertical and horizontal orientations.
+
+``RotatedButton`` — a ``QPushButton`` that draws its label rotated 90°
+counterclockwise, used as the header button for horizontal sections.
+
+``HorizontalOnlyOuterScrollArea`` — an outer scroll area that constrains its
+child to the viewport height and absorbs wheel events (so horizontal scrolling
+is never triggered by the mouse wheel).
+
+``DisableWheelScrollingFilter`` — an event filter that swallows wheel events
+on a specific scrollbar, preventing accidental horizontal scroll inside a
+vertical ``CollapsibleSectionContainer``.
+"""
 
 from __future__ import annotations
 
@@ -21,41 +38,47 @@ from qtpy.QtWidgets import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import napari.viewer
+#: Orientation of a ``CollapsibleSectionContainer`` (and the enclosing layout).
+#: ``'vertical'`` sections expand downward; ``'horizontal'`` sections expand
+#: rightward.  This alias is the single source of truth for both modules.
+Orientation = Literal['vertical', 'horizontal']
 
 
 class CollapsibleSectionContainer(QWidget):
-    """A collapsible section that can be oriented vertically or horizontally.
+    """A titled, collapsible section that can be oriented vertically or
+    horizontally.
+
+    Vertical sections expand *downward* (suitable for left/right dock areas).
+    Horizontal sections expand *rightward* (suitable for top/bottom dock areas).
 
     Parameters
     ----------
-    viewer : napari.viewer.Viewer
-        The napari viewer instance.
-    container_nake : str
-        The name of the container.
+    parent : QWidget
+        Owning parent widget.
+    title : str
+        Text shown on the toggle button.
     orientation : {'vertical', 'horizontal'}
-        The orientation of the container. Vertical containers expand downward
-        with horizontal scrolling. Horizontal containers expand rightward with
-        vertical scrolling.
+        Layout direction.  Defaults to ``'vertical'``.
+    on_toggle : callable, optional
+        Called with ``checked: bool`` whenever the section is expanded or
+        collapsed.
     """
 
     def __init__(
         self,
-        viewer: napari.viewer.Viewer,
-        container_name: str,
         parent: QWidget,
-        orientation: Literal['vertical', 'horizontal'] = 'vertical',
+        title: str,
+        orientation: Orientation = 'vertical',
         *,
         on_toggle: Callable[[bool], None] | None = None,
-    ):
+    ) -> None:
         super().__init__(parent=parent)
-        self._viewer = viewer
-        self._container_name = container_name
         self._on_toggle_callback = on_toggle
         self._orientation = orientation
-        self._set_text = ' '
+        self._title = title
 
-        # Create layout based on orientation
+        # Outer layout — vertical stacks button above content;
+        # horizontal places button beside content.
         layout_class = (
             QVBoxLayout if orientation == 'vertical' else QHBoxLayout
         )
@@ -63,19 +86,19 @@ class CollapsibleSectionContainer(QWidget):
         self._layout.setContentsMargins(5, 5, 5, 5)
         self._layout.setSpacing(4)
 
-        # Create button (rotated for horizontal orientation)
+        # Toggle button — rotated for horizontal sections to save vertical space.
         button_class = (
             QPushButton if orientation == 'vertical' else RotatedButton
         )
-        self._button = button_class(' ')
+        self._button: QPushButton = button_class('')
         font = self._button.font()
         font.setBold(True)
         self._button.setFont(font)
         self._button.setCheckable(True)
-        self._button.toggled.connect(self._expanding_area_set_visible)
+        self._button.toggled.connect(self._on_button_toggled)
         self._layout.addWidget(self._button, 0)
 
-        # Create expanding area
+        # Expanding content area
         self._expanding_area = QScrollArea(self)
         self._expanding_area.setWidgetResizable(True)
 
@@ -86,15 +109,12 @@ class CollapsibleSectionContainer(QWidget):
             self._expanding_area.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded
             )
-            # Disable wheel scrolling on horizontal scrollbar for vertical containers
-            self.disable_horizontal_scrolling_wheel_filter = (
-                DisableWheelScrollingFilter()
-            )
+            # Prevent the horizontal scrollbar from consuming mouse-wheel events
+            # that should scroll the outer container.
+            self._wheel_filter = DisableWheelScrollingFilter()
             h_scrollbar = self._expanding_area.horizontalScrollBar()
             if h_scrollbar is not None:
-                h_scrollbar.installEventFilter(
-                    self.disable_horizontal_scrolling_wheel_filter
-                )
+                h_scrollbar.installEventFilter(self._wheel_filter)
             self._expanding_area.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
             )
@@ -111,32 +131,83 @@ class CollapsibleSectionContainer(QWidget):
             self._expanding_area.setFixedWidth(0)
 
         self._expanding_area.setVisible(False)
+        # Stretch factor 1 for horizontal so the content area fills available space
         self._layout.addWidget(
             self._expanding_area, 0 if orientation == 'vertical' else 1
         )
 
-    def _expanding_area_set_visible(self, checked: bool) -> None:
-        """Toggle the visibility of the expanding area."""
+        # Initialise button text with the collapsed indicator.
+        self._button.setText(f'\u25b6 {title}')
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def set_content_widget(self, widget: QWidget) -> None:
+        """Set (or replace) the widget shown inside the collapsible area.
+
+        The previous content widget, if any, is scheduled for deletion.
+        For horizontal sections a wrapper with a vertical stretch is inserted
+        automatically so the content stays top-aligned.
+        """
+        old = self._expanding_area.takeWidget()
+        if old is not None:
+            old.deleteLater()
+
+        if self._orientation == 'vertical':
+            widget.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+            )
+            self._expanding_area.setWidget(widget)
+        else:  # horizontal — wrap to keep content top-aligned
+            wrapper = QWidget(self._expanding_area)
+            wrapper_layout = QVBoxLayout(wrapper)
+            wrapper_layout.setContentsMargins(0, 0, 0, 0)
+            wrapper_layout.addWidget(widget)
+            wrapper_layout.addStretch(1)
+            self._expanding_area.setWidget(wrapper)
+
+        self._sync_size()
+
+    def isExpanded(self) -> bool:
+        """Return ``True`` if the section is currently expanded."""
+        return self._button.isChecked()
+
+    def setExpanded(self, checked: bool) -> None:
+        """Expand or collapse the section programmatically.
+
+        Equivalent to clicking the toggle button; the ``on_toggle`` callback
+        and button-text update are performed automatically.
+        """
+        self._button.setChecked(checked)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _on_button_toggled(self, checked: bool) -> None:
+        """Respond to the toggle button state change."""
         self._expanding_area.setVisible(checked)
-        self._sync_body_size()
+        self._sync_size()
 
         if self._on_toggle_callback is not None:
             self._on_toggle_callback(checked)
 
-        # Update button text
-        if not checked:
-            self._button.setText('▶ ' + self._set_text)
-        else:
-            self._button.setText('▼ ' + self._set_text)
+        indicator = '\u25bc' if checked else '\u25b6'
+        self._button.setText(f'{indicator} {self._title}')
 
         self._expanding_area.updateGeometry()
         self.updateGeometry()
 
-    def _sync_body_size(self) -> None:
-        """Synchronize the expanding area size based on orientation."""
+    def _sync_size(self) -> None:
+        """Fix the expanding area's size to match its content hint."""
         current_widget = self._expanding_area.widget()
 
-        if not self._expanding_area.isVisible() or current_widget is None:
+        # Use the button's checked state as the authoritative "is expanded"
+        # guard.  isVisible() would return False whenever an ancestor widget
+        # is hidden (e.g. during programmatic rebuild before the dock is
+        # shown), causing the size to be wrongly zeroed out.
+        if not self._button.isChecked() or current_widget is None:
             if self._orientation == 'vertical':
                 self._expanding_area.setFixedHeight(0)
             else:
@@ -144,95 +215,56 @@ class CollapsibleSectionContainer(QWidget):
             return
 
         if self._orientation == 'vertical':
-            widget_height = current_widget.sizeHint().height()
             h_scrollbar = self._expanding_area.horizontalScrollBar()
-            scroll_bar_height = (
+            scrollbar_h = (
                 h_scrollbar.sizeHint().height()
                 if h_scrollbar is not None
                 else 0
             )
             frame = 2 * self._expanding_area.frameWidth()
+            # Activate the layout before reading sizeHint so the value is valid
+            # even when the widget hasn't had a paint pass yet (e.g. during a
+            # programmatic expand called from _do_rebuild_content).
+            layout = current_widget.layout()
+            if layout is not None:
+                layout.activate()
             self._expanding_area.setFixedHeight(
-                widget_height + scroll_bar_height + frame
+                current_widget.sizeHint().height() + scrollbar_h + frame
             )
         else:  # horizontal
-            widget_width = current_widget.sizeHint().width()
             v_scrollbar = self._expanding_area.verticalScrollBar()
-            scroll_bar_width = (
+            scrollbar_w = (
                 v_scrollbar.sizeHint().width()
                 if v_scrollbar is not None
                 else 0
             )
             frame = 2 * self._expanding_area.frameWidth()
+            layout = current_widget.layout()
+            if layout is not None:
+                layout.activate()
             self._expanding_area.setFixedWidth(
-                widget_width + scroll_bar_width + frame
+                current_widget.sizeHint().width() + scrollbar_w + frame
             )
 
         current_widget.updateGeometry()
         self._expanding_area.updateGeometry()
         self.updateGeometry()
 
-    def isExpanded(self) -> bool:
-        return self._button.isChecked()
-
-    def onToggled(self, callback) -> None:
-        self._button.toggled.connect(callback)
-
-    def _set_expanding_area_widget(self, setting_widget: QWidget) -> None:
-        old = self._expanding_area.takeWidget()
-        if old is not None:
-            old.deleteLater()
-
-        if self._orientation == 'vertical':
-            setting_widget.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
-            )
-            self._expanding_area.setWidget(setting_widget)
-        else:  # horizontal
-            # Horizontal containers need a wrapper with stretch
-            wrapper = QWidget(self._expanding_area)
-            wrapper_layout = QVBoxLayout(wrapper)
-            wrapper_layout.setContentsMargins(0, 0, 0, 0)
-            wrapper_layout.addWidget(setting_widget)
-            wrapper_layout.addStretch(1)
-            self._expanding_area.setWidget(wrapper)
-
-        self._sync_body_size()
-
-    def _set_button_text(self, button_text: str) -> None:
-        self._set_text = button_text
-        self._expanding_area_set_visible(False)
-
-    def expandedHeight(self) -> int:
-        if self._orientation != 'vertical':
-            return 0
-        current_widget = self._expanding_area.widget()
-        if not self.isExpanded() or current_widget is None:
-            return 0
-        return max(1, current_widget.sizeHint().height())
-
-    def expandedWidth(self) -> int:
-        if self._orientation != 'horizontal':
-            return 0
-        current_widget = self._expanding_area.widget()
-        if not self.isExpanded() or current_widget is None:
-            return 0
-        return max(1, current_widget.sizeHint().width())
-
 
 class RotatedButton(QPushButton):
-    """A button that renders text rotated 90 degrees counterclockwise.
+    """A ``QPushButton`` that renders its label rotated 90° counterclockwise.
 
-    Used for horizontal collapsible sections to save space.
+    Used as the header button for horizontal ``CollapsibleSectionContainer``
+    instances, keeping the button narrow while still readable.
     """
 
-    def __init__(self, text, parent=None):
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
         )
 
-    def paintEvent(self, a0):
+    def paintEvent(self, a0) -> None:
         painter = QStylePainter(self)
         painter.rotate(-90)
         painter.translate(-self.height(), 0)
@@ -244,26 +276,37 @@ class RotatedButton(QPushButton):
         painter.drawControl(QStyle.ControlElement.CE_PushButton, opt)
 
     def sizeHint(self):
-        size = super().sizeHint()
-        return size.transposed()
+        return super().sizeHint().transposed()
 
     def minimumSizeHint(self):
         return self.sizeHint()
 
 
 class HorizontalOnlyOuterScrollArea(QScrollArea):
-    def resizeEvent(self, a0):
+    """A scroll area that constrains its child height and ignores wheel events.
+
+    Used as the outermost scroll area in horizontal dock layouts.  The child is
+    pinned to the viewport height (no vertical scroll) and wheel events are
+    passed to the parent so the outer container can handle them.
+    """
+
+    def resizeEvent(self, a0) -> None:
         super().resizeEvent(a0)
         w = self.widget()
         if w is not None:
             w.setFixedHeight(self.viewport().height())
 
-    def wheelEvent(self, a0: QWheelEvent | None):
-        a0.ignore()
+    def wheelEvent(self, a0: QWheelEvent | None) -> None:
+        if a0 is not None:
+            a0.ignore()
 
 
 class DisableWheelScrollingFilter(QObject):
-    """Event filter to disable mouse wheel scrolling on scroll bars."""
+    """Event filter that swallows wheel events on a specific scrollbar.
 
-    def eventFilter(self, a0, a1):
+    Install on a ``QScrollBar`` to prevent mouse-wheel events from
+    accidentally scrolling that bar.
+    """
+
+    def eventFilter(self, a0, a1) -> bool:
         return bool(a1 is not None and a1.type() == QEvent.Type.Wheel)
