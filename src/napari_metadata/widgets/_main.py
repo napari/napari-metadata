@@ -147,7 +147,7 @@ class MetadataWidget(QWidget):
     def _on_selected_layers_changed(self) -> None:
         """Handle layer selection change — always refresh page."""
         layer: Layer | None = self._viewer.layers.selection.active
-        if layer == self._selected_layer:
+        if layer is self._selected_layer:
             return
 
         if self._selected_layer is not None:
