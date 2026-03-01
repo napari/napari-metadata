@@ -322,6 +322,61 @@ class TestOrientationSwitching:
         widget._rebuild_content('horizontal')
         assert isinstance(widget._scroll_area, HorizontalOnlyOuterScrollArea)
 
+    @pytest.mark.parametrize(
+        ('first', 'second'),
+        [('vertical', 'horizontal'), ('horizontal', 'vertical')],
+    )
+    def test_expanded_sections_preserved_on_orientation_switch(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+        first: str,
+        second: str,
+    ):
+        """Expanded state of all three sections survives an orientation switch."""
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+
+        widget._rebuild_content(first)  # type: ignore[arg-type]
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        # Expand all three sections in the first orientation.
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(True)
+        widget._inheritance_section.setExpanded(True)
+
+        # Switch to the second orientation.
+        widget._rebuild_content(second)  # type: ignore[arg-type]
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+        assert widget._file_section.isExpanded()
+        assert widget._axis_section.isExpanded()
+        assert widget._inheritance_section.isExpanded()
+        # Content must actually be visible — not just the button in checked state.
+        # For unshown widgets, height()/width() is 0; but setFixedHeight/Width()
+        # sets minimumHeight/minimumWidth immediately.
+        # Vertical sections expand via setFixedHeight; horizontal via setFixedWidth.
+        if second == 'vertical':
+            assert widget._file_section._expanding_area.minimumHeight() > 0
+            assert widget._axis_section._expanding_area.minimumHeight() > 0
+            assert (
+                widget._inheritance_section._expanding_area.minimumHeight() > 0
+            )
+        else:
+            assert widget._file_section._expanding_area.minimumWidth() > 0
+            assert widget._axis_section._expanding_area.minimumWidth() > 0
+            assert (
+                widget._inheritance_section._expanding_area.minimumWidth() > 0
+            )
+
 
 class TestLayerSelectionFlow:
     def test_selecting_layer_triggers_content_build(
@@ -389,14 +444,61 @@ class TestLayerSelectionFlow:
         # New scroll area was created (content rebuilt)
         assert first_scroll is not second_scroll
 
-
-class TestInheritanceCheckboxSync:
-    def test_checkboxes_hidden_after_rebuild_when_section_collapsed(
+    def test_expanded_sections_preserved_on_layer_change(
         self,
         viewer_model: ViewerModel,
         parent_widget: QWidget,
         qtbot,
     ):
+        """Sections that were expanded before a layer change remain expanded."""
+        layer_a = viewer_model.add_image(
+            np.zeros((4, 3)), name='a', axis_labels=('y', 'x')
+        )
+        layer_b = viewer_model.add_image(
+            np.zeros((4, 3)), name='b', axis_labels=('y', 'x')
+        )
+
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer_a
+        widget._rebuild_content('vertical')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        # Expand all three sections.
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(True)
+        widget._inheritance_section.setExpanded(True)
+
+        # Switch to a different layer — the sections must stay expanded.
+        widget._selected_layer = layer_b
+        widget._refresh_page()
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+        assert widget._file_section.isExpanded()
+        assert widget._axis_section.isExpanded()
+        assert widget._inheritance_section.isExpanded()
+        # Content must actually be visible — not just the button in checked state.
+        # For unshown widgets, height() is 0; setFixedHeight() sets minimumHeight.
+        # This rebuild always uses 'vertical', so check minimumHeight.
+        assert widget._file_section._expanding_area.minimumHeight() > 0
+        assert widget._axis_section._expanding_area.minimumHeight() > 0
+        assert widget._inheritance_section._expanding_area.minimumHeight() > 0
+
+
+class TestInheritanceCheckboxSync:
+    def test_checkboxes_visible_after_rebuild_when_section_was_expanded(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        """Expanded state (and checkbox visibility) is preserved across rebuild."""
         layer = viewer_model.add_image(np.zeros((4, 3)))
         widget = MetadataWidget(viewer_model)
         widget.setParent(parent_widget)
@@ -406,15 +508,41 @@ class TestInheritanceCheckboxSync:
         widget._rebuild_content('vertical')
         assert widget._inheritance_section is not None
 
-        # Expand inheritance once so checkbox visibility is turned on.
-        widget._inheritance_section._button.setChecked(True)
+        # Expand inheritance so checkbox visibility is turned on.
+        widget._inheritance_section.setExpanded(True)
         assert all(
             all(not cb.isHidden() for cb in comp._inherit_checkboxes)
             for comp in widget._axis_metadata_instance.components
         )
 
-        # Rebuild creates a new collapsed inheritance section; checkboxes
-        # must be synchronized back to hidden.
+        # Rebuild preserves the expanded state; checkboxes must remain visible.
+        widget._refresh_page()
+        assert widget._inheritance_section is not None
+        assert widget._inheritance_section.isExpanded()
+        assert all(
+            all(not cb.isHidden() for cb in comp._inherit_checkboxes)
+            for comp in widget._axis_metadata_instance.components
+        )
+
+    def test_checkboxes_hidden_after_rebuild_when_section_stays_collapsed(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        """Collapsed sections remain collapsed and checkboxes stay hidden."""
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+
+        widget._rebuild_content('vertical')
+        assert widget._inheritance_section is not None
+        # Section starts collapsed by default.
+        assert not widget._inheritance_section.isExpanded()
+
+        # Rebuild without ever expanding — section and checkboxes stay collapsed/hidden.
         widget._refresh_page()
         assert widget._inheritance_section is not None
         assert not widget._inheritance_section.isExpanded()

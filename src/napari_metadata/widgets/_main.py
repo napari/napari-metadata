@@ -108,8 +108,10 @@ class MetadataWidget(QWidget):
         no_layer_layout.addStretch(1)
         self._stacked_layout.addWidget(no_layer_page)  # index 1
 
-        # Track the current scroll area for teardown
+        # Track the status of each area for teardown
         self._scroll_area: QScrollArea | None = None
+        self._file_section: CollapsibleSectionContainer | None = None
+        self._axis_section: CollapsibleSectionContainer | None = None
         self._inheritance_section: CollapsibleSectionContainer | None = None
 
         # Start on the no-layer page — no layer is selected at construction
@@ -218,6 +220,24 @@ class MetadataWidget(QWidget):
     def _do_rebuild_content(self, orientation: Orientation) -> None:
         is_vertical = orientation == 'vertical'
 
+        # Capture expanded states before destroying the old sections so they
+        # can be restored after the rebuild (layer change or orientation switch).
+        file_expanded = (
+            self._file_section.isExpanded()
+            if self._file_section is not None
+            else False
+        )
+        axis_expanded = (
+            self._axis_section.isExpanded()
+            if self._axis_section is not None
+            else False
+        )
+        inheritance_expanded = (
+            self._inheritance_section.isExpanded()
+            if self._inheritance_section is not None
+            else False
+        )
+
         # Detach persistent widgets so they survive container deletion
         self._detach_component_widgets()
 
@@ -252,8 +272,10 @@ class MetadataWidget(QWidget):
         sections_layout.setSpacing(3)
 
         # Build three collapsible sections
-        sections_layout.addWidget(self._build_file_section(orientation))
-        sections_layout.addWidget(self._build_axis_section(orientation))
+        self._file_section = self._build_file_section(orientation)
+        self._axis_section = self._build_axis_section(orientation)
+        sections_layout.addWidget(self._file_section)
+        sections_layout.addWidget(self._axis_section)
 
         self._inheritance_section = self._build_inheritance_section(
             orientation
@@ -261,8 +283,14 @@ class MetadataWidget(QWidget):
         sections_layout.addWidget(self._inheritance_section)
         sections_layout.addStretch(1)
 
+        # Restore expanded states carried over from the previous build so that
+        # sections stay open across layer changes and orientation switches.
+        self._file_section.setExpanded(file_expanded)
+        self._axis_section.setExpanded(axis_expanded)
+        self._inheritance_section.setExpanded(inheritance_expanded)
+
         # Keep axis inheritance checkboxes in sync with the rebuilt section's
-        # expanded state (collapsed by default).
+        # expanded state.
         self._axis_metadata_instance.set_checkboxes_visible(
             self._inheritance_section.isExpanded()
         )

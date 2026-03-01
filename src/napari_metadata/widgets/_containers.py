@@ -173,6 +173,14 @@ class CollapsibleSectionContainer(QWidget):
         """Return ``True`` if the section is currently expanded."""
         return self._button.isChecked()
 
+    def setExpanded(self, checked: bool) -> None:
+        """Expand or collapse the section programmatically.
+
+        Equivalent to clicking the toggle button; the ``on_toggle`` callback
+        and button-text update are performed automatically.
+        """
+        self._button.setChecked(checked)
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -195,7 +203,11 @@ class CollapsibleSectionContainer(QWidget):
         """Fix the expanding area's size to match its content hint."""
         current_widget = self._expanding_area.widget()
 
-        if not self._expanding_area.isVisible() or current_widget is None:
+        # Use the button's checked state as the authoritative "is expanded"
+        # guard.  isVisible() would return False whenever an ancestor widget
+        # is hidden (e.g. during programmatic rebuild before the dock is
+        # shown), causing the size to be wrongly zeroed out.
+        if not self._button.isChecked() or current_widget is None:
             if self._orientation == 'vertical':
                 self._expanding_area.setFixedHeight(0)
             else:
@@ -210,6 +222,12 @@ class CollapsibleSectionContainer(QWidget):
                 else 0
             )
             frame = 2 * self._expanding_area.frameWidth()
+            # Activate the layout before reading sizeHint so the value is valid
+            # even when the widget hasn't had a paint pass yet (e.g. during a
+            # programmatic expand called from _do_rebuild_content).
+            layout = current_widget.layout()
+            if layout is not None:
+                layout.activate()
             self._expanding_area.setFixedHeight(
                 current_widget.sizeHint().height() + scrollbar_h + frame
             )
@@ -221,6 +239,9 @@ class CollapsibleSectionContainer(QWidget):
                 else 0
             )
             frame = 2 * self._expanding_area.frameWidth()
+            layout = current_widget.layout()
+            if layout is not None:
+                layout.activate()
             self._expanding_area.setFixedWidth(
                 current_widget.sizeHint().width() + scrollbar_w + frame
             )
