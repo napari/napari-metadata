@@ -1,9 +1,16 @@
-"""Base classes and data structures for axis metadata components.
+"""Base classes and data structures for metadata components.
+
+``ComponentBase`` is the root of the component hierarchy, providing viewer
+reference, parent widget, and bold header label shared by all components.
+
+``AxisComponentBase`` adds per-axis widget lifecycle, layout, and
+inheritance logic for editable axis components.
+
+``FileComponentBase`` adds simple layer-display lifecycle for
+read-only file metadata components.
 
 ``LayoutEntry`` replaces the deeply nested dict return type used by the
-old ``get_entries_dict`` API.  ``AxisComponentBase`` provides the shared
-lifecycle, layout, and inheritance logic that every per-axis component
-needs — subclasses only override five template methods.
+old ``get_entries_dict`` API.
 """
 
 from __future__ import annotations
@@ -49,7 +56,45 @@ class LayoutEntry:
     alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignVCenter
 
 
-class AxisComponentBase(ABC):
+class ComponentBase(ABC):
+    """Root abstract base for all metadata components.
+
+    Provides:
+
+    * Viewer and parent-widget references
+    * Bold header ``QLabel`` initialized from the ``_label_text``
+      class variable
+    * ``component_label`` property
+    * ``load_entries`` lifecycle hook (abstract)
+    """
+
+    #: Bold header text shown next to the component (e.g. ``"Scale:"``).
+    #: Set as a class variable in each subclass.
+    _label_text: str
+
+    def __init__(
+        self,
+        viewer: ViewerModel,
+        parent_widget: QWidget,
+    ) -> None:
+        self._napari_viewer: ViewerModel = viewer
+        self._parent_widget = parent_widget
+
+        self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
+        self._component_qlabel.setStyleSheet('font-weight: bold')
+        self._component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+    @property
+    def component_label(self) -> QLabel:
+        """Bold header ``QLabel`` for this component (e.g. ``"Scale:"``)."""
+        return self._component_qlabel
+
+    @abstractmethod
+    def load_entries(self, layer: Layer | None = None) -> None:
+        """Load or refresh widget state for *layer* (defaults to active)."""
+
+
+class AxisComponentBase(ComponentBase):
     """Abstract base for per-axis metadata editing components.
 
     Each concrete subclass manages one kind of per-axis data (labels,
@@ -69,22 +114,13 @@ class AxisComponentBase(ABC):
     below.
     """
 
-    #: Bold header text shown next to the component (e.g. ``"Scale:"``).
-    #: Set as a class variable in each subclass.
-    _label_text: str
-
     def __init__(
         self,
         viewer: ViewerModel,
         parent_widget: QWidget,
     ) -> None:
-        self._napari_viewer: ViewerModel = viewer
-        self._parent_widget = parent_widget
+        super().__init__(viewer, parent_widget)
         self._selected_layer: Layer | None = None
-
-        self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
-        self._component_qlabel.setStyleSheet('font-weight: bold')
-        self._component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self._axis_name_labels: list[QLabel] = []
         self._inherit_checkboxes: list[QCheckBox] = []
@@ -92,11 +128,6 @@ class AxisComponentBase(ABC):
     # ------------------------------------------------------------------
     # Public API (consumed by _main.py / AxisMetadata coordinator)
     # ------------------------------------------------------------------
-
-    @property
-    def component_label(self) -> QLabel:
-        """Bold header ``QLabel`` for this component (e.g. ``"Scale:"``)."""
-        return self._component_qlabel
 
     @property
     def num_axes(self) -> int:
@@ -243,3 +274,70 @@ class AxisComponentBase(ABC):
             cb.setChecked(True)
             cb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             self._inherit_checkboxes.append(cb)
+
+
+class FileComponentBase(ComponentBase):
+    """Abstract base for file/layer metadata display components.
+
+    Each concrete subclass presents one piece of layer information
+    (name, shape, dtype, size, path).  The base class provides:
+
+    * **Display lifecycle** — ``load_entries`` resolves the active layer
+      and calls ``_update_display``.
+    * **Default QLabel display** — simple read-only subclasses only need
+      to implement ``_get_display_text``; the base handles the
+      ``QLabel`` creation and update logic.
+    * **Layout** — ``value_widget`` property provides the display widget
+      for grid placement by ``_main.py``.
+
+    For simple read-only ``QLabel`` components, subclasses need only
+    override ``_get_display_text``. For custom widgets (editable
+    ``QLineEdit``, etc.), override ``value_widget`` and
+    ``_update_display`` as well.
+    """
+
+    #: If True, the value widget is placed below the label in vertical
+    #: mode. Otherwise it sits beside it.
+    _under_label_in_vertical: bool = False
+
+    def __init__(
+        self,
+        viewer: ViewerModel,
+        parent_widget: QWidget,
+    ) -> None:
+        super().__init__(viewer, parent_widget)
+        self._display_label = QLabel('None selected', parent=parent_widget)
+        self._display_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+    # ------------------------------------------------------------------
+    # Public API (consumed by _main.py / FileGeneralMetadata coordinator)
+    # ------------------------------------------------------------------
+
+    @property
+    def value_widget(self) -> QWidget:
+        """The primary display widget.  Override for non-QLabel components."""
+        return self._display_label
+
+    def load_entries(self, layer: Layer | None = None) -> None:
+        """Resolve the active layer and update the display."""
+        active_layer = resolve_layer(self._napari_viewer, layer)
+        self._update_display(active_layer)
+
+    # ------------------------------------------------------------------
+    # Template methods
+    # ------------------------------------------------------------------
+
+    def _update_display(self, layer: Layer | None) -> None:
+        """Update the display widget for *layer*.
+
+        Default implementation sets the ``_display_label`` text via
+        ``_get_display_text``.  Override for custom widget types.
+        """
+        if layer is None:
+            self._display_label.setText('None selected')
+        else:
+            self._display_label.setText(self._get_display_text(layer))
+
+    @abstractmethod
+    def _get_display_text(self, layer: Layer) -> str:
+        """Return the display string for *layer*."""

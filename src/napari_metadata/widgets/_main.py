@@ -28,10 +28,7 @@ from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
 )
-from napari_metadata.widgets._file import (
-    FileGeneralMetadata,
-    MetadataComponent,
-)
+from napari_metadata.widgets._file import FileGeneralMetadata
 from napari_metadata.widgets._inheritance import InheritanceWidget
 
 if TYPE_CHECKING:
@@ -280,15 +277,8 @@ class MetadataWidget(QWidget):
     def _on_selected_layer_name_changed(self) -> None:
         if self._selected_layer is None:
             return
-        general_metadata_instance: FileGeneralMetadata = (
-            self._general_metadata_instance
-        )
-        components_dict = (
-            general_metadata_instance._file_metadata_components_dict
-        )  # type: ignore
-        general_metadata_component: MetadataComponent
-        for general_metadata_component in components_dict.values():
-            general_metadata_component.load_entries()
+        for component in self._general_metadata_instance.components:
+            component.load_entries()
 
     def _disconnect_layer_params(self, layer: Layer) -> None:
         layer.events.name.disconnect(self._on_selected_layer_name_changed)
@@ -415,131 +405,79 @@ class MetadataWidget(QWidget):
                     item_widget.setParent(None)
 
     def _set_general_metadata_orientation(self, orientation: str) -> None:
-        starting_row: int = 0
-        starting_column: int = 0
-        current_row: int = starting_row
-
         vert_file_layout: QGridLayout = self._vert_file_general_metadata_layout
         hori_file_layout: QGridLayout = self._hori_file_general_metadata_layout
 
-        file_general_meta_instance: FileGeneralMetadata = (
-            self._general_metadata_instance
-        )
-        components_dict = (
-            file_general_meta_instance._file_metadata_components_dict
-        )  # type: ignore
+        components = self._general_metadata_instance.components
 
         if orientation == 'vertical':
             self._reset_layout(hori_file_layout)
-
-            for name in components_dict:
-                current_column: int = starting_column
-
-                total_row_spans: int = 0
-
-                general_component: MetadataComponent = components_dict[name]
-
-                general_component_qlabel: QLabel = (
-                    general_component._component_qlabel
-                )
-                vert_file_layout.addWidget(
-                    general_component_qlabel, current_row, current_column, 1, 1
-                )
-
-                general_component.load_entries()
-                entries_dict: dict[
-                    str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-                ] = general_component.get_entries_dict(orientation)
-
-                if general_component.get_under_label(orientation):
-                    current_row += 1
-                else:
-                    current_column += 1
-
-                total_row_spans += 1
-
-                for entry_name in entries_dict:
-                    entry_widget: QWidget = entries_dict[entry_name][0]
-                    row_span: int = entries_dict[entry_name][1]
-                    column_span: int = entries_dict[entry_name][2]
-                    entries_dict[entry_name][3]
-                    alignment: Qt.AlignmentFlag | None = entries_dict[
-                        entry_name
-                    ][4]
-                    if alignment is None:
-                        alignment = Qt.AlignmentFlag.AlignLeft
-
-                    vert_file_layout.addWidget(
-                        entry_widget,
-                        current_row,
-                        current_column,
-                        row_span,
-                        column_span,
-                        alignment,
-                    )  # type: ignore
-                    current_row += row_span
-        else:
             self._reset_layout(vert_file_layout)
 
-            for name in components_dict:
-                current_column: int = starting_column
+            row = 0
+            for component in components:
+                component.load_entries()
+                under_label = component._under_label_in_vertical
 
-                total_row_spans: int = 0
+                vert_file_layout.addWidget(
+                    component.component_label, row, 0, 1, 1
+                )
 
-                general_component: MetadataComponent = components_dict[name]  # type: ignore
-
-                general_component_qlabel: QLabel = (
-                    general_component._component_qlabel
-                )  # type: ignore
-                hori_file_layout.addWidget(
-                    general_component_qlabel, current_row, current_column, 1, 1
-                )  # type: ignore
-
-                general_component.load_entries()
-                entries_dict: dict[
-                    str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]
-                ] = general_component.get_entries_dict(orientation)  # type: ignore
-
-                if general_component.get_under_label(orientation):
-                    current_row += 1
-                else:
-                    current_column += 1
-
-                total_row_spans += 1
-
-                for entry_name in entries_dict:
-                    entry_widget: QWidget = entries_dict[entry_name][0]
-                    row_span: int = entries_dict[entry_name][1]
-                    column_span: int = entries_dict[entry_name][2]
-                    entries_dict[entry_name][3]
-                    alignment: Qt.AlignmentFlag | None = entries_dict[
-                        entry_name
-                    ][4]
-                    if alignment is None:
-                        alignment = Qt.AlignmentFlag.AlignLeft
-
-                    hori_file_layout.addWidget(
-                        entry_widget,
-                        current_row,
-                        current_column,
-                        row_span,
-                        column_span,
-                        alignment,
+                if under_label:
+                    row += 1
+                    vert_file_layout.addWidget(
+                        component.value_widget,
+                        row,
+                        0,
+                        1,
+                        2,
+                        Qt.AlignmentFlag.AlignTop,
                     )
-                    current_row += row_span
+                else:
+                    vert_file_layout.addWidget(
+                        component.value_widget,
+                        row,
+                        1,
+                        1,
+                        1,
+                        Qt.AlignmentFlag.AlignLeft,
+                    )
 
-        for vert_file_layout_row in range(vert_file_layout.rowCount()):
-            vert_file_layout.setRowStretch(vert_file_layout_row, 0)
+                row += 1
+        else:
+            self._reset_layout(vert_file_layout)
+            self._reset_layout(hori_file_layout)
+
+            row = 0
+            for component in components:
+                component.load_entries()
+
+                hori_file_layout.addWidget(
+                    component.component_label, row, 0, 1, 1
+                )
+                hori_file_layout.addWidget(
+                    component.value_widget,
+                    row,
+                    1,
+                    1,
+                    1,
+                    Qt.AlignmentFlag.AlignLeft,
+                )
+
+                row += 1
+
+        for r in range(vert_file_layout.rowCount()):
+            vert_file_layout.setRowStretch(r, 0)
         vert_file_layout.setRowStretch(vert_file_layout.rowCount(), 1)
-        for vert_file_layout_column in range(vert_file_layout.columnCount()):
-            vert_file_layout.setColumnStretch(vert_file_layout_column, 0)
+        for c in range(vert_file_layout.columnCount()):
+            vert_file_layout.setColumnStretch(c, 0)
         vert_file_layout.setColumnStretch(
-            vert_file_layout.columnCount() - 1, 1
+            max(vert_file_layout.columnCount() - 1, 0), 1
         )
-        for hori_file_layout_row in range(hori_file_layout.rowCount()):
-            hori_file_layout.setRowStretch(hori_file_layout_row, 1)
-        for hori_file_layout_column in range(hori_file_layout.columnCount()):
-            hori_file_layout.setColumnStretch(hori_file_layout_column, 0)
+        for r in range(hori_file_layout.rowCount()):
+            hori_file_layout.setRowStretch(r, 1)
+        for c in range(hori_file_layout.columnCount()):
+            hori_file_layout.setColumnStretch(c, 0)
         hori_file_layout.setColumnStretch(hori_file_layout.columnCount(), 1)
 
     def _set_axis_metadata_orientation(self, orientation: str) -> None:
