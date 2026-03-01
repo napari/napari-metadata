@@ -78,12 +78,12 @@ class LayerNameComponent:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Layer Name:')
+        component_qlabel: QLabel = QLabel('Layer Name:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        layer_name_line_edit = QLineEdit()
+        layer_name_line_edit = QLineEdit(parent=main_widget)
         self._layer_name_line_edit = layer_name_line_edit
         layer_name_line_edit.setSizePolicy(
             QSizePolicy(
@@ -161,12 +161,12 @@ class LayerShapeComponent:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Layer Shape:')
+        component_qlabel: QLabel = QLabel('Layer Shape:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        shape_label: QLabel = QLabel('None selected')
+        shape_label: QLabel = QLabel('None selected', parent=main_widget)
         shape_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layer_shape_label = shape_label
 
@@ -227,12 +227,14 @@ class LayerDataTypeComponent:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Layer DataType:')
+        component_qlabel: QLabel = QLabel(
+            'Layer DataType:', parent=main_widget
+        )
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        data_type_label: QLabel = QLabel('None selected')
+        data_type_label: QLabel = QLabel('None selected', parent=main_widget)
         data_type_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layer_data_type_label = data_type_label
 
@@ -293,12 +295,12 @@ class LayerFileSizeComponent:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('File Size:')
+        component_qlabel: QLabel = QLabel('File Size:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        file_size_label: QLabel = QLabel('None selected')
+        file_size_label: QLabel = QLabel('None selected', parent=main_widget)
         file_size_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layer_file_size_label = file_size_label
 
@@ -360,12 +362,14 @@ class SourcePathComponent:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Source Path:')
+        component_qlabel: QLabel = QLabel('Source Path:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        source_path_text_edit: SingleLineTextEdit = SingleLineTextEdit()
+        source_path_text_edit: SingleLineTextEdit = SingleLineTextEdit(
+            parent=main_widget
+        )
         source_path_text_edit.setPlainText('None selected')
         source_path_text_edit.setReadOnly(True)
         source_path_text_edit.setSizePolicy(
@@ -450,6 +454,9 @@ class FileGeneralMetadata:
 
 
 class SingleLineTextEdit(QTextEdit):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
     def sizeHint(self):
         font_metrics = QFontMetrics(self.font())
         return QSize(50, font_metrics.height())

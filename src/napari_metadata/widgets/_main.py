@@ -87,12 +87,12 @@ class MetadataWidget(QWidget):
             napari_viewer, self
         )
 
-        self._vert_file_general_metadata_container: QWidget = QWidget()
+        self._vert_file_general_metadata_container: QWidget = QWidget(self)
         self._vert_file_general_metadata_layout: QGridLayout = QGridLayout()
         self._vert_file_general_metadata_container.setLayout(
             self._vert_file_general_metadata_layout
         )
-        self._hori_file_general_metadata_container: QWidget = QWidget()
+        self._hori_file_general_metadata_container: QWidget = QWidget(self)
         self._hori_file_general_metadata_layout: QGridLayout = QGridLayout()
         self._hori_file_general_metadata_container.setLayout(
             self._hori_file_general_metadata_layout
@@ -100,12 +100,12 @@ class MetadataWidget(QWidget):
 
         self._axis_metadata_instance = AxisMetadata(napari_viewer, self)
 
-        self._vert_axis_metadata_container: QWidget = QWidget()
+        self._vert_axis_metadata_container: QWidget = QWidget(self)
         self._vert_axis_metadata_layout: QGridLayout = QGridLayout()
         self._vert_axis_metadata_container.setLayout(
             self._vert_axis_metadata_layout
         )
-        self._hori_axis_metadata_container: QWidget = QWidget()
+        self._hori_axis_metadata_container: QWidget = QWidget(self)
         self._hori_axis_metadata_layout: QGridLayout = QGridLayout()
         self._hori_axis_metadata_container.setLayout(
             self._hori_axis_metadata_layout
@@ -114,27 +114,28 @@ class MetadataWidget(QWidget):
         self._inheritance_instance: InheritanceWidget = InheritanceWidget(
             napari_viewer,
             on_apply_inheritance=self.apply_inheritance_to_current_layer,
+            parent=self,
         )
 
-        self._vert_inheritance_container: QWidget = QWidget()
+        self._vert_inheritance_container: QWidget = QWidget(self)
         self._vert_inheritance_layout: QGridLayout = QGridLayout()
         self._vert_inheritance_container.setLayout(
             self._vert_inheritance_layout
         )
-        self._hori_inheritance_container: QWidget = QWidget()
+        self._hori_inheritance_container: QWidget = QWidget(self)
         self._hori_inheritance_layout: QGridLayout = QGridLayout()
         self._hori_inheritance_container.setLayout(
             self._hori_inheritance_layout
         )
 
-        vertical_container: QScrollArea = QScrollArea()
+        vertical_container: QScrollArea = QScrollArea(self)
         vertical_container.setWidgetResizable(True)
         vertical_container.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         vertical_container.container_orientation = 'vertical'
 
-        vertical_content = QWidget()
+        vertical_content = QWidget(vertical_container)
         vertical_content.setLayout(self._vertical_layout)
         vertical_container.setWidget(vertical_content)
 
@@ -193,7 +194,7 @@ class MetadataWidget(QWidget):
         self._vertical_layout.addStretch(1)
 
         horizontal_container: HorizontalOnlyOuterScrollArea = (
-            HorizontalOnlyOuterScrollArea()
+            HorizontalOnlyOuterScrollArea(self)
         )
         horizontal_container.setWidgetResizable(True)
         horizontal_container.setVerticalScrollBarPolicy(
@@ -204,7 +205,7 @@ class MetadataWidget(QWidget):
         )
         horizontal_container.container_orientation = 'horizontal'
 
-        horizontal_content: QWidget = QWidget()
+        horizontal_content: QWidget = QWidget(horizontal_container)
         horizontal_content.setLayout(self._horizontal_layout)
         horizontal_container.setWidget(horizontal_content)
         self._stacked_layout.addWidget(horizontal_container)
@@ -262,7 +263,7 @@ class MetadataWidget(QWidget):
         )
         self._horizontal_layout.addStretch(1)
 
-        no_layer_container: QWidget = QWidget()
+        no_layer_container: QWidget = QWidget(self)
         no_layer_container.container_orientation = 'no_layer'
         no_layer_container.setLayout(self._no_layer_layout)
         self._no_layer_label: QLabel = QLabel(
