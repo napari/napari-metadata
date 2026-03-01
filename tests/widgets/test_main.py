@@ -390,6 +390,40 @@ class TestLayerSelectionFlow:
         assert first_scroll is not second_scroll
 
 
+class TestInheritanceCheckboxSync:
+    def test_checkboxes_hidden_after_rebuild_when_section_collapsed(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+
+        widget._rebuild_content('vertical')
+        assert widget._inheritance_section is not None
+
+        # Expand inheritance once so checkbox visibility is turned on.
+        widget._inheritance_section._button.setChecked(True)
+        assert all(
+            all(not cb.isHidden() for cb in comp._inherit_checkboxes)
+            for comp in widget._axis_metadata_instance.components
+        )
+
+        # Rebuild creates a new collapsed inheritance section; checkboxes
+        # must be synchronized back to hidden.
+        widget._refresh_page()
+        assert widget._inheritance_section is not None
+        assert not widget._inheritance_section.isExpanded()
+        assert all(
+            all(cb.isHidden() for cb in comp._inherit_checkboxes)
+            for comp in widget._axis_metadata_instance.components
+        )
+
+
 class TestFileGridPopulation:
     @pytest.mark.parametrize('orientation', ['vertical', 'horizontal'])
     def test_file_grid_has_five_component_labels(

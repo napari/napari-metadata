@@ -261,6 +261,12 @@ class MetadataWidget(QWidget):
         sections_layout.addWidget(self._inheritance_section)
         sections_layout.addStretch(1)
 
+        # Keep axis inheritance checkboxes in sync with the rebuilt section's
+        # expanded state (collapsed by default).
+        self._axis_metadata_instance.set_checkboxes_visible(
+            self._inheritance_section.isExpanded()
+        )
+
         scroll.setWidget(scroll_content)
         self._content_page_layout.addWidget(scroll)
 
