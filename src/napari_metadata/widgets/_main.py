@@ -13,7 +13,7 @@ the container widgets and grid layouts are recreated.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, cast
 
 from napari.utils.notifications import show_info
 from qtpy.QtCore import QObject, Qt
@@ -38,6 +38,7 @@ from napari_metadata.widgets._base import AxisComponentBase
 from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
+    Orientation,
 )
 from napari_metadata.widgets._file import FileGeneralMetadata
 from napari_metadata.widgets._inheritance import InheritanceWidget
@@ -45,8 +46,6 @@ from napari_metadata.widgets._inheritance import InheritanceWidget
 if TYPE_CHECKING:
     from napari.components import ViewerModel
     from napari.layers import Layer
-
-Orientation = Literal['vertical', 'horizontal']
 
 _CONTENT_PAGE = 0
 _NO_LAYER_PAGE = 1
@@ -293,17 +292,14 @@ class MetadataWidget(QWidget):
     ) -> CollapsibleSectionContainer:
         """Build the file metadata collapsible section."""
         section = CollapsibleSectionContainer(
-            self._napari_viewer,
-            f'{orientation}_file_metadata',
             self,
+            'File metadata',
             orientation=orientation,
         )
-        section._set_button_text('File metadata')
-
         container = QWidget(self)
         grid = QGridLayout(container)
         self._populate_file_grid(grid, orientation)
-        section._set_expanding_area_widget(container)
+        section.set_content_widget(container)
         return section
 
     def _build_axis_section(
@@ -311,17 +307,14 @@ class MetadataWidget(QWidget):
     ) -> CollapsibleSectionContainer:
         """Build the axes metadata collapsible section."""
         section = CollapsibleSectionContainer(
-            self._napari_viewer,
-            f'{orientation}_axes_metadata',
             self,
+            'Axes metadata',
             orientation=orientation,
         )
-        section._set_button_text('Axes metadata')
-
         container = QWidget(self)
         grid = QGridLayout(container)
         self._populate_axis_grid(grid, orientation)
-        section._set_expanding_area_widget(container)
+        section.set_content_widget(container)
         return section
 
     def _build_inheritance_section(
@@ -329,20 +322,17 @@ class MetadataWidget(QWidget):
     ) -> CollapsibleSectionContainer:
         """Build the axes inheritance collapsible section."""
         section = CollapsibleSectionContainer(
-            self._napari_viewer,
-            f'{orientation}_inheritance',
             self,
+            'Axes inheritance',
             orientation=orientation,
             on_toggle=lambda checked: (
                 self._axis_metadata_instance.set_checkboxes_visible(checked)
             ),
         )
-        section._set_button_text('Axes inheritance')
-
         container = QWidget(self)
         layout = QGridLayout(container)
         layout.addWidget(self._inheritance_instance)
-        section._set_expanding_area_widget(container)
+        section.set_content_widget(container)
         return section
 
     # ------------------------------------------------------------------
