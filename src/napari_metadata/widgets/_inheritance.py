@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from qtpy.QtCore import QSignalBlocker, Qt
@@ -20,9 +22,10 @@ from napari_metadata.layer_utils import (
     get_layers_list,
     resolve_layer,
 )
-from napari_metadata.widgets._protocols import MetadataWidgetAPI
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from napari.components import ViewerModel
     from napari.layers import Layer
 
@@ -32,15 +35,16 @@ BLOCKS_SPACING = 20
 class InheritanceWidget(QWidget):
     def __init__(
         self,
-        napari_viewer: 'ViewerModel',
-        metadata_widget: MetadataWidgetAPI,
+        napari_viewer: ViewerModel,
+        *,
+        on_apply_inheritance: Callable[[Layer], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._napari_viewer = napari_viewer
         self._template_layer: Layer | None = None
         self._inheriting_layer: Layer | None = None
-        self._metadata_widget: MetadataWidgetAPI = metadata_widget
+        self._on_apply_inheritance = on_apply_inheritance
         self._selected_layer: Layer | None = None
 
         self._layout: QVBoxLayout = QVBoxLayout()
@@ -187,9 +191,8 @@ class InheritanceWidget(QWidget):
             or template_layer.ndim != inheriting_layer.ndim
         ):
             return
-        self._metadata_widget.apply_inheritance_to_current_layer(
-            template_layer
-        )
+        if self._on_apply_inheritance is not None:
+            self._on_apply_inheritance(template_layer)
 
     def _on_combobox_selection_changed(self) -> None:
         selected_item: Layer | None = self._template_combobox.currentData(

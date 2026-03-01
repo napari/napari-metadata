@@ -1,5 +1,7 @@
 """Unified collapsible section container supporting both vertical and horizontal orientations."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal
 
 from qtpy.QtCore import QEvent, QObject, Qt
@@ -16,9 +18,9 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata.widgets._protocols import MetadataWidgetAPI
-
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import napari.viewer
 
 
@@ -39,15 +41,17 @@ class CollapsibleSectionContainer(QWidget):
 
     def __init__(
         self,
-        viewer: 'napari.viewer.Viewer',
+        viewer: napari.viewer.Viewer,
         container_name: str,
-        main_widget: MetadataWidgetAPI,
+        parent: QWidget,
         orientation: Literal['vertical', 'horizontal'] = 'vertical',
+        *,
+        on_toggle: Callable[[bool], None] | None = None,
     ):
-        super().__init__(parent=main_widget)
+        super().__init__(parent=parent)
         self._viewer = viewer
         self._container_name = container_name
-        self._main_widget = main_widget
+        self._on_toggle_callback = on_toggle
         self._orientation = orientation
         self._set_text = ' '
 
@@ -116,13 +120,8 @@ class CollapsibleSectionContainer(QWidget):
         self._expanding_area.setVisible(checked)
         self._sync_body_size()
 
-        if (
-            self._container_name == 'vertical_inheritance'
-            or self._container_name == 'horizontal_inheritance'
-        ):
-            self._main_widget._resolve_show_inheritance_checkboxes(
-                self._orientation, checked
-            )
+        if self._on_toggle_callback is not None:
+            self._on_toggle_callback(checked)
 
         # Update button text
         if not checked:

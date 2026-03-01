@@ -86,7 +86,7 @@ def set_axes_scales(
         return
 
     for scale in axes_scales:
-        if not isinstance(scale, float):
+        if not isinstance(scale, int | float):
             return
 
     clamped = tuple(max(s, 0.001) for s in axes_scales)

@@ -1,19 +1,18 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, cast
 
-import pint
-from qtpy.QtCore import QObject, QSignalBlocker, Qt
+from napari.utils.notifications import show_info
+from qtpy.QtCore import QObject, Qt
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
-    QComboBox,
     QDockWidget,
-    QDoubleSpinBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLayout,
     QLayoutItem,
-    QLineEdit,
     QMainWindow,
     QScrollArea,
     QSizePolicy,
@@ -22,41 +21,27 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata.layer_utils import (
-    resolve_layer,
-    set_axes_labels,
-    set_axes_scales,
-    set_axes_translations,
-    set_axes_units,
-)
-from napari_metadata.units import AxisUnitEnum
-from napari_metadata.widgets._axis import (
-    AxisLabels,
-    AxisMetadata,
-    AxisScales,
-    AxisTranslations,
-)
+from napari_metadata.layer_utils import resolve_layer
+from napari_metadata.widgets._axis import AxisMetadata
+from napari_metadata.widgets._base import AxisComponentBase
 from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
     HorizontalOnlyOuterScrollArea,
 )
-from napari_metadata.widgets._file import FileGeneralMetadata
-from napari_metadata.widgets._inheritance import InheritanceWidget
-from napari_metadata.widgets._protocols import (
-    AxesMetadataComponentsInstanceAPI,
-    AxisComponent,
+from napari_metadata.widgets._file import (
+    FileGeneralMetadata,
     MetadataComponent,
 )
+from napari_metadata.widgets._inheritance import InheritanceWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
     from napari.layers import Layer
-    from napari.utils.notifications import show_info
 
 
 class MetadataWidget(QWidget):
-    _selected_layer: 'Layer | None'
-    _inheritance_layer: 'Layer | None'
+    _selected_layer: Layer | None
+    _inheritance_layer: Layer | None
     _stored_inheritances: dict[str, list[bool]] | None
     _stacked_layout: QStackedLayout
     _vertical_layout: QVBoxLayout | None
@@ -70,7 +55,7 @@ class MetadataWidget(QWidget):
     _general_metadata_instance: FileGeneralMetadata
     _axis_metadata_instance: AxisMetadata
 
-    def __init__(self, napari_viewer: 'ViewerModel'):
+    def __init__(self, napari_viewer: ViewerModel):
         super().__init__()
         self._viewer = napari_viewer
         self._napari_viewer = napari_viewer
@@ -101,7 +86,6 @@ class MetadataWidget(QWidget):
         self._general_metadata_instance = FileGeneralMetadata(
             napari_viewer, self
         )
-        self._connect_file_general_metadata_components()
 
         self._vert_file_general_metadata_container: QWidget = QWidget(self)
         self._vert_file_general_metadata_layout: QGridLayout = QGridLayout()
@@ -127,15 +111,16 @@ class MetadataWidget(QWidget):
             self._hori_axis_metadata_layout
         )
 
-        # self._inheritance_instance = AxesInheritance(napari_viewer, self)
         self._inheritance_instance: InheritanceWidget = InheritanceWidget(
-            napari_viewer, self
+            napari_viewer,
+            on_apply_inheritance=self.apply_inheritance_to_current_layer,
+            parent=self,
         )
 
         self._vert_inheritance_container: QWidget = QWidget(self)
-        self._vert_inhertiance_layout: QGridLayout = QGridLayout()
+        self._vert_inheritance_layout: QGridLayout = QGridLayout()
         self._vert_inheritance_container.setLayout(
-            self._vert_inhertiance_layout
+            self._vert_inheritance_layout
         )
         self._hori_inheritance_container: QWidget = QWidget(self)
         self._hori_inheritance_layout: QGridLayout = QGridLayout()
@@ -182,13 +167,14 @@ class MetadataWidget(QWidget):
             self._vert_axis_metadata_container
         )
 
-        self._collapsible_vertical_inheritance: CollapsibleSectionContainer = (
-            CollapsibleSectionContainer(
-                self._napari_viewer,
-                'vertical_inheritance',
-                self,
-                orientation='vertical',
-            )
+        self._collapsible_vertical_inheritance: CollapsibleSectionContainer = CollapsibleSectionContainer(
+            self._napari_viewer,
+            'vertical_inheritance',
+            self,
+            orientation='vertical',
+            on_toggle=lambda checked: self._resolve_show_inheritance_checkboxes(
+                'vertical', checked
+            ),
         )
         self._collapsible_vertical_inheritance._set_button_text(
             'Axes inheritance'
@@ -255,6 +241,9 @@ class MetadataWidget(QWidget):
             'horizontal_inheritance',
             self,
             orientation='horizontal',
+            on_toggle=lambda checked: self._resolve_show_inheritance_checkboxes(
+                'horizontal', checked
+            ),
         )
         self._collapsible_horizontal_inheritance._set_button_text(
             'Axes inheritance'
@@ -294,17 +283,17 @@ class MetadataWidget(QWidget):
         general_metadata_instance: FileGeneralMetadata = (
             self._general_metadata_instance
         )
-        general_metadata_components: dict[str, MetadataComponent] = (
+        components_dict = (
             general_metadata_instance._file_metadata_components_dict
         )  # type: ignore
         general_metadata_component: MetadataComponent
-        for general_metadata_component in general_metadata_components.values():
+        for general_metadata_component in components_dict.values():
             general_metadata_component.load_entries()
 
-    def _disconnect_layer_params(self, layer: 'Layer') -> None:
+    def _disconnect_layer_params(self, layer: Layer) -> None:
         layer.events.name.disconnect(self._on_selected_layer_name_changed)
 
-    def _connect_layer_params(self, layer: 'Layer') -> None:
+    def _connect_layer_params(self, layer: Layer) -> None:
         layer.events.name.connect(self._on_selected_layer_name_changed)
 
     def _on_selected_layers_changed(self) -> None:
@@ -346,10 +335,9 @@ class MetadataWidget(QWidget):
         if parent_widget is None:
             return
         if isinstance(parent_widget, QDockWidget):
-            napari_viewer: ViewerModel = self._viewer
+            napari_viewer = self._viewer
             if napari_viewer is None:
                 return
-            napari_viewer = cast('ViewerModel', napari_viewer)
             self._on_selected_layers_changed()
             self._widget_parent = parent_widget
             self._update_orientation()
@@ -563,8 +551,9 @@ class MetadataWidget(QWidget):
         vert_axis_layout.setVerticalSpacing(8)
         hori_axis_layout: QGridLayout = self._hori_axis_metadata_layout
 
-        axis_meta_instance: AxisMetadata = self._axis_metadata_instance
-        components_dict = axis_meta_instance._axis_metadata_components_dict  # type: ignore
+        components: list[AxisComponentBase] = (
+            self._axis_metadata_instance.components
+        )
 
         spacer_places_list: list[int] = []
 
@@ -574,194 +563,111 @@ class MetadataWidget(QWidget):
         if orientation == 'vertical':
             self._reset_layout(vert_axis_layout)
 
-            # This is the name of every axis
-            for name in components_dict:
+            for idx, component in enumerate(components):
                 current_column: int = starting_column
 
-                # This is the instance of the Axis Protocol
-                axis_component: AxisComponent = components_dict[name]  # type: ignore
-
-                axis_component_qlabel: QLabel = (
-                    axis_component._component_qlabel
-                )  # type: ignore
                 vert_axis_layout.addWidget(
-                    axis_component_qlabel, current_row, current_column, 1, 1
-                )  # type: ignore
-
+                    component.component_label,
+                    current_row,
+                    current_column,
+                    1,
+                    1,
+                )
                 current_column += 1
 
-                axis_component.load_entries()
-                ## TODO: After adding the entries, they need to be connected because of the creating of the axis widgets from scratch when the layer changes.
-                # Probably better to call it from within the AxisComponent class because I don't know if they're created or not by this point.
-                entries_dict: dict[
-                    int,
-                    dict[
-                        str,
-                        tuple[
-                            list[QWidget],
-                            int,
-                            int,
-                            str,
-                            Qt.AlignmentFlag | None,
-                        ],
-                    ],
-                ] = axis_component.get_entries_dict()
+                component.load_entries()
 
-                for axis_index in entries_dict:
+                for axis_index in range(component.num_axes):
                     setting_column = current_column
+                    max_row_span: int = 0
+                    col_span_sum: int = 0
 
-                    max_axis_index_row_span: int = 0
-
-                    axis_entries_dict: dict[
-                        str,
-                        tuple[
-                            list[QWidget],
-                            int,
-                            int,
-                            str,
-                            Qt.AlignmentFlag | None,
-                        ],
-                    ] = entries_dict[axis_index]  # type: ignore
-
-                    sum_of_column_spans: int = 0
-
-                    for widget_name in axis_entries_dict:
-                        row_span: int = axis_entries_dict[widget_name][1]
-                        column_span: int = axis_entries_dict[widget_name][2]
-                        alignment: Qt.AlignmentFlag | None = axis_entries_dict[
-                            widget_name
-                        ][4]
-                        if alignment is None:
-                            alignment = Qt.AlignmentFlag.AlignLeft
-                        for entry_widget in axis_entries_dict[widget_name][0]:
-                            entry_widget.setSizePolicy(
+                    for entry in component.get_layout_entries(axis_index):
+                        for widget in entry.widgets:
+                            widget.setSizePolicy(
                                 QSizePolicy.Policy.Expanding,
                                 QSizePolicy.Policy.Expanding,
                             )
                             vert_axis_layout.addWidget(
-                                entry_widget,
+                                widget,
                                 current_row,
                                 setting_column,
-                                row_span,
-                                column_span,
+                                entry.row_span,
+                                entry.col_span,
                             )
-                        setting_column += column_span
-                        sum_of_column_spans += column_span
-                        if row_span > max_axis_index_row_span:
-                            max_axis_index_row_span = row_span
+                        setting_column += entry.col_span
+                        col_span_sum += entry.col_span
+                        if entry.row_span > max_row_span:
+                            max_row_span = entry.row_span
 
-                    if sum_of_column_spans > max_vert_cols:
-                        max_vert_cols = sum_of_column_spans
+                    if col_span_sum > max_vert_cols:
+                        max_vert_cols = col_span_sum
 
-                    current_row += max_axis_index_row_span
+                    current_row += max_row_span
 
-                # if it is not the last axis:
-                if name != list(components_dict.keys())[-1]:
+                # Separator between components (not after the last one)
+                if idx < len(components) - 1:
                     spacer_places_list.append(current_row)
                     current_row += 3
 
         elif orientation == 'horizontal':
             self._reset_layout(hori_axis_layout)
 
-            # This is the name of every axis
-            for name in components_dict:
+            for idx, component in enumerate(components):
                 current_column: int = starting_column
                 current_row: int = starting_row
 
-                # This is the instance of the Axis Protocol
-                axis_component: AxisComponent = components_dict[name]  # type: ignore
-
-                axis_component_qlabel: QLabel = (
-                    axis_component._component_qlabel
-                )  # type: ignore
-                axis_component_qlabel.setAlignment(
-                    Qt.AlignmentFlag.AlignCenter
-                )  # type: ignore
                 adding_label_column = current_column
-
                 current_row += 1
 
-                axis_component.load_entries()
-                ## TODO: After adding the entries, they need to be connected because of the creating of the axis widgets from scratch when the layer changes.
-                # Probably better to call it from within the AxisComponent class because I don't know if they're created or not by this point.
-                entries_dict: dict[
-                    int,
-                    dict[
-                        str,
-                        tuple[
-                            list[QWidget],
-                            int,
-                            int,
-                            str,
-                            Qt.AlignmentFlag | None,
-                        ],
-                    ],
-                ] = axis_component.get_entries_dict()
+                component.load_entries()
 
                 max_axis_col_spans: int = 0
 
-                for axis_index in entries_dict:
+                for axis_index in range(component.num_axes):
                     current_axis_col_sum: int = 0
-
                     setting_column = current_column
+                    max_row_span: int = 0
 
-                    max_axis_index_row_span: int = 0
-
-                    axis_entries_dict: dict[
-                        str,
-                        tuple[
-                            list[QWidget],
-                            int,
-                            int,
-                            str,
-                            Qt.AlignmentFlag | None,
-                        ],
-                    ] = entries_dict[axis_index]  # type: ignore
-
-                    for widget_name in axis_entries_dict:
-                        row_span: int = axis_entries_dict[widget_name][1]
-                        column_span: int = axis_entries_dict[widget_name][2]
-                        alignment: Qt.AlignmentFlag | None = axis_entries_dict[
-                            widget_name
-                        ][4]
-                        if alignment is None:
-                            alignment = Qt.AlignmentFlag.AlignLeft
-
-                        for entry_widget in axis_entries_dict[widget_name][0]:
-                            entry_widget.setSizePolicy(
+                    for entry in component.get_layout_entries(axis_index):
+                        for widget in entry.widgets:
+                            widget.setSizePolicy(
                                 QSizePolicy.Policy.Expanding,
                                 QSizePolicy.Policy.Expanding,
                             )
                             hori_axis_layout.addWidget(
-                                entry_widget,
+                                widget,
                                 current_row,
                                 setting_column,
-                                row_span,
-                                column_span,
+                                entry.row_span,
+                                entry.col_span,
                             )
-                        setting_column += column_span
-                        if row_span > max_axis_index_row_span:
-                            max_axis_index_row_span = row_span
-
-                        current_axis_col_sum += column_span
-
-                        if row_span > max_axis_index_row_span:
-                            max_axis_index_row_span = row_span
+                        setting_column += entry.col_span
+                        current_axis_col_sum += entry.col_span
+                        if entry.row_span > max_row_span:
+                            max_row_span = entry.row_span
 
                     if current_axis_col_sum > max_axis_col_spans:
                         max_axis_col_spans = current_axis_col_sum
 
-                    current_row += max_axis_index_row_span
+                    current_row += max_row_span
 
                 if current_row > max_hori_rows:
                     max_hori_rows = current_row
 
+                component.component_label.setAlignment(
+                    Qt.AlignmentFlag.AlignCenter
+                )
                 hori_axis_layout.addWidget(
-                    axis_component_qlabel, 0, adding_label_column, 1, 1
-                )  # type: ignore
+                    component.component_label,
+                    0,
+                    adding_label_column,
+                    1,
+                    1,
+                )
 
-                ## if it is not the last axis:
-                if name != list(components_dict.keys())[-1]:
+                # Separator between components (not after the last one)
+                if idx < len(components) - 1:
                     spacer_places_list.append(
                         starting_column + max_axis_col_spans
                     )
@@ -877,7 +783,7 @@ class MetadataWidget(QWidget):
             hori_axis_layout.parentWidget().updateGeometry()
 
     def _set_inheritance_orientation(self, orientation: str) -> None:
-        vert_inheritance_layout: QGridLayout = self._vert_inhertiance_layout
+        vert_inheritance_layout: QGridLayout = self._vert_inheritance_layout
         vert_inheritance_layout.setVerticalSpacing(8)
         hori_inheritance_layout: QGridLayout = self._hori_inheritance_layout
 
@@ -891,39 +797,6 @@ class MetadataWidget(QWidget):
             setting_layout = hori_inheritance_layout
 
         setting_layout.addWidget(self._inheritance_instance)
-
-    def _connect_file_general_metadata_components(self) -> None:
-        file_general_meta_instance: FileGeneralMetadata = (
-            self._general_metadata_instance
-        )
-        components_dict = (
-            file_general_meta_instance._file_metadata_components_dict
-        )  # type: ignore
-
-        for name in components_dict:
-            general_component: MetadataComponent = components_dict[name]  # type: ignore
-            entries_dict: dict[str, tuple[QWidget, int, int, str]] = (
-                general_component.get_entries_dict(self._current_orientation)
-            )
-            for entry_name in entries_dict:
-                entry_widget: QWidget = entries_dict[entry_name][0]
-                method_name: str = entries_dict[entry_name][3]
-                if method_name == '':
-                    continue
-                if isinstance(entry_widget, QLineEdit):
-                    entry_line_edit: QLineEdit = cast(QLineEdit, entry_widget)
-                    entry_line_edit.textEdited.connect(
-                        getattr(self, method_name)
-                    )
-
-    def get_axes_metadata_instance(self) -> AxesMetadataComponentsInstanceAPI:
-        axes_metadata_api: AxesMetadataComponentsInstanceAPI = cast(
-            AxesMetadataComponentsInstanceAPI, self._axis_metadata_instance
-        )
-        return axes_metadata_api
-
-    def _on_name_line_changed(self, text: str) -> None:
-        return
 
     def _set_layout_type(self, layout_type: str) -> None:
         if layout_type == 'vertical':
@@ -947,218 +820,14 @@ class MetadataWidget(QWidget):
 
         self._current_orientation = layout_type
 
-    def connect_axis_components(self, component: MetadataComponent) -> None:
-        component_entries: dict[
-            int,
-            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
-        ] = component.get_entries_dict('vertical')  # type: ignore
-
-        for axis_number in component_entries:
-            for component_name in component_entries[axis_number]:
-                method_str: str = component_entries[axis_number][
-                    component_name
-                ][3]
-                if method_str == '':
-                    continue
-                widget: QWidget = component_entries[axis_number][
-                    component_name
-                ][0]
-                calling_method = None
-                try:
-                    calling_method = getattr(self, method_str)
-                except AttributeError:
-                    continue
-                if isinstance(widget, QLineEdit):
-                    line_edit_widget: QLineEdit = cast(QLineEdit, widget)
-                    line_edit_widget.textEdited.connect(calling_method)
-                if isinstance(widget, QDoubleSpinBox):
-                    spin_double_box: QDoubleSpinBox = cast(
-                        QDoubleSpinBox, widget
-                    )
-                    spin_double_box.valueChanged.connect(calling_method)
-                if isinstance(widget, QComboBox):
-                    combo_box: QComboBox = cast(QComboBox, widget)
-                    combo_box.currentIndexChanged.connect(calling_method)
-
-    def _on_axis_labels_lines_edited(self) -> None:
-        axes_labels_component: AxisLabels = (
-            self._axis_metadata_instance._axis_metadata_components_dict[
-                'AxisLabels'
-            ]
-        )  # type: ignore
-        axes_tuples: tuple[str, ...] = (
-            axes_labels_component.get_line_edit_labels()
-        )  # type: ignore
-        set_axes_labels(self._viewer, axes_tuples)  # type: ignore
-        for (
-            axes_component_name
-        ) in self._axis_metadata_instance._axis_metadata_components_dict:
-            if axes_component_name != 'AxisLabels':
-                axis_component: MetadataComponent = self._axis_metadata_instance._axis_metadata_components_dict[
-                    axes_component_name
-                ]  # type: ignore
-                for axis_number in range(
-                    len(axis_component._axis_name_labels_tuple)
-                ):
-                    with QSignalBlocker(
-                        axis_component._axis_name_labels_tuple[axis_number]
-                    ):
-                        axis_component._axis_name_labels_tuple[
-                            axis_number
-                        ].setText(axes_tuples[axis_number])
-                        if axes_tuples[axis_number] == '':
-                            axis_component._axis_name_labels_tuple[
-                                axis_number
-                            ].setText(f'{axis_number}')
-
-    def _on_axis_translate_spin_box_adjusted(self) -> None:
-        axes_translate_component: AxisTranslations = (
-            self._axis_metadata_instance._axis_metadata_components_dict[
-                'AxisTranslations'
-            ]
-        )  # type: ignore
-        axes_tuples: tuple[float, ...] = (
-            axes_translate_component.get_spin_box_values()
-        )  # type: ignore
-        set_axes_translations(self._viewer, axes_tuples)  # type: ignore
-
-    def _on_axis_scale_spin_box_adjusted(self) -> None:
-        axes_scale_component: AxisScales = (
-            self._axis_metadata_instance._axis_metadata_components_dict[
-                'AxisScales'
-            ]
-        )  # type: ignore
-        axes_tuples: tuple[float, ...] = (
-            axes_scale_component.get_spin_box_values()
-        )  # type: ignore
-        axis_scales_list: list[float] = []
-        bad_number: bool = False
-        for scale_tuple_index in range(len(axes_tuples)):  # type: ignore
-            if axes_tuples[scale_tuple_index] <= 0:
-                axis_scales_list.append(0.001)
-                bad_number = True
-                continue
-            else:
-                axis_scales_list.append(axes_tuples[scale_tuple_index])  # type: ignore
-        if bad_number:
-            spin_boxes_tuple: tuple[QDoubleSpinBox, ...] = (
-                axes_scale_component._scale_spinbox_tuple
-            )  # type: ignore
-            for spin_box_index in range(len(spin_boxes_tuple)):  # type: ignore
-                with QSignalBlocker(spin_boxes_tuple[spin_box_index]):  # type: ignore
-                    spin_boxes_tuple[spin_box_index].setValue(
-                        axis_scales_list[spin_box_index]
-                    )  # type: ignore
-            set_axes_scales(self._viewer, axis_scales_list)  # type: ignore
-            return
-        set_axes_scales(self._viewer, axes_tuples)  # type: ignore
-
-    def _on_type_combobox_changed(self) -> None:
-        unit_axis_component: MetadataComponent = (
-            self._axis_metadata_instance._axis_metadata_components_dict[
-                'AxisUnits'
-            ]
-        )  # type: ignore
-        type_combobox_tuple: tuple[QComboBox, ...] = (
-            unit_axis_component._type_combobox_tuple
-        )  # type: ignore
-        unit_combobox_tuple: tuple[QComboBox, ...] = (
-            unit_axis_component._unit_combobox_tuple
-        )  # type: ignore
-        unit_registry: pint.registry.ApplicationRegistry = (
-            pint.get_application_registry()
-        )
-        for axis_number in range(len(type_combobox_tuple)):  # type: ignore
-            unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            axis_type: AxisUnitEnum | None = AxisUnitEnum.from_name(
-                type_combobox_tuple[axis_number].currentText()  # type: ignore
-            )
-            unit_cfg = (
-                axis_type.value
-                if isinstance(axis_type, AxisUnitEnum)
-                else None
-            )
-            if unit_cfg is not None and unit_string not in unit_cfg.units:
-                with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
-                    unit_combobox_tuple[axis_number].clear()  # type: ignore
-                    unit_combobox_tuple[axis_number].addItems(unit_cfg.units)  # type: ignore
-                    unit_combobox_tuple[axis_number].setCurrentIndex(
-                        unit_combobox_tuple[axis_number].findText(
-                            unit_cfg.default
-                        )
-                    )  # type: ignore
-            else:
-                with QSignalBlocker(unit_combobox_tuple[axis_number]):  # type: ignore
-                    unit_combobox_tuple[axis_number].clear()  # type: ignore
-                    for at in AxisUnitEnum:
-                        at_cfg = at.value
-                        if at_cfg is not None:
-                            unit_combobox_tuple[axis_number].addItems(
-                                at_cfg.units
-                            )  # type: ignore
-                    unit_combobox_tuple[axis_number].setCurrentIndex(
-                        unit_combobox_tuple[axis_number].findText(unit_string)
-                    )  # type: ignore
-
-        setting_units_list: list[pint.Unit | str | None] = []
-        for axis_number in range(len(unit_combobox_tuple)):
-            unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            unit_pint: pint.Unit | None
-            if unit_string == 'none':
-                unit_pint = None
-            else:
-                unit_pint = unit_registry.Unit(unit_string)
-            setting_units_list.append(unit_pint)
-        set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
-
-    def _on_unit_combobox_changed(self) -> None:
-        unit_axis_component: MetadataComponent = (
-            self._axis_metadata_instance._axis_metadata_components_dict[
-                'AxisUnits'
-            ]
-        )  # type: ignore
-        unit_combobox_tuple: tuple[QComboBox, ...] = (
-            unit_axis_component._unit_combobox_tuple
-        )  # type: ignore
-        type_combobox_tuple: tuple[QComboBox, ...] = (
-            unit_axis_component._type_combobox_tuple
-        )  # type: ignore
-        unit_registry: pint.registry.ApplicationRegistry = (
-            pint.get_application_registry()
-        )
-        setting_units_list: list[pint.Unit | str | None] = []
-        for axis_number in range(len(unit_combobox_tuple)):  # type: ignore
-            unit_string: str = unit_combobox_tuple[axis_number].currentText()  # type: ignore
-            inferred_type: AxisUnitEnum = AxisUnitEnum.STRING
-            for at in AxisUnitEnum:
-                at_cfg = at.value
-                if at_cfg is not None and unit_string in at_cfg.units:
-                    inferred_type = at
-                    break
-            with QSignalBlocker(type_combobox_tuple[axis_number]):  # type: ignore
-                type_combobox_tuple[axis_number].setCurrentIndex(
-                    type_combobox_tuple[axis_number].findText(
-                        str(inferred_type)
-                    )
-                )  # type: ignore
-            unit_pint: pint.Unit | None
-            if unit_string == 'none' or not unit_string:
-                unit_pint = None
-            else:
-                unit_pint = unit_registry.Unit(unit_string)
-            setting_units_list.append(unit_pint)
-        set_axes_units(self._napari_viewer, setting_units_list)  # type: ignore
-
     def _resolve_show_inheritance_checkboxes(
         self, orientation: str, checked: bool
     ) -> None:
         if self._current_orientation == orientation:
-            axis_metadata: AxisMetadata = self._axis_metadata_instance
-            axis_metadata._set_inheritance_checkbox_visibility(checked)
-        return
+            self._axis_metadata_instance.set_checkboxes_visible(checked)
 
     def apply_inheritance_to_current_layer(
-        self, template_layer: 'Layer'
+        self, template_layer: Layer
     ) -> None:
         active_layer = resolve_layer(self._napari_viewer)
         if active_layer is None:
@@ -1170,9 +839,8 @@ class MetadataWidget(QWidget):
             )
             return
 
-        axis_component: AxisComponent
-        for axis_component in self._axis_metadata_instance._axis_metadata_components_dict.values():
-            axis_component.inherit_layer_properties(template_layer)
+        for component in self._axis_metadata_instance.components:
+            component.inherit_layer_properties(template_layer)
         if self._current_orientation == 'horizontal':
             self._set_layout_type('horizontal')
         else:

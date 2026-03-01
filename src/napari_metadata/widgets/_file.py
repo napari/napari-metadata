@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
 
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtGui import QFontMetrics
@@ -11,11 +13,41 @@ from napari_metadata.layer_utils import (
     get_layer_source_path,
     resolve_layer,
 )
-from napari_metadata.widgets._protocols import MetadataComponent
 
 if TYPE_CHECKING:
     from napari.layers import Layer
     from napari.viewer import ViewerModel
+
+
+class MetadataComponent(Protocol):
+    """Structural typing interface for file metadata components.
+
+    This protocol is temporary will replace with a concrete
+    ``FileComponentBase`` class.
+    """
+
+    _component_name: str
+    _napari_viewer: ViewerModel
+    _component_qlabel: QLabel
+
+    def __init__(
+        self, napari_viewer: ViewerModel, main_widget: QWidget
+    ) -> None: ...
+
+    def load_entries(self, layer: Layer | None = None) -> None: ...
+
+    def get_entries_dict(
+        self, layout_mode: str
+    ) -> (
+        dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]]
+        | dict[
+            int,
+            dict[str, tuple[QWidget, int, int, str, Qt.AlignmentFlag | None]],
+        ]
+    ): ...
+
+    def get_under_label(self, layout_mode: str) -> bool: ...
+
 
 FILE_METADATA_COMPONENTS_DICT: dict[str, type[MetadataComponent]] = {}
 
@@ -33,7 +65,7 @@ def _metadata_component(
 @_metadata_component
 class LayerNameComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
@@ -41,17 +73,17 @@ class LayerNameComponent:
     _layer_name_line_edit: QLineEdit
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Layer Name:')
+        component_qlabel: QLabel = QLabel('Layer Name:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        layer_name_line_edit = QLineEdit()
+        layer_name_line_edit = QLineEdit(parent=main_widget)
         self._layer_name_line_edit = layer_name_line_edit
         layer_name_line_edit.setSizePolicy(
             QSizePolicy(
@@ -63,7 +95,7 @@ class LayerNameComponent:
         )
         self._component_name = 'LayerName'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -116,7 +148,7 @@ class LayerNameComponent:
 @_metadata_component
 class LayerShapeComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
@@ -124,23 +156,23 @@ class LayerShapeComponent:
     _layer_shape_label: QLabel
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Layer Shape:')
+        component_qlabel: QLabel = QLabel('Layer Shape:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        shape_label: QLabel = QLabel('None selected')
+        shape_label: QLabel = QLabel('None selected', parent=main_widget)
         shape_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layer_shape_label = shape_label
 
         self._component_name = 'LayerShape'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -184,29 +216,31 @@ class LayerShapeComponent:
 @_metadata_component
 class LayerDataTypeComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Layer DataType:')
+        component_qlabel: QLabel = QLabel(
+            'Layer DataType:', parent=main_widget
+        )
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        data_type_label: QLabel = QLabel('None selected')
+        data_type_label: QLabel = QLabel('None selected', parent=main_widget)
         data_type_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layer_data_type_label = data_type_label
 
         self._component_name = 'LayerDataType'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -250,29 +284,29 @@ class LayerDataTypeComponent:
 @_metadata_component
 class LayerFileSizeComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('File Size:')
+        component_qlabel: QLabel = QLabel('File Size:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        file_size_label: QLabel = QLabel('None selected')
+        file_size_label: QLabel = QLabel('None selected', parent=main_widget)
         file_size_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layer_file_size_label = file_size_label
 
         self._component_name = 'LayerFileSize'
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -316,24 +350,26 @@ class LayerFileSizeComponent:
 @_metadata_component
 class SourcePathComponent:
     _component_name: str
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _component_qlabel: QLabel
     _under_label: bool
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._component_name = 'SourcePath'
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
 
-        component_qlabel: QLabel = QLabel('Source Path:')
+        component_qlabel: QLabel = QLabel('Source Path:', parent=main_widget)
         component_qlabel.setStyleSheet('font-weight: bold;')  # type: ignore
         component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._component_qlabel = component_qlabel
 
-        source_path_text_edit: SingleLineTextEdit = SingleLineTextEdit()
+        source_path_text_edit: SingleLineTextEdit = SingleLineTextEdit(
+            parent=main_widget
+        )
         source_path_text_edit.setPlainText('None selected')
         source_path_text_edit.setReadOnly(True)
         source_path_text_edit.setSizePolicy(
@@ -342,7 +378,7 @@ class SourcePathComponent:
         source_path_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self._source_path_text_edit = source_path_text_edit
 
-    def load_entries(self, layer: 'Layer | None' = None) -> None:
+    def load_entries(self, layer: Layer | None = None) -> None:
         active_layer: Layer | None = None
         if layer is not None:
             active_layer = layer
@@ -397,12 +433,12 @@ class FileGeneralMetadata:
     components instances and everything else is handled in the MetadataWidgetAPI class or the individual metadata component classes.
     """
 
-    _napari_viewer: 'ViewerModel'
+    _napari_viewer: ViewerModel
     _main_widget: QWidget
     _file_metadata_components_dict: dict[str, MetadataComponent]
 
     def __init__(
-        self, napari_viewer: 'ViewerModel', main_widget: QWidget
+        self, napari_viewer: ViewerModel, main_widget: QWidget
     ) -> None:
         self._napari_viewer = napari_viewer
         self._main_widget = main_widget
@@ -418,6 +454,9 @@ class FileGeneralMetadata:
 
 
 class SingleLineTextEdit(QTextEdit):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
     def sizeHint(self):
         font_metrics = QFontMetrics(self.font())
         return QSize(50, font_metrics.height())
