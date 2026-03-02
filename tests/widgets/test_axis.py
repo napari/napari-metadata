@@ -158,10 +158,7 @@ class TestAxisUnits:
         units_component.load_entries(layer)
 
         type_combobox = units_component._type_comboboxes[0]
-        string_index = type_combobox.findData(AxisUnitEnum.STRING)
-        assert string_index != -1
-
-        type_combobox.setCurrentIndex(string_index)
+        type_combobox.setCurrentEnum(AxisUnitEnum.STRING)
         units_component._unit_line_edits[0].setText('furlong')
         units_component._unit_line_edits[0].editingFinished.emit()
 
@@ -182,8 +179,7 @@ class TestAxisUnits:
         assert units_component._unit_line_edits[0].isHidden()
 
         type_combobox = units_component._type_comboboxes[0]
-        string_index = type_combobox.findData(AxisUnitEnum.STRING)
-        type_combobox.setCurrentIndex(string_index)
+        type_combobox.setCurrentEnum(AxisUnitEnum.STRING)
 
         assert units_component._unit_comboboxes[0].isHidden()
         assert not units_component._unit_line_edits[0].isHidden()
