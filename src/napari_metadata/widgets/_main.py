@@ -40,6 +40,7 @@ from napari_metadata.widgets._containers import (
     HorizontalOnlyOuterScrollArea,
     Orientation,
 )
+from napari_metadata.widgets._dict_viewer import MetadataDictViewer
 from napari_metadata.widgets._file import FileGeneralMetadata
 from napari_metadata.widgets._inheritance import InheritanceWidget
 
@@ -85,6 +86,7 @@ class MetadataWidget(QWidget):
             on_apply_inheritance=self.apply_inheritance_to_current_layer,
             parent=self,
         )
+        self._metadata_dict_instance = MetadataDictViewer(napari_viewer, self)
 
         # ── Stacked layout (content + no-layer) ────────────────────
         self._stacked_layout = QStackedLayout()
@@ -113,6 +115,7 @@ class MetadataWidget(QWidget):
         self._file_section: CollapsibleSectionContainer | None = None
         self._axis_section: CollapsibleSectionContainer | None = None
         self._inheritance_section: CollapsibleSectionContainer | None = None
+        self._metadata_dict_section: CollapsibleSectionContainer | None = None
 
         # Start on the no-layer page — no layer is selected at construction
         self._stacked_layout.setCurrentIndex(_NO_LAYER_PAGE)
@@ -237,6 +240,11 @@ class MetadataWidget(QWidget):
             if self._inheritance_section is not None
             else False
         )
+        metadata_dict_expanded = (
+            self._metadata_dict_section.isExpanded()
+            if self._metadata_dict_section is not None
+            else False
+        )
 
         # Detach persistent widgets so they survive container deletion
         self._detach_component_widgets()
@@ -281,6 +289,11 @@ class MetadataWidget(QWidget):
             orientation
         )
         sections_layout.addWidget(self._inheritance_section)
+
+        self._metadata_dict_section = self._build_metadata_dict_section(
+            orientation
+        )
+        sections_layout.addWidget(self._metadata_dict_section)
         sections_layout.addStretch(1)
 
         # Restore expanded states carried over from the previous build so that
@@ -288,6 +301,7 @@ class MetadataWidget(QWidget):
         self._file_section.setExpanded(file_expanded)
         self._axis_section.setExpanded(axis_expanded)
         self._inheritance_section.setExpanded(inheritance_expanded)
+        self._metadata_dict_section.setExpanded(metadata_dict_expanded)
 
         # Keep axis inheritance checkboxes in sync with the rebuilt section's
         # expanded state.
@@ -369,6 +383,22 @@ class MetadataWidget(QWidget):
         container = QWidget(self)
         layout = QGridLayout(container)
         layout.addWidget(self._inheritance_instance)
+        section.set_content_widget(container)
+        return section
+
+    def _build_metadata_dict_section(
+        self, orientation: Orientation
+    ) -> CollapsibleSectionContainer:
+        """Build the metadata dictionary collapsible section."""
+        section = CollapsibleSectionContainer(
+            self,
+            'Metadata dictionary',
+            orientation=orientation,
+        )
+        container = QWidget(self)
+        layout = QVBoxLayout(container)
+        self._metadata_dict_instance.load_layer_dict()
+        layout.addWidget(self._metadata_dict_instance)
         section.set_content_widget(container)
         return section
 

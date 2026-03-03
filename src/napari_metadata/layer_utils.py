@@ -116,6 +116,15 @@ def set_axes_translations(
         resolved_layer.translate = axes_translations
 
 
+def get_layer_metadata_dict(
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
+) -> dict:
+    resolved_layer = resolve_layer(viewer, layer)
+    if resolved_layer is None:
+        return {}
+    return resolved_layer.metadata
+
+
 def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
     """Get the shape of the layer's data."""
     if layer is None:
