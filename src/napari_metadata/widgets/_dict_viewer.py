@@ -22,7 +22,11 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata.layer_utils import get_layer_metadata_dict
+from napari_metadata.layer_utils import (
+    get_layer_metadata_dict,
+    set_layer_metadata_dict,
+)
+from napari.utils.notifications import show_info
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -325,7 +329,9 @@ class MetadataDictViewer(QWidget):
                 'key_combo': key_combo,
             },
         )
-        item.setData(1, Qt.ItemDataRole.UserRole, {'add_row': True, **value_widgets})
+        item.setData(
+            1, Qt.ItemDataRole.UserRole, {'add_row': True, **value_widgets}
+        )
         add_button.clicked.connect(lambda: self._add_dict_entry(item))
         self._update_item_height(item)
 
@@ -381,6 +387,41 @@ class MetadataDictViewer(QWidget):
         value_widget = self.tree.itemWidget(item, 1)
         if isinstance(value_widget, ValueWidget):
             value_widget.set_selected(selected)
+
+    def _iter_items(self) -> list[QTreeWidgetItem]:
+        items: list[QTreeWidgetItem] = []
+        for i in range(self.tree.topLevelItemCount()):
+            items.append(self.tree.topLevelItem(i))
+        index = 0
+        while index < len(items):
+            item = items[index]
+            for i in range(item.childCount()):
+                items.append(item.child(i))
+            index += 1
+        return items
+
+    def _find_item_by_widget(
+        self, widget: QWidget, column: int
+    ) -> QTreeWidgetItem | None:
+        for item in self._iter_items():
+            if self.tree.itemWidget(item, column) is widget:
+                return item
+        return None
+
+    def _delete_item_for_widget(self, widget: QWidget, column: int) -> None:
+        item = self._find_item_by_widget(widget, column)
+        if item is None:
+            return
+        parent = item.parent()
+        if parent is None:
+            index = self.tree.indexOfTopLevelItem(item)
+            if index >= 0:
+                self.tree.takeTopLevelItem(index)
+        else:
+            index = parent.indexOfChild(item)
+            if index >= 0:
+                parent.takeChild(index)
+        self._recreate_dictionary()
 
     def _request_edit(self, widget: KeyWidget | ValueWidget) -> None:
         if self._editing_widget is widget:
@@ -492,7 +533,9 @@ class MetadataDictViewer(QWidget):
             return
         new_item = QTreeWidgetItem(['', ''])
         self._insert_child(parent, insert_index, new_item)
-        self._set_index_key_widget(new_item, entry_index, sequence_type, index_width)
+        self._set_index_key_widget(
+            new_item, entry_index, sequence_type, index_width
+        )
         if value_type == 'dictionary':
             self._set_value_type_widget(new_item, 'dict')
             self._set_value_item_data(new_item, value)
@@ -530,6 +573,24 @@ class MetadataDictViewer(QWidget):
                 return
         else:
             key_value = key_text
+        for i in range(
+            parent.childCount()
+            if isinstance(parent, QTreeWidgetItem)
+            else self.tree.topLevelItemCount()
+        ):
+            child = (
+                parent.child(i)
+                if isinstance(parent, QTreeWidgetItem)
+                else self.tree.topLevelItem(i)
+            )
+            if self._is_add_row(child):
+                continue
+            existing_key = child.data(0, Qt.ItemDataRole.UserRole) or {}
+            if isinstance(existing_key, dict):
+                existing_key = existing_key.get('key')
+            if existing_key == key_value:
+                show_info(f'Key already exists in this dictionary: {existing_key}')
+                return
         index_width = getattr(self, '_index_label_width', None)
         insert_index = (
             parent.indexOfChild(add_item)
@@ -654,7 +715,8 @@ class MetadataDictViewer(QWidget):
                 continue
             key = parse_key(item)
             result[key] = parse_value(item)
-        print(result)
+        set_layer_metadata_dict(self._napari_viewer, None, result)
+        self.load_layer_dict()
 
 
 class KeyWidget(QWidget):
@@ -668,7 +730,9 @@ class KeyWidget(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        self._viewer = parent if isinstance(parent, MetadataDictViewer) else None
+        self._viewer = (
+            parent if isinstance(parent, MetadataDictViewer) else None
+        )
         self._original_key = str(key)
         self._is_editable = isinstance(key, str) or (
             isinstance(key, (int, float)) and not isinstance(key, bool)
@@ -731,7 +795,7 @@ class KeyWidget(QWidget):
         self._layout.addWidget(self.type_combo)
         self._layout.addWidget(self.edit_button)
         self._layout.addWidget(self.delete_button)
-        self.delete_button.clicked.connect(self._on_cancel_clicked)
+        self.delete_button.clicked.connect(self._on_delete_clicked)
 
     def _on_edit_toggled(self, checked: bool) -> None:
         if checked and self._viewer is not None:
@@ -780,6 +844,13 @@ class KeyWidget(QWidget):
         )
         if self._viewer is not None:
             self._viewer._end_edit(self)
+
+    def _on_delete_clicked(self) -> None:
+        if self.edit_button.isChecked():
+            self._on_cancel_clicked()
+            return
+        if self._viewer is not None:
+            self._viewer._delete_item_for_widget(self, 0)
 
     def _commit_edit(self) -> None:
         new_key = self.key_edit.text()
@@ -873,7 +944,9 @@ class ValueWidget(QWidget):
         container_type: str | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        self._viewer = parent if isinstance(parent, MetadataDictViewer) else None
+        self._viewer = (
+            parent if isinstance(parent, MetadataDictViewer) else None
+        )
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(16, 0, 0, 0)
         self._layout.setSpacing(4)
@@ -985,11 +1058,15 @@ class ValueWidget(QWidget):
         if selected:
             self.type_label.setStyleSheet('color: black; font-style: italic;')
             if hasattr(self, 'value_label') and self.value_label is not None:
-                self.value_label.setStyleSheet('color: black; font-style: italic;')
+                self.value_label.setStyleSheet(
+                    'color: black; font-style: italic;'
+                )
         else:
             self.type_label.setStyleSheet('color: gray; font-style: italic;')
             if hasattr(self, 'value_label') and self.value_label is not None:
-                self.value_label.setStyleSheet('color: gray; font-style: italic;')
+                self.value_label.setStyleSheet(
+                    'color: gray; font-style: italic;'
+                )
 
     def _add_controls(self, editable: bool) -> None:
         self.edit_button = QPushButton('Edit', self)
@@ -1006,7 +1083,15 @@ class ValueWidget(QWidget):
         if editable:
             self.type_combo = QComboBox(self)
             self.type_combo.addItems(
-                ['number', 'string', 'bool', 'tuple', 'list', 'dictionary', 'none']
+                [
+                    'number',
+                    'string',
+                    'bool',
+                    'tuple',
+                    'list',
+                    'dictionary',
+                    'none',
+                ]
             )
             self.type_combo.setSizeAdjustPolicy(
                 QComboBox.SizeAdjustPolicy.AdjustToContents
@@ -1027,7 +1112,7 @@ class ValueWidget(QWidget):
             self.type_combo.currentTextChanged.connect(
                 self._apply_value_type_selection
             )
-        self.delete_button.clicked.connect(self._on_cancel_clicked)
+        self.delete_button.clicked.connect(self._on_delete_clicked)
 
     def _on_edit_toggled(self, checked: bool) -> None:
         if checked and self._viewer is not None:
@@ -1037,7 +1122,9 @@ class ValueWidget(QWidget):
         self.type_combo.setVisible(checked)
         self.delete_button.setVisible(not checked)
         if checked:
-            current_type = self._original_type_text or self.type_label.text().lower()
+            current_type = (
+                self._original_type_text or self.type_label.text().lower()
+            )
             if current_type == 'na':
                 current_type = 'none'
             elif current_type == 'non-editable':
@@ -1094,6 +1181,15 @@ class ValueWidget(QWidget):
         )
         if self._viewer is not None:
             self._viewer._end_edit(self)
+
+    def _on_delete_clicked(self) -> None:
+        if not self._editable:
+            return
+        if self.edit_button.isChecked():
+            self._on_cancel_clicked()
+            return
+        if self._viewer is not None:
+            self._viewer._delete_item_for_widget(self, 1)
 
     def _apply_value_type_selection(self, selected_type: str) -> None:
         if hasattr(self, 'value_label') and self.value_label is not None:
@@ -1253,7 +1349,10 @@ class ValueWidget(QWidget):
             self.edit_button.setIcon(self._edit_icon)
 
     def _commit_edit(self) -> None:
-        if self._original_value_text is None or self._original_type_text is None:
+        if (
+            self._original_value_text is None
+            or self._original_type_text is None
+        ):
             return
         selected_type = self.type_combo.currentText()
         if selected_type == 'number':
@@ -1322,8 +1421,6 @@ class ValueWidget(QWidget):
         if hasattr(self, 'value_label'):
             return self.value_label.text()
         return None
-
-
 
 
 def _load_icon(name: str) -> QIcon:

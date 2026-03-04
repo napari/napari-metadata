@@ -1,9 +1,11 @@
 from collections.abc import Callable, Sequence
 from contextlib import suppress
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, Any
 
 import numpy as np
 import pint
+
+from napari.utils.notifications import show_info
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -123,6 +125,17 @@ def get_layer_metadata_dict(
     if resolved_layer is None:
         return {}
     return resolved_layer.metadata
+
+
+def set_layer_metadata_dict(
+    viewer: 'ViewerModel',
+    layer: 'Layer | None' = None,
+    metadata: dict[Any, Any] | None = None,
+) -> None:
+    resolved_layer = resolve_layer(viewer, layer)
+    if resolved_layer is None:
+        return
+    resolved_layer.metadata = metadata if metadata is not None else {}
 
 
 def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
