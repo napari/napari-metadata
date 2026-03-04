@@ -84,12 +84,14 @@ class MetadataDictViewer(QWidget):
         if isinstance(value, dict):
             key_item = QTreeWidgetItem(parent, ['', ''])
             self._set_key_widget(key_item, key, index, index_width)
+            self._set_value_type_widget(key_item, 'dict')
             self.fill_tree(value, key_item)
-        elif isinstance(value, list):
+        elif isinstance(value, (list, tuple)):
             key_item = QTreeWidgetItem(parent, ['', ''])
             self._set_key_widget(key_item, key, index, index_width)
-            for i, val in enumerate(value):
-                self.fill_tree({str(i): val}, key_item)
+            type_name = 'list' if isinstance(value, list) else 'tuple'
+            self._set_value_type_widget(key_item, type_name)
+            self._fill_sequence_items(value, key_item, index_width)
         else:
             value_item = QTreeWidgetItem(parent, ['', ''])
             self._set_key_widget(value_item, key, index, index_width)
@@ -103,14 +105,65 @@ class MetadataDictViewer(QWidget):
     def _set_key_widget(
         self,
         item: QTreeWidgetItem,
-        key: str,
+        key: object,
         index: int | None = None,
         index_width: int | None = None,
     ) -> None:
         key_widget = KeyWidget(
-            str(key), index=index, index_width=index_width, parent=self
+            key, index=index, index_width=index_width, parent=self
         )
         self.tree.setItemWidget(item, 0, key_widget)
+        self._update_item_height(item)
+
+    def _set_index_key_widget(
+        self,
+        item: QTreeWidgetItem,
+        index: int,
+        index_width: int | None = None,
+    ) -> None:
+        label = QLabel(f'[{index}]', self)
+        label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        if index_width is not None:
+            label.setMinimumWidth(index_width)
+        label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        label.setContentsMargins(0, 0, 3, 0)
+        self.tree.setItemWidget(item, 0, label)
+        self._update_item_height(item)
+
+    def _fill_sequence_items(
+        self,
+        values: list | tuple,
+        parent: QTreeWidgetItem,
+        index_width: int | None,
+    ) -> None:
+        for i, val in enumerate(values):
+            index_item = QTreeWidgetItem(parent, ['', ''])
+            self._set_index_key_widget(index_item, i, index_width)
+            if isinstance(val, dict):
+                self._set_value_type_widget(index_item, 'dict')
+                self.fill_tree(val, index_item)
+            elif isinstance(val, (list, tuple)):
+                nested_type = 'list' if isinstance(val, list) else 'tuple'
+                self._set_value_type_widget(index_item, nested_type)
+                self._fill_sequence_items(val, index_item, index_width)
+            else:
+                value_widget = ValueWidget(val, self)
+                self.tree.setItemWidget(index_item, 1, value_widget)
+                self._update_item_height(index_item)
+
+    def _set_value_type_widget(
+        self, item: QTreeWidgetItem, type_name: str
+    ) -> None:
+        value_label = QLabel(type_name, self)
+        value_label.setStyleSheet('color: gray; font-style: italic;')
+        value_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.tree.setItemWidget(item, 1, value_label)
         self._update_item_height(item)
 
     def _set_item_selected(
@@ -152,13 +205,16 @@ class KeyWidget(QWidget):
 
     def __init__(
         self,
-        key: str,
+        key: object,
         index: int | None = None,
         index_width: int | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        self._original_key = key
+        self._original_key = str(key)
+        self._is_editable = isinstance(key, str) or (
+            isinstance(key, (int, float)) and not isinstance(key, bool)
+        )
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 8, 0)
         self._layout.setSpacing(4)
@@ -169,22 +225,42 @@ class KeyWidget(QWidget):
             self._layout.addWidget(self.index_label)
         elif index_width is not None:
             spacer = QLabel('', self)
-            spacer.setFixedWidth(index_width)
+            spacer.setFixedWidth(index_width + 5)
             self._layout.addWidget(spacer)
-        self.key_edit = QLineEdit(key, self)
-        self.key_edit.setReadOnly(True)
+        if self._is_editable:
+            self.key_edit = QLineEdit(self._original_key, self)
+            self.key_edit.setReadOnly(True)
+        else:
+            self.key_label = QLabel(self._original_key, self)
         self.edit_button = QPushButton('Edit', self)
-        self.edit_button.setCheckable(True)
+        self.edit_button.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
+        self.edit_button.setCheckable(self._is_editable)
         self.delete_button = QPushButton('Delete', self)
-        self._apply_icon(self.edit_button, 'edit.svg', 'Edit', QSize(14, 14))
-        self._apply_icon(self.delete_button, 'delete.svg', 'Delete', QSize(18, 18))
+        if self._is_editable:
+            self._apply_icon(
+                self.edit_button, 'edit.svg', 'Edit', QSize(14, 14)
+            )
+        else:
+            self.edit_button.setEnabled(False)
+            self.edit_button.setText('NE')
+            self.edit_button.setToolTip('Non-editable data')
+            self.edit_button.setStyleSheet('color: gray; font-style: italic;')
+            self.edit_button.setFixedSize(QSize(26, 26))
+        self._apply_icon(
+            self.delete_button, 'delete.svg', 'Delete', QSize(18, 18)
+        )
         self._layout.addWidget(self.edit_button)
         self._layout.addWidget(self.delete_button)
-        self._layout.addWidget(self.key_edit)
-        self.key_edit.editingFinished.connect(self._on_editing_finished)
-        self.edit_button.toggled.connect(
-            lambda checked: self.key_edit.setReadOnly(not checked)
-        )
+        if self._is_editable:
+            self._layout.addWidget(self.key_edit)
+            self.key_edit.editingFinished.connect(self._on_editing_finished)
+            self.edit_button.toggled.connect(
+                lambda checked: self.key_edit.setReadOnly(not checked)
+            )
+        else:
+            self._layout.addWidget(self.key_label)
 
     def _on_editing_finished(self) -> None:
         new_key = self.key_edit.text()
@@ -268,7 +344,9 @@ class ValueWidget(QWidget):
         self.edit_button.setVisible(editable)
         self.delete_button = QPushButton('Delete', self)
         self._apply_icon(self.edit_button, 'edit.svg', 'Edit', QSize(14, 14))
-        self._apply_icon(self.delete_button, 'delete.svg', 'Delete', QSize(18, 18))
+        self._apply_icon(
+            self.delete_button, 'delete.svg', 'Delete', QSize(18, 18)
+        )
         self._layout.addWidget(self.edit_button)
         self._layout.addWidget(self.delete_button)
         if editable:
@@ -294,7 +372,9 @@ class ValueWidget(QWidget):
 
 def _load_icon(name: str) -> QIcon:
     try:
-        icon_path = resources.files('napari_metadata') / 'resources' / 'icons' / name
+        icon_path = (
+            resources.files('napari_metadata') / 'resources' / 'icons' / name
+        )
     except Exception:
         return QIcon()
     if not icon_path.is_file():
