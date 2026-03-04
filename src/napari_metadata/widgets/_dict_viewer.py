@@ -43,6 +43,7 @@ class MetadataDictViewer(QWidget):
         self._layout.addWidget(self.tree)
         self.setLayout(self._layout)
         self.tree.setHeaderLabels(['Key', 'Value'])
+        self.tree.setIndentation(28)
         self.tree.setStyleSheet(
             'QTreeWidget::item { padding-top: 4px; padding-bottom: 4px; }'
         )
@@ -72,8 +73,9 @@ class MetadataDictViewer(QWidget):
             self._add_dict_add_row(parent, index_width, is_root=True)
         else:
             index_width = getattr(self, '_index_label_width', None)
-            for key, value in data.items():
-                self._fill_tree_item(parent, key, value, None, index_width)
+            items = enumerate(data.items(), start=0)
+            for index, (key, value) in items:
+                self._fill_tree_item(parent, key, value, index, index_width)
             self._add_dict_add_row(parent, index_width, is_root=False)
 
     def _fill_tree_item(
@@ -94,7 +96,7 @@ class MetadataDictViewer(QWidget):
             self._set_key_widget(key_item, key, index, index_width)
             type_name = 'list' if isinstance(value, list) else 'tuple'
             self._set_value_type_widget(key_item, type_name)
-            self._fill_sequence_items(value, key_item, index_width)
+            self._fill_sequence_items(value, key_item, index_width, type_name)
         else:
             value_item = QTreeWidgetItem(parent, ['', ''])
             self._set_key_widget(value_item, key, index, index_width)
@@ -122,26 +124,40 @@ class MetadataDictViewer(QWidget):
         self,
         item: QTreeWidgetItem,
         index: int,
+        entry_type: str,
         index_width: int | None = None,
     ) -> None:
-        label = QLabel(f'[{index}]', self)
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(4)
+        label = QLabel(f'[{index}]', container)
         label.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
         if index_width is not None:
             label.setMinimumWidth(index_width)
-        label.setSizePolicy(
+        entry_label = QLineEdit(f'{entry_type} entry', container)
+        entry_label.setReadOnly(True)
+        entry_label.setEnabled(False)
+        layout.addWidget(label)
+        layout.addWidget(entry_label)
+        container.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        label.setContentsMargins(0, 0, 3, 0)
-        self.tree.setItemWidget(item, 0, label)
+        self.tree.setItemWidget(item, 0, container)
         self._update_item_height(item)
 
-    def _set_add_row_widget(self, item: QTreeWidgetItem) -> None:
+    def _set_add_row_widget(
+        self,
+        item: QTreeWidgetItem,
+        sequence_type: str,
+        index_width: int | None,
+    ) -> None:
         container = QWidget(self)
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 3, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(4)
         add_button = QPushButton('Add', container)
         icon = _load_icon('add.svg')
         if not icon.isNull():
@@ -150,23 +166,63 @@ class MetadataDictViewer(QWidget):
             add_button.setToolTip('Add')
             add_button.setIconSize(QSize(18, 18))
         add_button.setFixedSize(QSize(26, 26))
-        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignRight)
+        entry_label = QLineEdit(f'New {sequence_type} entry', container)
+        entry_label.setReadOnly(True)
+        entry_label.setEnabled(False)
+        layout.addWidget(add_button)
+        layout.addWidget(entry_label)
         container.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
         self.tree.setItemWidget(item, 0, container)
-        combo = QComboBox(self)
-        combo.addItems(['number', 'string', 'tuple', 'list', 'dictionary'])
-        combo_container = QWidget(self)
-        combo_layout = QHBoxLayout(combo_container)
-        combo_layout.setContentsMargins(8, 0, 0, 0)
-        combo_layout.setSpacing(0)
-        combo_layout.addWidget(combo)
-        combo_container.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
-        )
+        combo_container = self._create_add_value_widget()
         self.tree.setItemWidget(item, 1, combo_container)
         self._update_item_height(item)
+
+    def _create_add_value_widget(self) -> QWidget:
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(8, 0, 0, 0)
+        layout.setSpacing(4)
+        combo_width = 116
+        value_edit = QLineEdit(container)
+        type_label = QLabel('', container)
+        type_label.setStyleSheet('color: gray; font-style: italic;')
+        type_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        combo = QComboBox(container)
+        combo.addItems(
+            ['number', 'string', 'tuple', 'list', 'dictionary', 'none']
+        )
+        combo.setFixedWidth(combo_width)
+        layout.addWidget(value_edit)
+        layout.addWidget(type_label)
+        layout.addWidget(combo)
+        container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+
+        def update_value_widget(selection: str) -> None:
+            if selection in ('number', 'string'):
+                value_edit.setVisible(True)
+                type_label.setVisible(False)
+                if value_edit.text() == 'None':
+                    value_edit.setText('')
+                return
+            if selection == 'none':
+                value_edit.setVisible(False)
+                type_label.setText('NA')
+                type_label.setVisible(True)
+                return
+            value_edit.setVisible(False)
+            label_text = 'dict' if selection == 'dictionary' else selection
+            type_label.setText(label_text)
+            type_label.setVisible(True)
+
+        combo.currentTextChanged.connect(update_value_widget)
+        update_value_widget(combo.currentText())
+        return container
 
     def _add_dict_add_row(
         self,
@@ -184,11 +240,6 @@ class MetadataDictViewer(QWidget):
         key_layout = QHBoxLayout(key_container)
         key_layout.setContentsMargins(0, 0, 8, 0)
         key_layout.setSpacing(4)
-        if index_width is not None:
-            spacer = QLabel('', key_container)
-            spacer_width = index_width if is_root else index_width + 5
-            spacer.setFixedWidth(spacer_width)
-            key_layout.addWidget(spacer)
         add_button = QPushButton('Add', key_container)
         icon = _load_icon('add.svg')
         if not icon.isNull():
@@ -197,25 +248,21 @@ class MetadataDictViewer(QWidget):
             add_button.setToolTip('Add')
             add_button.setIconSize(QSize(18, 18))
         add_button.setFixedSize(QSize(26, 26))
+        key_edit = QLineEdit(key_container)
         key_combo = QComboBox(key_container)
         key_combo.addItems(['number', 'string'])
+        key_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToContents
+        )
         key_layout.addWidget(add_button)
+        key_layout.addWidget(key_edit)
         key_layout.addWidget(key_combo)
         key_container.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
         self.tree.setItemWidget(item, 0, key_container)
 
-        value_combo = QComboBox(self)
-        value_combo.addItems(['number', 'string', 'tuple', 'list', 'dictionary'])
-        value_container = QWidget(self)
-        value_layout = QHBoxLayout(value_container)
-        value_layout.setContentsMargins(8, 0, 0, 0)
-        value_layout.setSpacing(0)
-        value_layout.addWidget(value_combo)
-        value_container.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
-        )
+        value_container = self._create_add_value_widget()
         self.tree.setItemWidget(item, 1, value_container)
         self._update_item_height(item)
 
@@ -224,23 +271,28 @@ class MetadataDictViewer(QWidget):
         values: list | tuple,
         parent: QTreeWidgetItem,
         index_width: int | None,
+        sequence_type: str,
     ) -> None:
         for i, val in enumerate(values):
             index_item = QTreeWidgetItem(parent, ['', ''])
-            self._set_index_key_widget(index_item, i, index_width)
+            self._set_index_key_widget(
+                index_item, i, sequence_type, index_width
+            )
             if isinstance(val, dict):
                 self._set_value_type_widget(index_item, 'dict')
                 self.fill_tree(val, index_item)
             elif isinstance(val, (list, tuple)):
                 nested_type = 'list' if isinstance(val, list) else 'tuple'
                 self._set_value_type_widget(index_item, nested_type)
-                self._fill_sequence_items(val, index_item, index_width)
+                self._fill_sequence_items(
+                    val, index_item, index_width, nested_type
+                )
             else:
                 value_widget = ValueWidget(val, self)
                 self.tree.setItemWidget(index_item, 1, value_widget)
                 self._update_item_height(index_item)
         add_item = QTreeWidgetItem(parent, ['', ''])
-        self._set_add_row_widget(add_item)
+        self._set_add_row_widget(add_item, sequence_type, index_width)
 
     def _set_value_type_widget(
         self, item: QTreeWidgetItem, type_name: str
@@ -264,6 +316,9 @@ class MetadataDictViewer(QWidget):
     def _set_item_selected(
         self, item: QTreeWidgetItem, selected: bool
     ) -> None:
+        key_widget = self.tree.itemWidget(item, 0)
+        if isinstance(key_widget, KeyWidget):
+            key_widget.set_selected(selected)
         value_widget = self.tree.itemWidget(item, 1)
         if isinstance(value_widget, ValueWidget):
             value_widget.set_selected(selected)
@@ -285,6 +340,8 @@ class MetadataDictViewer(QWidget):
         if not heights:
             return
         height = max(heights) + 8
+        if item.parent() is None:
+            height += 6
         item.setSizeHint(0, QSize(0, height))
         item.setSizeHint(1, QSize(0, height))
 
@@ -310,6 +367,7 @@ class KeyWidget(QWidget):
         self._is_editable = isinstance(key, str) or (
             isinstance(key, (int, float)) and not isinstance(key, bool)
         )
+        self._type_label_color: str | None = None
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 8, 0)
         self._layout.setSpacing(4)
@@ -320,50 +378,114 @@ class KeyWidget(QWidget):
             self._layout.addWidget(self.index_label)
         elif index_width is not None:
             spacer = QLabel('', self)
-            spacer.setFixedWidth(index_width + 5)
+            spacer.setFixedWidth(index_width)
             self._layout.addWidget(spacer)
         if self._is_editable:
             self.key_edit = QLineEdit(self._original_key, self)
             self.key_edit.setReadOnly(True)
+            if isinstance(key, str):
+                type_text = 'string'
+                self._type_label_color = '#e68c2c'
+            else:
+                type_text = 'number'
+                self._type_label_color = '#4091ed'
+            self._original_type = type_text
         else:
             self.key_label = QLabel(self._original_key, self)
-        self.edit_button = QPushButton('Edit', self)
-        self.edit_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-        )
-        self.edit_button.setCheckable(self._is_editable)
+            type_text = 'Non-editable'
+        self.type_combo = QComboBox(self)
+        self.type_combo.addItems(['number', 'string'])
+        self.type_combo.setVisible(False)
         self.delete_button = QPushButton('Delete', self)
+        self.type_label = QLabel(type_text, self)
+        if self._is_editable and self._type_label_color is not None:
+            self.type_label.setStyleSheet(f'color: {self._type_label_color};')
+            self.type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.type_label.setFixedWidth(56)
+        else:
+            self.type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.type_label.setStyleSheet('color: gray; font-style: italic;')
+            self.type_label.setFixedWidth(86)
         if self._is_editable:
+            self.edit_button = QPushButton('Edit', self)
+            self.edit_button.setSizePolicy(
+                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+            )
+            self.edit_button.setCheckable(True)
             self._apply_icon(
                 self.edit_button, 'edit.svg', 'Edit', QSize(14, 14)
             )
-        else:
-            self.edit_button.setEnabled(False)
-            self.edit_button.setText('NE')
-            self.edit_button.setToolTip('Non-editable data')
-            self.edit_button.setStyleSheet('color: gray; font-style: italic;')
-            self.edit_button.setFixedSize(QSize(26, 26))
+        if self._is_editable:
+            pass
         self._apply_icon(
             self.delete_button, 'delete.svg', 'Delete', QSize(18, 18)
         )
-        self._layout.addWidget(self.edit_button)
-        self._layout.addWidget(self.delete_button)
         if self._is_editable:
             self._layout.addWidget(self.key_edit)
             self.key_edit.editingFinished.connect(self._on_editing_finished)
-            self.edit_button.toggled.connect(
-                lambda checked: self.key_edit.setReadOnly(not checked)
-            )
+            self.edit_button.toggled.connect(self._on_edit_toggled)
         else:
             self._layout.addWidget(self.key_label)
+        self._layout.addWidget(self.type_label)
+        self._layout.addWidget(self.type_combo)
+        if self._is_editable:
+            self._layout.addWidget(self.edit_button)
+        self._layout.addWidget(self.delete_button)
+
+    def _on_edit_toggled(self, checked: bool) -> None:
+        self.key_edit.setReadOnly(not checked)
+        self.type_label.setVisible(not checked)
+        self.type_combo.setVisible(checked)
+        if checked:
+            self.type_combo.setCurrentText(self.type_label.text())
 
     def _on_editing_finished(self) -> None:
         new_key = self.key_edit.text()
+        selected_type = self.type_combo.currentText()
+        if selected_type == 'number':
+            try:
+                float(new_key)
+            except ValueError:
+                self.key_edit.setText(self._original_key)
+                self.type_combo.setCurrentText(self._original_type)
+                self._apply_type_selection(self._original_type)
+                self.edit_button.setChecked(False)
+                return
+        self.edit_button.setChecked(False)
         if new_key == self._original_key:
+            self._apply_type_selection(selected_type)
             return
         old_key = self._original_key
         self._original_key = new_key
         self.key_changed.emit(old_key, new_key)
+        self._apply_type_selection(selected_type)
+
+    def _apply_type_selection(self, selected_type: str | None = None) -> None:
+        if selected_type is None:
+            selected_type = self.type_combo.currentText()
+        if selected_type == 'string':
+            self._type_label_color = '#e68c2c'
+        else:
+            self._type_label_color = '#4091ed'
+        self._original_type = selected_type
+        self.type_label.setText(selected_type)
+        self.type_label.setStyleSheet(f'color: {self._type_label_color};')
+        self.type_label.setVisible(True)
+        self.type_combo.setVisible(False)
+
+    def set_selected(self, selected: bool) -> None:
+        if self._is_editable and self._type_label_color is not None:
+            if selected:
+                self.type_label.setStyleSheet('color: black;')
+            else:
+                self.type_label.setStyleSheet(
+                    f'color: {self._type_label_color};'
+                )
+            return
+        if selected:
+            self.type_label.setStyleSheet('color: black; font-style: italic;')
+        else:
+            self.type_label.setStyleSheet('color: gray; font-style: italic;')
 
     def _apply_icon(
         self,
@@ -388,13 +510,15 @@ class ValueWidget(QWidget):
         self._layout.setContentsMargins(8, 0, 0, 0)
         self._layout.setSpacing(4)
         self._editable = False
+        self._type_label_color: str | None = None
 
         if isinstance(value, str):
             self.value_edit = QLineEdit(value, self)
             self.value_edit.setReadOnly(True)
             self.type_label = QLabel('string', self)
-            self.type_label.setStyleSheet('color: #e68c2c;')
-            self.type_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            self._type_label_color = '#e68c2c'
+            self.type_label.setStyleSheet(f'color: {self._type_label_color};')
+            self.type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.type_label.setFixedWidth(56)
             self._layout.addWidget(self.value_edit)
             self._layout.addWidget(self.type_label)
@@ -404,8 +528,20 @@ class ValueWidget(QWidget):
             self.value_edit = QLineEdit(str(value), self)
             self.value_edit.setReadOnly(True)
             self.type_label = QLabel('number', self)
-            self.type_label.setStyleSheet('color: #4091ed;')
-            self.type_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            self._type_label_color = '#4091ed'
+            self.type_label.setStyleSheet(f'color: {self._type_label_color};')
+            self.type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.type_label.setFixedWidth(56)
+            self._layout.addWidget(self.value_edit)
+            self._layout.addWidget(self.type_label)
+            self._add_controls(editable=True)
+            self._editable = True
+        elif value is None:
+            self.value_edit = QLineEdit('None', self)
+            self.value_edit.setReadOnly(True)
+            self.type_label = QLabel('NA', self)
+            self.type_label.setStyleSheet('color: black;')
+            self.type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.type_label.setFixedWidth(56)
             self._layout.addWidget(self.value_edit)
             self._layout.addWidget(self.type_label)
@@ -426,7 +562,13 @@ class ValueWidget(QWidget):
             self._add_controls(editable=False)
 
     def set_selected(self, selected: bool) -> None:
-        if self._editable:
+        if self._editable and self._type_label_color is not None:
+            if selected:
+                self.type_label.setStyleSheet('color: black;')
+            else:
+                self.type_label.setStyleSheet(
+                    f'color: {self._type_label_color};'
+                )
             return
         if selected:
             self.type_label.setStyleSheet('color: black; font-style: italic;')
@@ -445,9 +587,54 @@ class ValueWidget(QWidget):
         self._layout.addWidget(self.edit_button)
         self._layout.addWidget(self.delete_button)
         if editable:
-            self.edit_button.toggled.connect(
-                lambda checked: self.value_edit.setReadOnly(not checked)
+            self.type_combo = QComboBox(self)
+            self.type_combo.addItems(
+                ['number', 'string', 'tuple', 'list', 'dictionary', 'none']
             )
+            self.type_combo.setVisible(False)
+            self._layout.insertWidget(1, self.type_combo)
+            self.edit_button.toggled.connect(self._on_edit_toggled)
+
+    def _on_edit_toggled(self, checked: bool) -> None:
+        self.value_edit.setReadOnly(not checked)
+        self.type_label.setVisible(not checked)
+        self.type_combo.setVisible(checked)
+        if checked:
+            current_type = self.type_label.text().lower()
+            if current_type == 'na':
+                current_type = 'none'
+            elif current_type == 'non-editable':
+                current_type = 'string'
+            self.type_combo.setCurrentText(current_type)
+            self._apply_value_type_selection(current_type)
+        else:
+            self._apply_value_type_selection(self.type_combo.currentText())
+
+    def _apply_value_type_selection(self, selected_type: str) -> None:
+        if selected_type in ('string', 'number'):
+            self.value_edit.setVisible(True)
+            self.type_label.setVisible(False)
+            return
+        self.value_edit.setVisible(False)
+        if selected_type == 'dictionary':
+            label_text = 'dict'
+            label_color = 'gray'
+            label_style = 'font-style: italic;'
+        elif selected_type == 'tuple':
+            label_text = 'tuple'
+            label_color = 'gray'
+            label_style = 'font-style: italic;'
+        elif selected_type == 'list':
+            label_text = 'list'
+            label_color = 'gray'
+            label_style = 'font-style: italic;'
+        else:
+            label_text = 'NA'
+            label_color = 'black'
+            label_style = ''
+        self.type_label.setText(label_text)
+        self.type_label.setStyleSheet(f'color: {label_color}; {label_style}')
+        self.type_label.setVisible(True)
 
     def _apply_icon(
         self,
@@ -463,6 +650,11 @@ class ValueWidget(QWidget):
             button.setToolTip(tooltip)
             button.setIconSize(icon_size)
         button.setFixedSize(QSize(26, 26))
+
+    def _recreate_dictionary(self) -> None:
+        print('')
+        print('Updating dictionary')
+        return
 
 
 def _load_icon(name: str) -> QIcon:
