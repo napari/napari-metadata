@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QComboBox,
     QPushButton,
     QSizePolicy,
     QTreeWidget,
@@ -65,13 +66,15 @@ class MetadataDictViewer(QWidget):
         if is_root:
             index_width = self._get_index_label_width(len(data))
             self._index_label_width = index_width
-            items = enumerate(data.items(), start=1)
+            items = enumerate(data.items(), start=0)
             for index, (key, value) in items:
                 self._fill_tree_item(parent, key, value, index, index_width)
+            self._add_dict_add_row(parent, index_width, is_root=True)
         else:
             index_width = getattr(self, '_index_label_width', None)
             for key, value in data.items():
                 self._fill_tree_item(parent, key, value, None, index_width)
+            self._add_dict_add_row(parent, index_width, is_root=False)
 
     def _fill_tree_item(
         self,
@@ -134,6 +137,88 @@ class MetadataDictViewer(QWidget):
         self.tree.setItemWidget(item, 0, label)
         self._update_item_height(item)
 
+    def _set_add_row_widget(self, item: QTreeWidgetItem) -> None:
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 3, 0)
+        layout.setSpacing(0)
+        add_button = QPushButton('Add', container)
+        icon = _load_icon('add.svg')
+        if not icon.isNull():
+            add_button.setIcon(icon)
+            add_button.setText('')
+            add_button.setToolTip('Add')
+            add_button.setIconSize(QSize(18, 18))
+        add_button.setFixedSize(QSize(26, 26))
+        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignRight)
+        container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.tree.setItemWidget(item, 0, container)
+        combo = QComboBox(self)
+        combo.addItems(['number', 'string', 'tuple', 'list', 'dictionary'])
+        combo_container = QWidget(self)
+        combo_layout = QHBoxLayout(combo_container)
+        combo_layout.setContentsMargins(8, 0, 0, 0)
+        combo_layout.setSpacing(0)
+        combo_layout.addWidget(combo)
+        combo_container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.tree.setItemWidget(item, 1, combo_container)
+        self._update_item_height(item)
+
+    def _add_dict_add_row(
+        self,
+        parent: QTreeWidget | QTreeWidgetItem,
+        index_width: int | None,
+        is_root: bool,
+    ) -> None:
+        add_item = QTreeWidgetItem(parent, ['', ''])
+        self._set_dict_add_row_widget(add_item, index_width, is_root)
+
+    def _set_dict_add_row_widget(
+        self, item: QTreeWidgetItem, index_width: int | None, is_root: bool
+    ) -> None:
+        key_container = QWidget(self)
+        key_layout = QHBoxLayout(key_container)
+        key_layout.setContentsMargins(0, 0, 8, 0)
+        key_layout.setSpacing(4)
+        if index_width is not None:
+            spacer = QLabel('', key_container)
+            spacer_width = index_width if is_root else index_width + 5
+            spacer.setFixedWidth(spacer_width)
+            key_layout.addWidget(spacer)
+        add_button = QPushButton('Add', key_container)
+        icon = _load_icon('add.svg')
+        if not icon.isNull():
+            add_button.setIcon(icon)
+            add_button.setText('')
+            add_button.setToolTip('Add')
+            add_button.setIconSize(QSize(18, 18))
+        add_button.setFixedSize(QSize(26, 26))
+        key_combo = QComboBox(key_container)
+        key_combo.addItems(['number', 'string'])
+        key_layout.addWidget(add_button)
+        key_layout.addWidget(key_combo)
+        key_container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.tree.setItemWidget(item, 0, key_container)
+
+        value_combo = QComboBox(self)
+        value_combo.addItems(['number', 'string', 'tuple', 'list', 'dictionary'])
+        value_container = QWidget(self)
+        value_layout = QHBoxLayout(value_container)
+        value_layout.setContentsMargins(8, 0, 0, 0)
+        value_layout.setSpacing(0)
+        value_layout.addWidget(value_combo)
+        value_container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.tree.setItemWidget(item, 1, value_container)
+        self._update_item_height(item)
+
     def _fill_sequence_items(
         self,
         values: list | tuple,
@@ -154,6 +239,8 @@ class MetadataDictViewer(QWidget):
                 value_widget = ValueWidget(val, self)
                 self.tree.setItemWidget(index_item, 1, value_widget)
                 self._update_item_height(index_item)
+        add_item = QTreeWidgetItem(parent, ['', ''])
+        self._set_add_row_widget(add_item)
 
     def _set_value_type_widget(
         self, item: QTreeWidgetItem, type_name: str
@@ -163,7 +250,15 @@ class MetadataDictViewer(QWidget):
         value_label.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        self.tree.setItemWidget(item, 1, value_label)
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(8, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(value_label)
+        container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.tree.setItemWidget(item, 1, container)
         self._update_item_height(item)
 
     def _set_item_selected(
@@ -219,7 +314,7 @@ class KeyWidget(QWidget):
         self._layout.setContentsMargins(0, 0, 8, 0)
         self._layout.setSpacing(4)
         if index is not None:
-            self.index_label = QLabel(str(index), self)
+            self.index_label = QLabel(f'[{index}]', self)
             if index_width is not None:
                 self.index_label.setFixedWidth(index_width)
             self._layout.addWidget(self.index_label)
