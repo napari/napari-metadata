@@ -7,13 +7,14 @@ from __future__ import annotations
 from importlib import resources
 from typing import TYPE_CHECKING
 
-from qtpy.QtCore import Signal, QSize, Qt
+from napari.utils.notifications import show_info
+from qtpy.QtCore import QSize, Qt, Signal
 from qtpy.QtGui import QFontMetrics, QIcon
 from qtpy.QtWidgets import (
+    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QComboBox,
     QPushButton,
     QSizePolicy,
     QTreeWidget,
@@ -26,7 +27,6 @@ from napari_metadata.layer_utils import (
     get_layer_metadata_dict,
     set_layer_metadata_dict,
 )
-from napari.utils.notifications import show_info
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -589,7 +589,9 @@ class MetadataDictViewer(QWidget):
             if isinstance(existing_key, dict):
                 existing_key = existing_key.get('key')
             if existing_key == key_value:
-                show_info(f'Key already exists in this dictionary: {existing_key}')
+                show_info(
+                    f'Key already exists in this dictionary: {existing_key}'
+                )
                 return
         index_width = getattr(self, '_index_label_width', None)
         insert_index = (

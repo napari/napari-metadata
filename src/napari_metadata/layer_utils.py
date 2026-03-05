@@ -1,11 +1,9 @@
 from collections.abc import Callable, Sequence
 from contextlib import suppress
-from typing import TYPE_CHECKING, cast, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pint
-
-from napari.utils.notifications import show_info
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
