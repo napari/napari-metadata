@@ -134,13 +134,13 @@ def get_layer_data_dtype(layer: 'Layer | None') -> str:
         return ''
     layer_data = layer.data
     if hasattr(layer_data, 'dtype'):
-        return str(layer_data.dtype)
+        return layer_data.dtype.name
     if (
         isinstance(layer_data, Sequence)
         and len(layer_data) > 0
         and hasattr(layer_data[0], 'dtype')
     ):
-        return str(layer_data[0].dtype)
+        return layer_data[0].dtype.name
     return 'Unknown'
 
 
