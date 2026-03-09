@@ -106,10 +106,10 @@ class InheritanceWidget(QWidget):
             self._napari_viewer, self._update_inheriting_layer_callback
         )
 
+        self._layer_name_changed_callback = self._on_layer_name_changed
         self._layer_selection_changed_callback = (
             self._on_layer_selection_changed
         )
-        self._layer_name_changed_callback = self._on_layer_name_changed
         connect_callback_to_layer_selection_events(
             self._napari_viewer, self._layer_selection_changed_callback
         )
@@ -130,27 +130,15 @@ class InheritanceWidget(QWidget):
                 self._template_combobox.addItem(
                     setting_layer.name, userData=setting_layer
                 )
-            if (
-                not self._template_combobox.findData(
-                    self._template_layer, Qt.ItemDataRole.UserRole
-                )
-                or self._template_combobox.findData(
-                    self._template_layer, Qt.ItemDataRole.UserRole
-                )
-                == -1
-            ):
-                self._template_layer = None
-                self._template_combobox.setCurrentIndex(
-                    self._template_combobox.findData(
-                        None, Qt.ItemDataRole.UserRole
-                    )
-                )
-                return
-            self._template_combobox.setCurrentIndex(
-                self._template_combobox.findData(
-                    self._template_layer, Qt.ItemDataRole.UserRole
-                )
+            idx = self._template_combobox.findData(
+                self._template_layer, Qt.ItemDataRole.UserRole
             )
+            if idx == -1:
+                self._template_layer = None
+                idx = self._template_combobox.findData(
+                    None, Qt.ItemDataRole.UserRole
+                )
+            self._template_combobox.setCurrentIndex(idx)
 
     def _update_inheriting_label(self) -> None:
         active_layer: Layer | None = resolve_layer(self._napari_viewer, None)
@@ -230,4 +218,13 @@ class InheritanceWidget(QWidget):
         disconnect_callback_to_layer_selection_events(
             self._napari_viewer, self._update_inheriting_layer_callback
         )
+        disconnect_callback_to_layer_selection_events(
+            self._napari_viewer, self._layer_selection_changed_callback
+        )
+        if self._selected_layer is not None:
+            disconnect_callback_to_layer_name_changed(
+                self._napari_viewer,
+                self._layer_name_changed_callback,
+                self._selected_layer,
+            )
         super().closeEvent(a0)
