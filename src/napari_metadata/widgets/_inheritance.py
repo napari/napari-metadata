@@ -106,10 +106,10 @@ class InheritanceWidget(QWidget):
             self._napari_viewer, self._update_inheriting_layer_callback
         )
 
+        self._layer_name_changed_callback = self._on_layer_name_changed
         self._layer_selection_changed_callback = (
             self._on_layer_selection_changed
         )
-        self._layer_name_changed_callback = self._on_layer_name_changed
         connect_callback_to_layer_selection_events(
             self._napari_viewer, self._layer_selection_changed_callback
         )
