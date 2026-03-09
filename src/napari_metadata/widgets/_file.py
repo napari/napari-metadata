@@ -110,14 +110,47 @@ class FileSize(FileComponentBase):
         return str(generate_display_size(layer))
 
 
-class SourcePath(FileComponentBase):
+class _SourceAttributeComponent(FileComponentBase):
+    """Base for read-only source attribute display components.
+
+    Subclasses set ``_source_attr`` to the name of the ``Source`` field
+    and ``_label_text`` to the display label.  They are hidden
+    automatically when the attribute is ``None``.
+
+    For components that use a custom value widget (e.g. ``QLineEdit``),
+    override ``_set_display_value`` to write to that widget instead.
+    """
+
+    _source_attr: str
+
+    def _get_display_text(self, layer: Layer) -> str:
+        value = getattr(layer.source, self._source_attr, None)
+        return str(value) if value is not None else ''
+
+    def _set_display_value(self, text: str) -> None:
+        """Write *text* to the value widget.  Override for non-QLabel widgets."""
+        self._display_label.setText(text)
+
+    def _update_display(self, layer: Layer | None) -> None:
+        value = (
+            getattr(layer.source, self._source_attr, None)
+            if layer is not None
+            else None
+        )
+        self.set_visible(value is not None)
+        if value is not None:
+            self._set_display_value(str(value))
+
+
+class SourcePath(_SourceAttributeComponent):
     """Read-only source path display using a ``QLineEdit``.
 
     Uses a ``QLineEdit`` for native single-line horizontal scrolling on
-    long paths.  Hidden automatically when ``layer.source.path is None``.
+    long paths/URLs.  Hidden automatically when ``layer.source.path is None``.
     """
 
     _label_text = 'Source Path:'
+    _source_attr = 'path'
     _under_label_in_vertical = True
 
     def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
@@ -132,39 +165,8 @@ class SourcePath(FileComponentBase):
     def value_widget(self) -> QWidget:
         return self._path_line_edit
 
-    def _get_display_text(self, layer: Layer) -> str:
-        return str(layer.source.path) if layer.source.path is not None else ''
-
-    def _update_display(self, layer: Layer | None) -> None:
-        value = layer.source.path if layer is not None else None
-        self.set_visible(value is not None)
-        if value is not None:
-            self._path_line_edit.setText(str(value))
-
-
-class _SourceAttributeComponent(FileComponentBase):
-    """Base for simple read-only source attribute display components.
-
-    Subclasses set ``_source_attr`` to the name of the ``Source`` field
-    and ``_label_text`` to the display label.  They are hidden
-    automatically when the attribute is ``None``.
-    """
-
-    _source_attr: str
-
-    def _get_display_text(self, layer: Layer) -> str:
-        value = getattr(layer.source, self._source_attr, None)
-        return str(value) if value is not None else ''
-
-    def _update_display(self, layer: Layer | None) -> None:
-        value = (
-            getattr(layer.source, self._source_attr, None)
-            if layer is not None
-            else None
-        )
-        self.set_visible(value is not None)
-        if value is not None:
-            self._display_label.setText(str(value))
+    def _set_display_value(self, text: str) -> None:
+        self._path_line_edit.setText(text)
 
 
 class SourceReaderPlugin(_SourceAttributeComponent):
