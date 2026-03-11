@@ -262,7 +262,7 @@ class AxisUnits(AxisComponentBase):
     """
 
     _label_text = 'Units:'
-    _tooltip_text = 'The Pint unit associated with each axis, if any.'
+    _tooltip_text = 'The Pint unit associated with each axis.'
 
     def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
         super().__init__(viewer, parent_widget)
