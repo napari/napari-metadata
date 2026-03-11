@@ -72,6 +72,10 @@ class ComponentBase(ABC):
     #: Set as a class variable in each subclass.
     _label_text: str
 
+    #: Tooltip shown on the header label and value widget(s).
+    #: Set as a class variable in each subclass; defaults to no tooltip.
+    _tooltip_text: str = ''
+
     def __init__(
         self,
         viewer: ViewerModel,
@@ -83,6 +87,7 @@ class ComponentBase(ABC):
         self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
         self._component_qlabel.setStyleSheet('font-weight: bold')
         self._component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._component_qlabel.setToolTip(self._tooltip_text)
 
     @property
     def component_label(self) -> QLabel:
@@ -156,7 +161,11 @@ class AxisComponentBase(ComponentBase):
         entries: list[LayoutEntry] = [
             LayoutEntry(widgets=[self._axis_name_labels[axis_index]]),
         ]
-        entries.extend(self._get_value_entries(axis_index))
+        value_entries = self._get_value_entries(axis_index)
+        for entry in value_entries:
+            for widget in entry.widgets:
+                widget.setToolTip(self._tooltip_text)
+        entries.extend(value_entries)
         entries.append(
             LayoutEntry(widgets=[self._inherit_checkboxes[axis_index]]),
         )
@@ -321,6 +330,7 @@ class FileComponentBase(ComponentBase):
     def load_entries(self, layer: Layer | None = None) -> None:
         """Resolve the active layer and update the display."""
         active_layer = resolve_layer(self._napari_viewer, layer)
+        self.value_widget.setToolTip(self._tooltip_text)
         self._update_display(active_layer)
 
     # ------------------------------------------------------------------
