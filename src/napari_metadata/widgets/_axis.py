@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pint
 from napari.utils.notifications import show_error
-from qtpy.QtCore import QSignalBlocker, Qt
+from qtpy.QtCore import QSignalBlocker
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -53,10 +53,6 @@ if TYPE_CHECKING:
 class AxisLabels(AxisComponentBase):
     """Per-axis label editor using ``QLineEdit`` widgets.
 
-    Unlike the other axis components, ``AxisLabels`` shows the axis
-    *index* (-3, -2, -1...) in its name label column, because *it* is the
-    widget that edits the axis names.
-
     Parameters
     ----------
     on_labels_changed : callable, optional
@@ -87,10 +83,9 @@ class AxisLabels(AxisComponentBase):
         if ndim == 0:
             return
         for i in range(ndim):
-            # Index label (not the axis name)
-            index_label = QLabel(str(i), parent=self._parent_widget)
-            index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._axis_name_labels.append(index_label)
+            # Empty label for layout alignment
+            empty_label = QLabel(parent=self._parent_widget)
+            self._axis_name_labels.append(empty_label)
 
             line_edit = QLineEdit(parent=self._parent_widget)
             line_edit.setText(labels[i] if i < len(labels) else '')
@@ -117,7 +112,9 @@ class AxisLabels(AxisComponentBase):
         set_axes_labels(self._napari_viewer, tuple(values))
 
     def update_axis_name_labels(self) -> None:
-        """No-op: AxisLabels shows indices, not axis names."""
+        """Refresh line edits when axis labels change in the layer."""
+        if self._selected_layer is not None:
+            self._refresh_values(self._selected_layer)
 
     def get_line_edit_values(self) -> tuple[str, ...]:
         """Return current text from all label line-edits."""

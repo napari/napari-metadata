@@ -64,7 +64,7 @@ class TestAxisScales:
 
 
 class TestAxisLabels:
-    def test_shows_index_labels_and_update_is_noop(
+    def test_refreshes_when_layer_axis_labels_change(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         layer = viewer_model.add_image(
@@ -74,13 +74,18 @@ class TestAxisLabels:
         labels = AxisLabels(viewer_model, parent_widget)
 
         labels.load_entries(layer)
-        assert [lbl.text() for lbl in labels._axis_name_labels] == ['0', '1']
+        assert [lbl.text() for lbl in labels._axis_name_labels] == ['', '']
+        assert [lbl.text() for lbl in labels._line_edits] == ['row', 'col']
 
         layer.axis_labels = ('new_row', 'new_col')
         labels.update_axis_name_labels()
 
-        # AxisLabels intentionally keeps index labels.
-        assert [lbl.text() for lbl in labels._axis_name_labels] == ['0', '1']
+        # AxisLabels should refresh when axis labels change.
+        assert [lbl.text() for lbl in labels._axis_name_labels] == ['', '']
+        assert [lbl.text() for lbl in labels._line_edits] == [
+            'new_row',
+            'new_col',
+        ]
 
 
 class TestAxisMetadataCoordinator:
