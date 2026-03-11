@@ -26,6 +26,7 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QWidget,
 )
+from superqt import QEnumComboBox
 
 from napari_metadata.layer_utils import (
     get_axes_labels,
@@ -264,7 +265,7 @@ class AxisUnits(AxisComponentBase):
 
     def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
         super().__init__(viewer, parent_widget)
-        self._type_comboboxes: list[QComboBox] = []
+        self._type_comboboxes: list[QEnumComboBox] = []
         self._unit_comboboxes: list[QComboBox] = []
         self._unit_line_edits: list[QLineEdit] = []
 
@@ -287,19 +288,18 @@ class AxisUnits(AxisComponentBase):
             unit_str = str(layer_units[i]) if i < len(layer_units) else ''
 
             # Type combobox (space / time / string)
-            type_cb = QComboBox(parent=self._parent_widget)
-            for axis_type in AxisUnitEnum:
-                type_cb.addItem(str(axis_type), axis_type)
+            type_cb = QEnumComboBox(
+                parent=self._parent_widget, enum_class=AxisUnitEnum
+            )
 
             # Unit combobox (curated pint units)
             unit_cb = QComboBox(parent=self._parent_widget)
             matched_type = self._populate_unit_combobox(unit_str, unit_cb)
-            type_index = type_cb.findData(
+            type_cb.setCurrentEnum(
                 matched_type
                 if matched_type is not None
                 else AxisUnitEnum.STRING
             )
-            type_cb.setCurrentIndex(type_index)
 
             # Free-form line edit for STRING type
             line_edit = QLineEdit(parent=self._parent_widget)
@@ -355,9 +355,7 @@ class AxisUnits(AxisComponentBase):
                         )
                     )
             with QSignalBlocker(self._type_comboboxes[i]):
-                self._type_comboboxes[i].setCurrentIndex(
-                    self._type_comboboxes[i].findText(str(matched_type))
-                )
+                self._type_comboboxes[i].setCurrentEnum(matched_type)
         self._sync_line_edit_texts()
         self._sync_visibilities()
 
@@ -420,11 +418,8 @@ class AxisUnits(AxisComponentBase):
     def _sync_visibilities(self) -> None:
         """Toggle unit combobox / line-edit visibility per axis type."""
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentData()
-            show_combobox = (
-                isinstance(axis_type, AxisUnitEnum)
-                and axis_type != AxisUnitEnum.STRING
-            )
+            axis_type = self._type_comboboxes[i].currentEnum()
+            show_combobox = axis_type != AxisUnitEnum.STRING
             self._unit_comboboxes[i].setVisible(show_combobox)
             self._unit_line_edits[i].setVisible(not show_combobox)
 
@@ -441,8 +436,8 @@ class AxisUnits(AxisComponentBase):
         """Collect current unit selections and apply to the layer."""
         units: list[str | None] = []
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentData()
-            if axis_type is None or axis_type == AxisUnitEnum.STRING:
+            axis_type = self._type_comboboxes[i].currentEnum()
+            if axis_type == AxisUnitEnum.STRING:
                 text = self._unit_line_edits[i].text().strip()
                 if text.lower() == 'none' or not text:
                     units.append(None)
@@ -466,9 +461,7 @@ class AxisUnits(AxisComponentBase):
             self._napari_viewer, resolve_layer(self._napari_viewer)
         )
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentData()
-            if not isinstance(axis_type, AxisUnitEnum):
-                continue
+            axis_type = self._type_comboboxes[i].currentEnum()
             cfg = axis_type.value
             current_unit_str = (
                 str(current_units[i]) if i < len(current_units) else ''
