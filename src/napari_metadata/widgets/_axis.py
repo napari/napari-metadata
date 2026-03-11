@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pint
-from napari.utils.notifications import show_error
+from napari.utils.notifications import show_warning
 from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QComboBox,
@@ -256,9 +256,9 @@ class AxisUnits(AxisComponentBase):
 
     Each axis has three widgets:
 
-    * **type combobox** - selects ``AxisUnitEnum`` (space / time / string)
+    * **type combobox** - selects ``AxisUnitEnum`` (space / time / custom)
     * **unit combobox** - shown for space/time; curated list of pint units
-    * **unit line-edit** - shown for string type; free-form text
+    * **unit line-edit** - shown for custom type; any pint-parseable unit
     """
 
     _label_text = 'Units:'
@@ -287,7 +287,7 @@ class AxisUnits(AxisComponentBase):
         for i in range(ndim):
             unit_str = str(layer_units[i]) if i < len(layer_units) else ''
 
-            # Type combobox (space / time / string)
+            # Type combobox (space / time / custom)
             type_cb = QEnumComboBox(
                 parent=self._parent_widget, enum_class=AxisUnitEnum
             )
@@ -298,10 +298,10 @@ class AxisUnits(AxisComponentBase):
             type_cb.setCurrentEnum(
                 matched_type
                 if matched_type is not None
-                else AxisUnitEnum.STRING
+                else AxisUnitEnum.CUSTOM
             )
 
-            # Free-form line edit for STRING type
+            # Free-form line edit for CUSTOM type
             line_edit = QLineEdit(parent=self._parent_widget)
 
             self._type_comboboxes.append(type_cb)
@@ -329,7 +329,7 @@ class AxisUnits(AxisComponentBase):
                 break
             unit_str = str(unit)
             # Determine which AxisUnitEnum this unit belongs to.
-            matched_type = AxisUnitEnum.STRING
+            matched_type = AxisUnitEnum.CUSTOM
             for at in AxisUnitEnum:
                 cfg = at.value
                 if cfg is not None and unit_str in cfg.units:
@@ -355,7 +355,7 @@ class AxisUnits(AxisComponentBase):
                         )
                     )
             with QSignalBlocker(self._type_comboboxes[i]):
-                self._type_comboboxes[i].setCurrentEnum(matched_type)
+                self._type_comboboxes[i].setCurrentEnum(matched_type)  # type: ignore[arg-type]
         self._sync_line_edit_texts()
         self._sync_visibilities()
 
@@ -397,7 +397,7 @@ class AxisUnits(AxisComponentBase):
         if found_type is not None:
             chosen_cfg = found_type.value
             if chosen_cfg is None:
-                return AxisUnitEnum.STRING
+                return AxisUnitEnum.CUSTOM
             pint_units = chosen_cfg.pint_units()
         else:
             pint_units = all_pint_units
@@ -419,7 +419,7 @@ class AxisUnits(AxisComponentBase):
         """Toggle unit combobox / line-edit visibility per axis type."""
         for i in range(len(self._type_comboboxes)):
             axis_type = self._type_comboboxes[i].currentEnum()
-            show_combobox = axis_type != AxisUnitEnum.STRING
+            show_combobox = axis_type != AxisUnitEnum.CUSTOM
             self._unit_comboboxes[i].setVisible(show_combobox)
             self._unit_line_edits[i].setVisible(not show_combobox)
 
@@ -437,22 +437,20 @@ class AxisUnits(AxisComponentBase):
         units: list[str | None] = []
         for i in range(len(self._type_comboboxes)):
             axis_type = self._type_comboboxes[i].currentEnum()
-            if axis_type == AxisUnitEnum.STRING:
+            if axis_type == AxisUnitEnum.CUSTOM:
                 text = self._unit_line_edits[i].text().strip()
-                if text.lower() == 'none' or not text:
-                    units.append(None)
-                else:
-                    units.append(text)
+                units.append(
+                    None if (text.lower() == 'none' or not text) else text
+                )
             else:
                 text = self._unit_comboboxes[i].currentText().strip()
-                if text.lower() == 'none' or not text:
-                    units.append(None)
-                else:
-                    units.append(text)
+                units.append(
+                    None if (text.lower() == 'none' or not text) else text
+                )
         try:
             set_axes_units(self._napari_viewer, tuple(units))
-        except (AttributeError, ValueError):
-            show_error(f'The layer units {units} has no pint.Unit equivalents')
+        except (AttributeError, ValueError) as e:
+            show_warning(str(e))
         self._sync_line_edit_texts()
 
     def _on_type_changed(self) -> None:
