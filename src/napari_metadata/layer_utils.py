@@ -1,6 +1,6 @@
 from collections.abc import Callable, Sequence
 from contextlib import suppress
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pint
@@ -114,6 +114,26 @@ def set_axes_translations(
     resolved_layer = resolve_layer(viewer, layer)
     if resolved_layer is not None:
         resolved_layer.translate = axes_translations
+
+
+def get_layer_metadata_dict(
+    viewer: 'ViewerModel', layer: 'Layer | None' = None
+) -> dict:
+    resolved_layer = resolve_layer(viewer, layer)
+    if resolved_layer is None:
+        return {}
+    return resolved_layer.metadata
+
+
+def set_layer_metadata_dict(
+    viewer: 'ViewerModel',
+    layer: 'Layer | None' = None,
+    metadata: dict[Any, Any] | None = None,
+) -> None:
+    resolved_layer = resolve_layer(viewer, layer)
+    if resolved_layer is None:
+        return
+    resolved_layer.metadata = metadata if metadata is not None else {}
 
 
 def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
