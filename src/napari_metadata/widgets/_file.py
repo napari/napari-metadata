@@ -81,6 +81,10 @@ class LayerShape(FileComponentBase):
     """Read-only layer data shape display."""
 
     _label_text = 'Layer Shape:'
+    _tooltip_text = (
+        'The size of the layer data array in each dimension, '
+        'reported as (dim_0, dim_1, etc.).'
+    )
 
     def _get_display_text(self, layer: Layer) -> str:
         return str(get_layer_data_shape(layer))
