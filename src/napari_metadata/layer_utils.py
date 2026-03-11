@@ -46,7 +46,7 @@ def set_axes_labels(
 
 def get_axes_units(
     viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[pint.Unit | None, ...]:
+) -> tuple[pint.Unit, ...]:
     """Get axis units from the specified layer or active layer."""
     resolved_layer = resolve_layer(viewer, layer)
     return resolved_layer.units if resolved_layer is not None else ()
@@ -54,7 +54,7 @@ def get_axes_units(
 
 def set_axes_units(
     viewer: 'ViewerModel',
-    axes_units: tuple[str, ...],
+    axes_units: tuple[pint.Unit | str, ...],
     layer: 'Layer | None' = None,
 ) -> None:
     """Set axis units on the specified layer or active layer."""
