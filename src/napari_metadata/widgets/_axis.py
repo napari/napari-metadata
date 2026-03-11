@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pint
 from napari.utils.notifications import show_warning
-from qtpy.QtCore import QSignalBlocker, Qt
+from qtpy.QtCore import QSignalBlocker
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
