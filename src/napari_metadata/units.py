@@ -87,6 +87,11 @@ class AxisUnitEnum(Enum):
     def __str__(self) -> str:
         return self.name.lower()
 
+    @property
+    def config(self) -> _UnitConfig | None:
+        """Return the curated config for enum-backed unit categories."""
+        return self.value if isinstance(self.value, _UnitConfig) else None
+
     @classmethod
     def from_name(cls, name: str) -> Self | None:
         """Return the member whose ``str()`` matches *name*, or ``None``."""
