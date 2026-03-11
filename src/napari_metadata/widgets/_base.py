@@ -107,8 +107,8 @@ class AxisComponentBase(ComponentBase):
     * **Inheritance** — ``inherit_layer_properties`` merges current and
       template layer values based on per-axis checkbox states.
     * **Cross-component sync** — ``update_axis_name_labels`` refreshes
-      the axis-name QLabels from the layer (``AxisLabels`` overrides
-      this to no-op since it *is* the label editor).
+      the axis-name QLabels (or line edits for ``AxisLabels``) from the
+      current layer when axis labels change.
 
     Subclasses must implement the five abstract template methods listed
     below.
@@ -165,8 +165,7 @@ class AxisComponentBase(ComponentBase):
     def update_axis_name_labels(self) -> None:
         """Refresh axis-name ``QLabel`` texts from the current layer.
 
-        ``AxisLabels`` overrides this to no-op because it shows axis
-        *indices*, not axis *names*.
+        ``AxisLabels`` overrides this to refresh its line edits instead.
         """
         labels = get_axes_labels(self._napari_viewer)
         for i, label in enumerate(labels):
