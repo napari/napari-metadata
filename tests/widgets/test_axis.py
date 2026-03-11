@@ -6,11 +6,12 @@ axis-specific component behavior and coordinator semantics.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import numpy as np
 import pytest
+from qtpy.QtWidgets import QComboBox
 
 from napari_metadata.units import AxisUnitEnum
 from napari_metadata.widgets._axis import (
@@ -22,14 +23,20 @@ from napari_metadata.widgets._axis import (
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
+    from napari.layers import Layer
     from qtpy.QtWidgets import QWidget
+
+
+def _add_test_image_layer(viewer_model: ViewerModel, **kwargs: Any) -> Layer:
+    viewer_model.add_image(np.zeros((4, 3)), **kwargs)
+    return viewer_model.layers[-1]
 
 
 class TestAxisScales:
     def test_clamps_spinbox_display_and_layer_value(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
+        layer = _add_test_image_layer(viewer_model, scale=(1.0, 1.0))
         scales = AxisScales(viewer_model, parent_widget)
 
         scales.load_entries(layer)
@@ -45,7 +52,7 @@ class TestAxisScales:
         parent_widget: QWidget,
         qtbot,
     ):
-        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
+        layer = _add_test_image_layer(viewer_model, scale=(1.0, 1.0))
         scales = AxisScales(viewer_model, parent_widget)
 
         scales.load_entries(layer)
@@ -68,8 +75,8 @@ class TestAxisLabels:
     def test_refreshes_when_layer_axis_labels_change(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)),
+        layer = _add_test_image_layer(
+            viewer_model,
             axis_labels=('row', 'col'),
         )
         labels = AxisLabels(viewer_model, parent_widget)
@@ -93,8 +100,8 @@ class TestAxisMetadataCoordinator:
     def test_label_changes_propagate_to_sibling_components(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)),
+        layer = _add_test_image_layer(
+            viewer_model,
             axis_labels=('y', 'x'),
             scale=(1.0, 1.0),
             translate=(0.0, 0.0),
@@ -117,8 +124,8 @@ class TestAxisMetadataCoordinator:
     def test_set_checkboxes_visible_updates_all_components(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)),
+        layer = _add_test_image_layer(
+            viewer_model,
             axis_labels=('y', 'x'),
             scale=(1.0, 1.0),
             translate=(0.0, 0.0),
@@ -156,10 +163,7 @@ class TestAxisUnits:
     def test_custom_units_flow_writes_line_edit_value(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)),
-            units=('pixel', 'second'),
-        )
+        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
         units_component = AxisUnits(viewer_model, parent_widget)
         units_component.load_entries(layer)
 
@@ -173,10 +177,7 @@ class TestAxisUnits:
     def test_custom_type_toggles_widget_visibility(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)),
-            units=('pixel', 'second'),
-        )
+        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
         units_component = AxisUnits(viewer_model, parent_widget)
         units_component.load_entries(layer)
 
@@ -194,10 +195,7 @@ class TestAxisUnits:
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         """An unrecognised unit string should warn and leave the layer unchanged."""
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)),
-            units=('pixel', 'second'),
-        )
+        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
         units_component = AxisUnits(viewer_model, parent_widget)
         units_component.load_entries(layer)
 
@@ -212,3 +210,75 @@ class TestAxisUnits:
 
         # Layer unit should be unchanged (kept at original value).
         assert str(layer.units[0]) == 'pixel'
+
+    def test_populate_unit_combobox_selects_known_axis_type(
+        self, parent_widget: QWidget
+    ):
+        combobox = QComboBox(parent=parent_widget)
+
+        matched_type = AxisUnits._populate_unit_combobox('second', combobox)
+
+        assert matched_type == AxisUnitEnum.TIME
+        assert combobox.currentText() == 'second'
+        assert combobox.count() == len(AxisUnitEnum.TIME.value.units)
+
+    def test_populate_unit_combobox_leaves_custom_value_empty(
+        self, parent_widget: QWidget
+    ):
+        combobox = QComboBox(parent=parent_widget)
+
+        matched_type = AxisUnits._populate_unit_combobox('furlong', combobox)
+
+        assert matched_type is None
+        assert combobox.currentIndex() == -1
+        assert combobox.count() == 0
+
+    def test_refresh_values_updates_known_and_custom_units(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
+        units_component = AxisUnits(viewer_model, parent_widget)
+        units_component.load_entries(layer)
+
+        layer.units = ('furlong', 'hour')
+        units_component.load_entries(layer)
+
+        assert (
+            units_component._type_comboboxes[0].currentEnum()
+            == AxisUnitEnum.CUSTOM
+        )
+        assert units_component._unit_line_edits[0].text() == 'furlong'
+        assert units_component._unit_comboboxes[0].count() == 0
+        assert (
+            units_component._type_comboboxes[1].currentEnum()
+            == AxisUnitEnum.TIME
+        )
+        assert units_component._unit_comboboxes[1].currentText() == 'hour'
+
+    def test_custom_none_text_resets_layer_unit_to_pixel(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
+        units_component = AxisUnits(viewer_model, parent_widget)
+        units_component.load_entries(layer)
+
+        units_component._type_comboboxes[0].setCurrentEnum(AxisUnitEnum.CUSTOM)
+        units_component._unit_line_edits[0].setText('None')
+        units_component._unit_line_edits[0].editingFinished.emit()
+
+        assert str(layer.units[0]) == 'pixel'
+        assert units_component._unit_line_edits[0].text() == 'pixel'
+
+    def test_switching_custom_axis_type_uses_category_default(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = _add_test_image_layer(
+            viewer_model, units=('furlong', 'second')
+        )
+        units_component = AxisUnits(viewer_model, parent_widget)
+        units_component.load_entries(layer)
+
+        units_component._type_comboboxes[0].setCurrentEnum(AxisUnitEnum.SPACE)
+
+        assert str(layer.units[0]) == AxisUnitEnum.SPACE.value.default
+        assert units_component._unit_comboboxes[0].currentText() == 'pixel'
