@@ -1,9 +1,9 @@
 """Axis classification and curated unit configuration for napari-metadata.
 
 ``AxisType`` is an ``Enum`` whose members classify axes as SPACE, TIME, or
-STRING.  SPACE and TIME members carry a ``_UnitConfig`` dataclass as their
+CUSTOM.  SPACE and TIME members carry a ``_UnitConfig`` dataclass as their
 ``.value``, encoding the exact set of units shown in the UI and a sensible
-default.  STRING axes take arbitrary pint-parseable text; their ``.value``
+default.  CUSTOM axes take any pint-parseable unit string; their ``.value``
 is ``None``.
 
 The ``_UnitConfig`` dataclass also provides ``pint_units()``, so callers that
@@ -39,14 +39,16 @@ class _UnitConfig:
 
 
 class AxisUnitEnum(Enum):
-    """Classifies an axis as spatial, temporal, or free-form string.
+    """Classifies an axis as spatial, temporal, or custom pint unit.
 
     SPACE and TIME carry a ``_UnitConfig`` as ``.value``; access the curated
     unit list with ``axis_type.value.units``, the default with
     ``axis_type.value.default``, and pint objects with
     ``axis_type.value.pint_units()``.
 
-    STRING axes accept arbitrary text; ``axis_type.value`` is ``None``.
+    CUSTOM axes accept any pint-parseable unit string entered by the user;
+    invalid strings are rejected before being passed to the layer.
+    ``axis_type.value`` is ``None``.
     """
 
     SPACE = _UnitConfig(
@@ -80,7 +82,7 @@ class AxisUnitEnum(Enum):
         ),
         default='second',
     )
-    STRING = None
+    CUSTOM = None
 
     def __str__(self) -> str:
         return self.name.lower()
