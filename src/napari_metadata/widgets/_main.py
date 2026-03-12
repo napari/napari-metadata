@@ -44,11 +44,17 @@ from napari_metadata.widgets._file import FileGeneralMetadata
 from napari_metadata.widgets._inheritance import InheritanceWidget
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from napari.components import ViewerModel
     from napari.layers import Layer
 
 _CONTENT_PAGE = 0
 _NO_LAYER_PAGE = 1
+
+#: Spacing (px) between collapsible sections inside the outer scroll area.
+#: Used both in the sections QLayout and in the manual size allocator.
+_SECTIONS_SPACING = 3
 
 
 class MetadataWidget(QWidget):
@@ -172,10 +178,18 @@ class MetadataWidget(QWidget):
         sections: list[CollapsibleSectionContainer],
         available: int,
         spacing: int,
-        collapsed_hint: callable,
-        preferred_hint: callable,
-        apply_extent: callable,
+        collapsed_hint: Callable[[CollapsibleSectionContainer], int],
+        preferred_hint: Callable[[CollapsibleSectionContainer], int],
+        apply_extent: Callable[[CollapsibleSectionContainer, int], None],
     ) -> None:
+        """Distribute *available* pixels among *sections*.
+
+        Qt's layout managers cannot negotiate optimal sizes across nested
+        scroll-area boundaries, so we compute allocations manually:
+        collapsed sections get their collapsed size; expanded sections
+        share the remainder via water-filling (smaller preferred sizes
+        are satisfied first).
+        """
         collapsed_total = 0
         expanded: list[CollapsibleSectionContainer] = []
         preferred: dict[CollapsibleSectionContainer, int] = {}
@@ -195,39 +209,26 @@ class MetadataWidget(QWidget):
             return
 
         usable = max(available - spacing - collapsed_total, 0)
-        min_total = sum(minimum.values())
-        pref_total = sum(preferred.values())
 
-        if usable <= min_total:
+        if usable <= sum(minimum.values()):
             for section in expanded:
                 apply_extent(section, minimum[section])
             return
 
-        if usable >= pref_total:
+        if usable >= sum(preferred.values()):
             for section in expanded:
                 apply_extent(section, preferred[section])
             return
 
-        low = min(minimum.values())
-        high = max(preferred.values())
-
-        for _ in range(24):
-            cap = (low + high) / 2
-            total = sum(
-                max(minimum[section], min(preferred[section], int(cap)))
-                for section in expanded
-            )
-            if total > usable:
-                high = cap
-            else:
-                low = cap
-
-        final_cap = int(low)
-        for section in expanded:
-            apply_extent(
-                section,
-                max(minimum[section], min(preferred[section], final_cap)),
-            )
+        # Water-fill: sort by preferred ascending so smaller sections
+        # reach their preferred size before larger ones are capped.
+        by_pref = sorted(expanded, key=lambda s: preferred[s])
+        remaining = usable
+        for i, section in enumerate(by_pref):
+            share = remaining // (len(by_pref) - i)
+            extent = max(minimum[section], min(preferred[section], share))
+            apply_extent(section, extent)
+            remaining -= extent
 
     def sizeHint(self):
         if self._stacked_layout.currentIndex() == _CONTENT_PAGE:
@@ -380,7 +381,7 @@ class MetadataWidget(QWidget):
         layout_class = QVBoxLayout if is_vertical else QHBoxLayout
         sections_layout = layout_class(scroll_content)
         sections_layout.setContentsMargins(0, 0, 0, 0)
-        sections_layout.setSpacing(3)
+        sections_layout.setSpacing(_SECTIONS_SPACING)
 
         # Build three collapsible sections
         self._file_section = self._build_file_section(orientation)
@@ -446,7 +447,7 @@ class MetadataWidget(QWidget):
         self._allocate_section_extent(
             sections=sections,
             available=viewport_width,
-            spacing=3 * max(len(sections) - 1, 0),
+            spacing=_SECTIONS_SPACING * max(len(sections) - 1, 0),
             collapsed_hint=lambda section: section.collapsed_width_hint(),
             preferred_hint=lambda section: section.sizeHint().width(),
             apply_extent=lambda section, extent: (
@@ -478,7 +479,7 @@ class MetadataWidget(QWidget):
         self._allocate_section_extent(
             sections=sections,
             available=viewport_height,
-            spacing=3 * max(len(sections) - 1, 0),
+            spacing=_SECTIONS_SPACING * max(len(sections) - 1, 0),
             collapsed_hint=lambda section: section.collapsed_height_hint(),
             preferred_hint=lambda section: section.sizeHint().height(),
             apply_extent=lambda section, extent: (
@@ -504,6 +505,11 @@ class MetadataWidget(QWidget):
                         w.setParent(self)
 
         self._inheritance_instance.setParent(self)
+
+    def _on_inheritance_toggled(self, checked: bool) -> None:
+        """Handle inheritance section toggle — sync checkboxes and sizes."""
+        self._axis_metadata_instance.set_checkboxes_visible(checked)
+        self._update_section_sizes()
 
     # ------------------------------------------------------------------
     # Section builders
@@ -549,10 +555,7 @@ class MetadataWidget(QWidget):
             self,
             'Axes inheritance',
             orientation=orientation,
-            on_toggle=lambda checked: (
-                self._axis_metadata_instance.set_checkboxes_visible(checked),
-                self._update_section_sizes(),
-            ),
+            on_toggle=self._on_inheritance_toggled,
         )
         container = QWidget(self)
         layout = QGridLayout(container)
