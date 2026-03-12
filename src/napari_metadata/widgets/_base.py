@@ -86,7 +86,9 @@ class ComponentBase(ABC):
 
         self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
         self._component_qlabel.setStyleSheet('font-weight: bold')
-        self._component_qlabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._component_qlabel.setAlignment(
+            Qt.AlignmentFlag.AlignLeft
+        )  # this seems to do nothing
         self._component_qlabel.setToolTip(self._tooltip_text)
 
     @property

@@ -102,6 +102,15 @@ class AxisLabels(AxisComponentBase):
                 with QSignalBlocker(self._line_edits[i]):
                     self._line_edits[i].setText(label)
 
+    def get_layout_entries(self, axis_index: int) -> list[LayoutEntry]:
+        """Skip the empty axis-name column; span the line edit across it."""
+        line_edit = self._line_edits[axis_index]
+        line_edit.setToolTip(self._tooltip_text)
+        return [
+            LayoutEntry(widgets=[line_edit], col_span=2),
+            LayoutEntry(widgets=[self._inherit_checkboxes[axis_index]]),
+        ]
+
     def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
         return [LayoutEntry(widgets=[self._line_edits[axis_index]])]
 
