@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from napari.utils.notifications import show_info
-from qtpy.QtCore import QObject, Qt, QTimer
+from qtpy.QtCore import QEvent, QObject, Qt
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QDockWidget,
@@ -149,19 +149,85 @@ class MetadataWidget(QWidget):
 
     def resizeEvent(self, a0) -> None:
         super().resizeEvent(a0)
-        self._schedule_section_size_update()
+        self._update_section_sizes()
 
-    def _request_preferred_size(self) -> None:
-        preferred = self.sizeHint().expandedTo(self.minimumSizeHint())
-        if preferred.isValid():
-            self.resize(self.size().expandedTo(preferred))
+    def eventFilter(self, a0, a1) -> bool:
+        if (
+            self._scroll_area is not None
+            and a0 is self._scroll_area.viewport()
+            and a1 is not None
+            and a1.type()
+            in (
+                QEvent.Type.Resize,
+                QEvent.Type.Show,
+                QEvent.Type.LayoutRequest,
+            )
+        ):
+            self._update_section_sizes()
+        return super().eventFilter(a0, a1)
 
-        parent = self.parentWidget()
-        if isinstance(parent, QDockWidget):
-            parent.resize(parent.size().expandedTo(preferred))
+    def _allocate_section_extent(
+        self,
+        *,
+        sections: list[CollapsibleSectionContainer],
+        available: int,
+        spacing: int,
+        collapsed_hint: callable,
+        preferred_hint: callable,
+        apply_extent: callable,
+    ) -> None:
+        collapsed_total = 0
+        expanded: list[CollapsibleSectionContainer] = []
+        preferred: dict[CollapsibleSectionContainer, int] = {}
+        minimum: dict[CollapsibleSectionContainer, int] = {}
 
-    def _schedule_section_size_update(self) -> None:
-        QTimer.singleShot(0, self._update_section_sizes)
+        for section in sections:
+            collapsed = collapsed_hint(section)
+            if section.isExpanded():
+                expanded.append(section)
+                preferred[section] = max(preferred_hint(section), collapsed)
+                minimum[section] = collapsed
+            else:
+                collapsed_total += collapsed
+                apply_extent(section, collapsed)
+
+        if not expanded:
+            return
+
+        usable = max(available - spacing - collapsed_total, 0)
+        min_total = sum(minimum.values())
+        pref_total = sum(preferred.values())
+
+        if usable <= min_total:
+            for section in expanded:
+                apply_extent(section, minimum[section])
+            return
+
+        if usable >= pref_total:
+            for section in expanded:
+                apply_extent(section, preferred[section])
+            return
+
+        low = min(minimum.values())
+        high = max(preferred.values())
+
+        for _ in range(24):
+            cap = (low + high) / 2
+            total = sum(
+                max(minimum[section], min(preferred[section], int(cap)))
+                for section in expanded
+            )
+            if total > usable:
+                high = cap
+            else:
+                low = cap
+
+        final_cap = int(low)
+        for section in expanded:
+            apply_extent(
+                section,
+                max(minimum[section], min(preferred[section], final_cap)),
+            )
 
     def sizeHint(self):
         if self._stacked_layout.currentIndex() == _CONTENT_PAGE:
@@ -275,6 +341,9 @@ class MetadataWidget(QWidget):
 
         # Remove old scroll area
         if self._scroll_area is not None:
+            viewport = self._scroll_area.viewport()
+            if viewport is not None:
+                viewport.removeEventFilter(self)
             self._content_page_layout.removeWidget(self._scroll_area)
             self._scroll_area.deleteLater()
             self._scroll_area = None
@@ -296,6 +365,7 @@ class MetadataWidget(QWidget):
             )
             scroll.setWidgetResizable(True)
         self._scroll_area = scroll
+        scroll.viewport().installEventFilter(self)
 
         # Content inside the scroll area
         scroll_content = QWidget(scroll)
@@ -340,8 +410,7 @@ class MetadataWidget(QWidget):
         self._content_page_layout.addWidget(scroll)
 
         self._current_orientation = orientation
-        self._request_preferred_size()
-        self._schedule_section_size_update()
+        self._update_section_sizes()
         self.updateGeometry()
         parent = self.parentWidget()
         if parent is not None:
@@ -374,61 +443,16 @@ class MetadataWidget(QWidget):
             self._axis_section,
             self._inheritance_section,
         ]
-        spacing = 3 * max(len(sections) - 1, 0)
-
-        collapsed_total = 0
-        expanded: list[CollapsibleSectionContainer] = []
-        preferred: dict[CollapsibleSectionContainer, int] = {}
-        minimum: dict[CollapsibleSectionContainer, int] = {}
-
-        for section in sections:
-            collapsed_width = section.collapsed_width_hint()
-            if section.isExpanded():
-                expanded.append(section)
-                preferred[section] = max(
-                    section.sizeHint().width(), collapsed_width
-                )
-                minimum[section] = collapsed_width
-            else:
-                collapsed_total += collapsed_width
-                section.set_horizontal_section_width(collapsed_width)
-
-        if not expanded:
-            return
-
-        available = max(viewport_width - spacing - collapsed_total, 0)
-        min_total = sum(minimum.values())
-        pref_total = sum(preferred.values())
-
-        if available <= min_total:
-            for section in expanded:
-                section.set_horizontal_section_width(minimum[section])
-            return
-
-        if available >= pref_total:
-            for section in expanded:
-                section.set_horizontal_section_width(preferred[section])
-            return
-
-        low = min(minimum.values())
-        high = max(preferred.values())
-
-        for _ in range(24):
-            cap = (low + high) / 2
-            total = sum(
-                max(minimum[section], min(preferred[section], int(cap)))
-                for section in expanded
-            )
-            if total > available:
-                high = cap
-            else:
-                low = cap
-
-        final_cap = int(low)
-        for section in expanded:
-            section.set_horizontal_section_width(
-                max(minimum[section], min(preferred[section], final_cap))
-            )
+        self._allocate_section_extent(
+            sections=sections,
+            available=viewport_width,
+            spacing=3 * max(len(sections) - 1, 0),
+            collapsed_hint=lambda section: section.collapsed_width_hint(),
+            preferred_hint=lambda section: section.sizeHint().width(),
+            apply_extent=lambda section, extent: (
+                section.set_horizontal_section_width(extent)
+            ),
+        )
 
     def _update_vertical_section_heights(self) -> None:
         if self._current_orientation != 'vertical':
@@ -451,61 +475,16 @@ class MetadataWidget(QWidget):
             self._axis_section,
             self._inheritance_section,
         ]
-        spacing = 3 * max(len(sections) - 1, 0)
-
-        collapsed_total = 0
-        expanded: list[CollapsibleSectionContainer] = []
-        preferred: dict[CollapsibleSectionContainer, int] = {}
-        minimum: dict[CollapsibleSectionContainer, int] = {}
-
-        for section in sections:
-            collapsed_height = section.collapsed_height_hint()
-            if section.isExpanded():
-                expanded.append(section)
-                preferred[section] = max(
-                    section.sizeHint().height(), collapsed_height
-                )
-                minimum[section] = collapsed_height
-            else:
-                collapsed_total += collapsed_height
-                section.set_vertical_section_height(collapsed_height)
-
-        if not expanded:
-            return
-
-        available = max(viewport_height - spacing - collapsed_total, 0)
-        min_total = sum(minimum.values())
-        pref_total = sum(preferred.values())
-
-        if available <= min_total:
-            for section in expanded:
-                section.set_vertical_section_height(minimum[section])
-            return
-
-        if available >= pref_total:
-            for section in expanded:
-                section.set_vertical_section_height(preferred[section])
-            return
-
-        low = min(minimum.values())
-        high = max(preferred.values())
-
-        for _ in range(24):
-            cap = (low + high) / 2
-            total = sum(
-                max(minimum[section], min(preferred[section], int(cap)))
-                for section in expanded
-            )
-            if total > available:
-                high = cap
-            else:
-                low = cap
-
-        final_cap = int(low)
-        for section in expanded:
-            section.set_vertical_section_height(
-                max(minimum[section], min(preferred[section], final_cap))
-            )
+        self._allocate_section_extent(
+            sections=sections,
+            available=viewport_height,
+            spacing=3 * max(len(sections) - 1, 0),
+            collapsed_hint=lambda section: section.collapsed_height_hint(),
+            preferred_hint=lambda section: section.sizeHint().height(),
+            apply_extent=lambda section, extent: (
+                section.set_vertical_section_height(extent)
+            ),
+        )
 
     def _detach_component_widgets(self) -> None:
         """Reparent all persistent component widgets back to *self*.
@@ -538,7 +517,7 @@ class MetadataWidget(QWidget):
             self,
             'File metadata',
             orientation=orientation,
-            on_toggle=lambda _: self._schedule_section_size_update(),
+            on_toggle=lambda _: self._update_section_sizes(),
         )
         container = QWidget(self)
         grid = QGridLayout(container)
@@ -554,7 +533,7 @@ class MetadataWidget(QWidget):
             self,
             'Axes metadata',
             orientation=orientation,
-            on_toggle=lambda _: self._schedule_section_size_update(),
+            on_toggle=lambda _: self._update_section_sizes(),
         )
         container = QWidget(self)
         grid = QGridLayout(container)
@@ -572,7 +551,7 @@ class MetadataWidget(QWidget):
             orientation=orientation,
             on_toggle=lambda checked: (
                 self._axis_metadata_instance.set_checkboxes_visible(checked),
-                self._schedule_section_size_update(),
+                self._update_section_sizes(),
             ),
         )
         container = QWidget(self)
