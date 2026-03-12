@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from napari.utils.notifications import show_info
-from qtpy.QtCore import QObject, Qt
+from qtpy.QtCore import QObject, Qt, QTimer
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QDockWidget,
@@ -67,6 +67,9 @@ class MetadataWidget(QWidget):
 
     def __init__(self, napari_viewer: ViewerModel) -> None:
         super().__init__()
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self._viewer = napari_viewer
         self._napari_viewer = napari_viewer
         self._selected_layer: Layer | None = None
@@ -93,6 +96,9 @@ class MetadataWidget(QWidget):
 
         # Content page wrapper — holds the orientation-specific scroll area
         self._content_page = QWidget(self)
+        self._content_page.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self._content_page_layout = QVBoxLayout(self._content_page)
         self._content_page_layout.setContentsMargins(0, 0, 0, 0)
         self._stacked_layout.addWidget(self._content_page)  # index 0
@@ -140,6 +146,32 @@ class MetadataWidget(QWidget):
         )
         self._on_selected_layers_changed()
         self._already_shown = True
+
+    def resizeEvent(self, a0) -> None:
+        super().resizeEvent(a0)
+        self._schedule_section_size_update()
+
+    def _request_preferred_size(self) -> None:
+        preferred = self.sizeHint().expandedTo(self.minimumSizeHint())
+        if preferred.isValid():
+            self.resize(self.size().expandedTo(preferred))
+
+        parent = self.parentWidget()
+        if isinstance(parent, QDockWidget):
+            parent.resize(parent.size().expandedTo(preferred))
+
+    def _schedule_section_size_update(self) -> None:
+        QTimer.singleShot(0, self._update_section_sizes)
+
+    def sizeHint(self):
+        if self._stacked_layout.currentIndex() == _CONTENT_PAGE:
+            return self._content_page.sizeHint()
+        return super().sizeHint()
+
+    def minimumSizeHint(self):
+        if self._stacked_layout.currentIndex() == _CONTENT_PAGE:
+            return self._content_page.minimumSizeHint()
+        return super().minimumSizeHint()
 
     def _on_dock_location_changed(self) -> None:
         """Handle dock widget location change — rebuild if orientation changed."""
@@ -253,6 +285,7 @@ class MetadataWidget(QWidget):
             scroll.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff
             )
+            scroll.setWidgetResizable(True)
         else:
             scroll = HorizontalOnlyOuterScrollArea(self._content_page)
             scroll.setVerticalScrollBarPolicy(
@@ -261,11 +294,19 @@ class MetadataWidget(QWidget):
             scroll.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded
             )
-        scroll.setWidgetResizable(True)
+            scroll.setWidgetResizable(True)
         self._scroll_area = scroll
 
         # Content inside the scroll area
         scroll_content = QWidget(scroll)
+        if is_vertical:
+            scroll_content.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+            )
+        else:
+            scroll_content.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            )
         layout_class = QVBoxLayout if is_vertical else QHBoxLayout
         sections_layout = layout_class(scroll_content)
         sections_layout.setContentsMargins(0, 0, 0, 0)
@@ -299,7 +340,172 @@ class MetadataWidget(QWidget):
         self._content_page_layout.addWidget(scroll)
 
         self._current_orientation = orientation
-        self.setMinimumSize(50, 50)
+        self._request_preferred_size()
+        self._schedule_section_size_update()
+        self.updateGeometry()
+        parent = self.parentWidget()
+        if parent is not None:
+            parent.updateGeometry()
+
+    def _update_section_sizes(self) -> None:
+        if self._current_orientation == 'horizontal':
+            self._update_horizontal_section_widths()
+        elif self._current_orientation == 'vertical':
+            self._update_vertical_section_heights()
+
+    def _update_horizontal_section_widths(self) -> None:
+        if self._current_orientation != 'horizontal':
+            return
+        if self._scroll_area is None:
+            return
+        if (
+            self._file_section is None
+            or self._axis_section is None
+            or self._inheritance_section is None
+        ):
+            return
+
+        viewport_width = self._scroll_area.viewport().width()
+        if viewport_width <= 0:
+            return
+
+        sections = [
+            self._file_section,
+            self._axis_section,
+            self._inheritance_section,
+        ]
+        spacing = 3 * max(len(sections) - 1, 0)
+
+        collapsed_total = 0
+        expanded: list[CollapsibleSectionContainer] = []
+        preferred: dict[CollapsibleSectionContainer, int] = {}
+        minimum: dict[CollapsibleSectionContainer, int] = {}
+
+        for section in sections:
+            collapsed_width = section.collapsed_width_hint()
+            if section.isExpanded():
+                expanded.append(section)
+                preferred[section] = max(
+                    section.sizeHint().width(), collapsed_width
+                )
+                minimum[section] = collapsed_width
+            else:
+                collapsed_total += collapsed_width
+                section.set_horizontal_section_width(collapsed_width)
+
+        if not expanded:
+            return
+
+        available = max(viewport_width - spacing - collapsed_total, 0)
+        min_total = sum(minimum.values())
+        pref_total = sum(preferred.values())
+
+        if available <= min_total:
+            for section in expanded:
+                section.set_horizontal_section_width(minimum[section])
+            return
+
+        if available >= pref_total:
+            for section in expanded:
+                section.set_horizontal_section_width(preferred[section])
+            return
+
+        low = min(minimum.values())
+        high = max(preferred.values())
+
+        for _ in range(24):
+            cap = (low + high) / 2
+            total = sum(
+                max(minimum[section], min(preferred[section], int(cap)))
+                for section in expanded
+            )
+            if total > available:
+                high = cap
+            else:
+                low = cap
+
+        final_cap = int(low)
+        for section in expanded:
+            section.set_horizontal_section_width(
+                max(minimum[section], min(preferred[section], final_cap))
+            )
+
+    def _update_vertical_section_heights(self) -> None:
+        if self._current_orientation != 'vertical':
+            return
+        if self._scroll_area is None:
+            return
+        if (
+            self._file_section is None
+            or self._axis_section is None
+            or self._inheritance_section is None
+        ):
+            return
+
+        viewport_height = self._scroll_area.viewport().height()
+        if viewport_height <= 0:
+            return
+
+        sections = [
+            self._file_section,
+            self._axis_section,
+            self._inheritance_section,
+        ]
+        spacing = 3 * max(len(sections) - 1, 0)
+
+        collapsed_total = 0
+        expanded: list[CollapsibleSectionContainer] = []
+        preferred: dict[CollapsibleSectionContainer, int] = {}
+        minimum: dict[CollapsibleSectionContainer, int] = {}
+
+        for section in sections:
+            collapsed_height = section.collapsed_height_hint()
+            if section.isExpanded():
+                expanded.append(section)
+                preferred[section] = max(
+                    section.sizeHint().height(), collapsed_height
+                )
+                minimum[section] = collapsed_height
+            else:
+                collapsed_total += collapsed_height
+                section.set_vertical_section_height(collapsed_height)
+
+        if not expanded:
+            return
+
+        available = max(viewport_height - spacing - collapsed_total, 0)
+        min_total = sum(minimum.values())
+        pref_total = sum(preferred.values())
+
+        if available <= min_total:
+            for section in expanded:
+                section.set_vertical_section_height(minimum[section])
+            return
+
+        if available >= pref_total:
+            for section in expanded:
+                section.set_vertical_section_height(preferred[section])
+            return
+
+        low = min(minimum.values())
+        high = max(preferred.values())
+
+        for _ in range(24):
+            cap = (low + high) / 2
+            total = sum(
+                max(minimum[section], min(preferred[section], int(cap)))
+                for section in expanded
+            )
+            if total > available:
+                high = cap
+            else:
+                low = cap
+
+        final_cap = int(low)
+        for section in expanded:
+            section.set_vertical_section_height(
+                max(minimum[section], min(preferred[section], final_cap))
+            )
 
     def _detach_component_widgets(self) -> None:
         """Reparent all persistent component widgets back to *self*.
@@ -332,6 +538,7 @@ class MetadataWidget(QWidget):
             self,
             'File metadata',
             orientation=orientation,
+            on_toggle=lambda _: self._schedule_section_size_update(),
         )
         container = QWidget(self)
         grid = QGridLayout(container)
@@ -347,6 +554,7 @@ class MetadataWidget(QWidget):
             self,
             'Axes metadata',
             orientation=orientation,
+            on_toggle=lambda _: self._schedule_section_size_update(),
         )
         container = QWidget(self)
         grid = QGridLayout(container)
@@ -363,7 +571,8 @@ class MetadataWidget(QWidget):
             'Axes inheritance',
             orientation=orientation,
             on_toggle=lambda checked: (
-                self._axis_metadata_instance.set_checkboxes_visible(checked)
+                self._axis_metadata_instance.set_checkboxes_visible(checked),
+                self._schedule_section_size_update(),
             ),
         )
         container = QWidget(self)
@@ -508,10 +717,6 @@ def _populate_axis_grid_vertical(
 
             for entry in component.get_layout_entries(axis_index):
                 for widget in entry.widgets:
-                    widget.setSizePolicy(
-                        QSizePolicy.Policy.Expanding,
-                        QSizePolicy.Policy.Expanding,
-                    )
                     grid.addWidget(
                         widget,
                         row,
@@ -578,10 +783,6 @@ def _populate_axis_grid_horizontal(
 
             for entry in component.get_layout_entries(axis_index):
                 for widget in entry.widgets:
-                    widget.setSizePolicy(
-                        QSizePolicy.Policy.Expanding,
-                        QSizePolicy.Policy.Expanding,
-                    )
                     grid.addWidget(
                         widget,
                         current_row,
