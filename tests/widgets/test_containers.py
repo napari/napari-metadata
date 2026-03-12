@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from qtpy.QtCore import Qt
 
 from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
@@ -133,6 +134,76 @@ class TestSetContentWidget:
         # The new widget is installed; old one is gone.
         current = w._expanding_area.widget()
         assert current is not None
+
+    def test_vertical_content_area_uses_content_size_hint(self, qtbot):
+        from qtpy.QtCore import QSize
+        from qtpy.QtWidgets import QWidget
+
+        class _HintWidget(QWidget):
+            def sizeHint(self):
+                return QSize(120, 80)
+
+        w = CollapsibleSectionContainer(None, 'T', 'vertical')
+        qtbot.addWidget(w)
+        content = _HintWidget()
+        w.set_content_widget(content)
+
+        expected = (
+            content.sizeHint().height() + 2 * w._expanding_area.frameWidth()
+        )
+        assert w._expanding_area.sizeHint().height() == expected
+        assert w._expanding_area.sizeHint().width() > 0
+
+    def test_horizontal_content_area_uses_wrapper_size_hint(self, qtbot):
+        from qtpy.QtWidgets import QLabel
+
+        w = CollapsibleSectionContainer(None, 'T', 'horizontal')
+        qtbot.addWidget(w)
+        content = QLabel('hello')
+        w.set_content_widget(content)
+
+        wrapper = w._expanding_area.widget()
+        assert wrapper is not None
+        expected = (
+            wrapper.sizeHint().width() + 2 * w._expanding_area.frameWidth()
+        )
+        assert w._expanding_area.sizeHint().width() == expected
+        assert w._expanding_area.sizeHint().height() == 0
+
+
+class TestScrollPolicies:
+    def test_vertical_sections_allow_visible_vertical_scrolling(self, qtbot):
+        w = CollapsibleSectionContainer(None, 'T', 'vertical')
+        qtbot.addWidget(w)
+        assert (
+            w._expanding_area.verticalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+
+    def test_horizontal_sections_allow_inner_horizontal_scrolling(self, qtbot):
+        w = CollapsibleSectionContainer(None, 'T', 'horizontal')
+        qtbot.addWidget(w)
+        assert (
+            w._expanding_area.horizontalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        assert w._expanding_area.widgetResizable()
+
+    def test_vertical_section_button_expands_with_parent_width(self, qtbot):
+        from qtpy.QtWidgets import QVBoxLayout, QWidget
+
+        parent = QWidget()
+        parent.resize(320, 200)
+        layout = QVBoxLayout(parent)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        w = CollapsibleSectionContainer(parent, 'T', 'vertical')
+        layout.addWidget(w)
+        qtbot.addWidget(parent)
+        parent.show()
+        qtbot.waitExposed(parent)
+
+        assert w._button.width() >= parent.width() - 20
 
 
 class TestRotatedButton:

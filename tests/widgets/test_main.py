@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from qtpy.QtWidgets import QFrame, QGridLayout, QWidget
+from qtpy.QtWidgets import QFrame, QGridLayout, QVBoxLayout, QWidget
 
 from napari_metadata.widgets._main import (
     _CONTENT_PAGE,
@@ -29,6 +29,26 @@ from napari_metadata.widgets._main import (
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
+
+
+def _assert_section_content_available(widget: MetadataWidget) -> None:
+    assert widget._file_section is not None
+    assert widget._axis_section is not None
+    assert widget._inheritance_section is not None
+
+    for section in (
+        widget._file_section,
+        widget._axis_section,
+        widget._inheritance_section,
+    ):
+        assert section._expanding_area.isVisibleTo(section)
+        assert section._expanding_area.sizeHint().isValid()
+        if widget._current_orientation == 'vertical':
+            assert section._expanding_area.sizeHint().height() > 0
+        else:
+            assert section._expanding_area.sizeHint().width() > 0
+        assert section.sizeHint().width() > 0
+        assert section.sizeHint().height() > 0
 
 
 @pytest.fixture
@@ -88,6 +108,19 @@ class TestMetadataWidgetInit:
 
     def test_has_inheritance_instance(self, metadata_widget: MetadataWidget):
         assert metadata_widget._inheritance_instance is not None
+
+    def test_content_page_size_hint_is_used_when_built(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        widget._selected_layer = layer
+        widget._refresh_page()
+
+        assert widget.sizeHint() == widget._content_page.sizeHint()
 
 
 class TestPageManagement:
@@ -360,22 +393,49 @@ class TestOrientationSwitching:
         assert widget._file_section.isExpanded()
         assert widget._axis_section.isExpanded()
         assert widget._inheritance_section.isExpanded()
-        # Content must actually be visible — not just the button in checked state.
-        # For unshown widgets, height()/width() is 0; but setFixedHeight/Width()
-        # sets minimumHeight/minimumWidth immediately.
-        # Vertical sections expand via setFixedHeight; horizontal via setFixedWidth.
-        if second == 'vertical':
-            assert widget._file_section._expanding_area.minimumHeight() > 0
-            assert widget._axis_section._expanding_area.minimumHeight() > 0
-            assert (
-                widget._inheritance_section._expanding_area.minimumHeight() > 0
+        _assert_section_content_available(widget)
+
+    def test_horizontal_layout_exposes_outer_scrollbar_when_narrow(
+        self,
+        viewer_model: ViewerModel,
+        qtbot,
+    ):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3, 2)),
+            axis_labels=('t', 'y', 'x'),
+            scale=(1.0, 1.0, 1.0),
+            translate=(0.0, 0.0, 0.0),
+            units=('pixel', 'pixel', 'pixel'),
+        )
+
+        parent = QWidget()
+        parent.resize(420, 180)
+        layout = QVBoxLayout(parent)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        widget = MetadataWidget(viewer_model)
+        layout.addWidget(widget)
+        qtbot.addWidget(parent)
+
+        widget._selected_layer = layer
+        widget._rebuild_content('horizontal')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(True)
+        widget._inheritance_section.setExpanded(True)
+
+        parent.show()
+        qtbot.waitExposed(parent)
+        qtbot.waitUntil(
+            lambda: (
+                widget._scroll_area is not None
+                and widget._scroll_area.horizontalScrollBar().maximum() >= 0
             )
-        else:
-            assert widget._file_section._expanding_area.minimumWidth() > 0
-            assert widget._axis_section._expanding_area.minimumWidth() > 0
-            assert (
-                widget._inheritance_section._expanding_area.minimumWidth() > 0
-            )
+        )
 
 
 class TestLayerSelectionFlow:
@@ -483,12 +543,7 @@ class TestLayerSelectionFlow:
         assert widget._file_section.isExpanded()
         assert widget._axis_section.isExpanded()
         assert widget._inheritance_section.isExpanded()
-        # Content must actually be visible — not just the button in checked state.
-        # For unshown widgets, height() is 0; setFixedHeight() sets minimumHeight.
-        # This rebuild always uses 'vertical', so check minimumHeight.
-        assert widget._file_section._expanding_area.minimumHeight() > 0
-        assert widget._axis_section._expanding_area.minimumHeight() > 0
-        assert widget._inheritance_section._expanding_area.minimumHeight() > 0
+        _assert_section_content_available(widget)
 
 
 class TestInheritanceCheckboxSync:
