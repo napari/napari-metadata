@@ -42,7 +42,10 @@ class TestComponentBase:
         assert component._napari_viewer is viewer_model
         assert component._parent_widget is parent_widget
 
-    def test_shared_init_creates_bold_label(
+    def test_tooltip_text_defaults_to_empty_string(self):
+        assert ComponentBase._tooltip_text == ''
+
+    def test_shared_init_creates_bold_label_with_tooltip(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         component = _DummyFileComponent(viewer_model, parent_widget)
@@ -50,10 +53,12 @@ class TestComponentBase:
         label = component.component_label
         assert label.text() == 'Test:'
         assert 'bold' in label.styleSheet()
+        assert label.toolTip() == 'File tooltip.'
 
 
 class _DummyAxisComponent(AxisComponentBase):
     _label_text = 'Dummy:'
+    _tooltip_text = 'Axis tooltip.'
 
     def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
         super().__init__(viewer, parent_widget)
@@ -149,19 +154,32 @@ class TestAxisComponentBaseLifecycle:
         assert component.num_axes == 0
         assert component._selected_layer is None
 
-    def test_get_layout_entries_returns_name_value_checkbox_order(
+    def test_get_layout_entries_structure_and_tooltips(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         layer = viewer_model.add_image(np.zeros((4, 3)))
         component = _DummyAxisComponent(viewer_model, parent_widget)
         component.load_entries(layer)
 
-        entries = component.get_layout_entries(0)
+        for axis_idx in range(layer.data.ndim):
+            entries = component.get_layout_entries(axis_idx)
 
-        assert len(entries) == 3
-        assert entries[0].widgets[0] is component._axis_name_labels[0]
-        assert entries[1].widgets[0] is component._value_line_edits[0]
-        assert entries[2].widgets[0] is component._inherit_checkboxes[0]
+            assert len(entries) == 3
+            assert (
+                entries[0].widgets[0] is component._axis_name_labels[axis_idx]
+            )
+            assert (
+                entries[1].widgets[0] is component._value_line_edits[axis_idx]
+            )
+            assert (
+                entries[2].widgets[0]
+                is component._inherit_checkboxes[axis_idx]
+            )
+            # tooltip applied only to value entry widgets, not name/checkbox
+            assert entries[0].widgets[0].toolTip() == ''
+            for widget in entries[1].widgets:
+                assert widget.toolTip() == 'Axis tooltip.'
+            assert entries[2].widgets[0].toolTip() == ''
 
 
 class TestAxisComponentBaseHelpers:
@@ -240,6 +258,7 @@ class TestAxisComponentBaseInheritance:
 
 class _DummyFileComponent(FileComponentBase):
     _label_text = 'Test:'
+    _tooltip_text = 'File tooltip.'
     _under_label_in_vertical = True
 
     def __init__(self, viewer, parent_widget):
@@ -250,6 +269,24 @@ class _DummyFileComponent(FileComponentBase):
         text = f'shape={layer.data.shape}'
         self.get_text_calls.append(text)
         return text
+
+
+class _DummyFileComponentWithLineEdit(FileComponentBase):
+    """File component with a QLineEdit value_widget, used for custom widget tests."""
+
+    _label_text = 'Custom:'
+    _tooltip_text = 'Line edit tooltip.'
+
+    def __init__(self, viewer, parent_widget):
+        super().__init__(viewer, parent_widget)
+        self._line_edit = QLineEdit(parent=parent_widget)
+
+    @property
+    def value_widget(self) -> QLineEdit:
+        return self._line_edit
+
+    def _get_display_text(self, layer) -> str:
+        return layer.name
 
 
 class TestFileComponentBaseLifecycle:
@@ -264,7 +301,7 @@ class TestFileComponentBaseLifecycle:
         assert component.value_widget.text() == 'None selected'
         assert len(component.get_text_calls) == 0
 
-    def test_load_entries_updates_display_for_layer(
+    def test_load_entries_updates_display_and_tooltip(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         layer = viewer_model.add_image(np.zeros((4, 3)))
@@ -274,6 +311,7 @@ class TestFileComponentBaseLifecycle:
 
         assert component.value_widget.text() == 'shape=(4, 3)'
         assert len(component.get_text_calls) == 1
+        assert component.value_widget.toolTip() == 'File tooltip.'
 
     def test_load_entries_uses_active_layer_when_none_passed(
         self, viewer_model: ViewerModel, parent_widget: QWidget
@@ -297,6 +335,18 @@ class TestFileComponentBaseLifecycle:
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         assert FileComponentBase._under_label_in_vertical is False
+
+    def test_load_entries_tooltip_on_custom_value_widget(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        component = _DummyFileComponentWithLineEdit(
+            viewer_model, parent_widget
+        )
+
+        component.load_entries(layer)
+
+        assert component.value_widget.toolTip() == 'Line edit tooltip.'
 
     def test_under_label_in_vertical_can_be_overridden(
         self, viewer_model: ViewerModel, parent_widget: QWidget
