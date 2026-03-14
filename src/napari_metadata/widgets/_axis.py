@@ -41,7 +41,11 @@ from napari_metadata.layer_utils import (
     set_axes_units,
 )
 from napari_metadata.units import AxisUnitEnum
-from napari_metadata.widgets._base import AxisComponentBase, LayoutEntry
+from napari_metadata.widgets._base import (
+    AxisComponentBase,
+    LayoutEntry,
+    _ClearableWidgetCollection,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -74,14 +78,12 @@ class AxisLabels(AxisComponentBase):
         self._on_labels_changed = on_labels_changed
         self._line_edits: list[QLineEdit] = []
 
-    def _all_widget_lists(self) -> list[list[QWidget]]:
+    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
         return [*super()._all_widget_lists(), self._line_edits]
 
     def _create_widgets(self, layer: Layer) -> None:
         labels = get_axes_labels(self._napari_viewer, layer)
         ndim = get_layer_dimensions(layer)
-        if ndim == 0:
-            return
         for i in range(ndim):
             # Empty label for layout alignment
             empty_label = QLabel(parent=self._parent_widget)
@@ -146,15 +148,12 @@ class AxisTranslations(AxisComponentBase):
         super().__init__(viewer, parent_widget)
         self._spinboxes: list[QDoubleSpinBox] = []
 
-    def _all_widget_lists(self) -> list[list[QWidget]]:
+    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
         return [*super()._all_widget_lists(), self._spinboxes]
 
     def _create_widgets(self, layer: Layer) -> None:
         self._create_axis_name_labels(layer)
         translations = get_axes_translations(self._napari_viewer, layer)
-        ndim = get_layer_dimensions(layer)
-        if ndim == 0:
-            return
         for value in translations:
             sb = QDoubleSpinBox(parent=self._parent_widget)
             sb.setDecimals(1)
@@ -206,15 +205,12 @@ class AxisScales(AxisComponentBase):
 
     # -- AxisComponentBase overrides ----------------------------------------
 
-    def _all_widget_lists(self) -> list[list[QWidget]]:
+    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
         return [*super()._all_widget_lists(), self._spinboxes]
 
     def _create_widgets(self, layer: Layer) -> None:
         self._create_axis_name_labels(layer)
         scales = get_axes_scales(self._napari_viewer, layer)
-        ndim = get_layer_dimensions(layer)
-        if ndim == 0:
-            return
         for value in scales:
             sb = QDoubleSpinBox(parent=self._parent_widget)
             sb.setDecimals(3)
@@ -276,7 +272,7 @@ class AxisUnits(AxisComponentBase):
         self._unit_comboboxes: list[QComboBox] = []
         self._unit_line_edits: list[QLineEdit] = []
 
-    def _all_widget_lists(self) -> list[list[QWidget]]:
+    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
         return [
             *super()._all_widget_lists(),
             self._type_comboboxes,
@@ -288,8 +284,6 @@ class AxisUnits(AxisComponentBase):
         self._create_axis_name_labels(layer)
         layer_units = get_axes_units(self._napari_viewer, layer)
         ndim = get_layer_dimensions(layer)
-        if ndim == 0:
-            return
 
         for i in range(ndim):
             unit_str = str(layer_units[i]) if i < len(layer_units) else ''
@@ -331,38 +325,17 @@ class AxisUnits(AxisComponentBase):
 
     def _refresh_values(self, layer: Layer) -> None:
         layer_units = get_axes_units(self._napari_viewer, layer)
-        for i, unit in enumerate(layer_units):
-            if i >= len(self._unit_comboboxes):
-                break
+        for i, unit in enumerate(layer_units[: len(self._unit_comboboxes)]):
             unit_str = str(unit)
-            # Determine which AxisUnitEnum this unit belongs to.
-            matched_type = AxisUnitEnum.CUSTOM
-            for at in AxisUnitEnum:
-                cfg = at.value
-                if cfg is not None and unit_str in cfg.units:
-                    matched_type = at
-                    break
-
-            with QSignalBlocker(self._unit_comboboxes[i]):
-                self._unit_comboboxes[i].clear()
-                cfg = matched_type.value
-                if cfg is not None:
-                    self._unit_comboboxes[i].addItems(cfg.units)
-                    self._unit_comboboxes[i].setCurrentIndex(
-                        self._unit_comboboxes[i].findText(unit_str)
-                    )
-                else:
-                    for at in AxisUnitEnum:
-                        at_cfg = at.value
-                        if at_cfg is not None:
-                            self._unit_comboboxes[i].addItems(at_cfg.units)
-                    self._unit_comboboxes[i].setCurrentIndex(
-                        self._unit_comboboxes[i].findText(
-                            AxisUnitEnum.SPACE.value.default
-                        )
-                    )
+            matched_type = self._populate_unit_combobox(
+                unit_str, self._unit_comboboxes[i]
+            )
+            with QSignalBlocker(self._unit_line_edits[i]):
+                self._unit_line_edits[i].setText(unit_str)
             with QSignalBlocker(self._type_comboboxes[i]):
-                self._type_comboboxes[i].setCurrentEnum(matched_type)  # type: ignore[arg-type]
+                self._type_comboboxes[i].setCurrentEnum(
+                    matched_type or AxisUnitEnum.CUSTOM
+                )
         self._sync_line_edit_texts()
         self._sync_visibilities()
 
@@ -391,41 +364,28 @@ class AxisUnits(AxisComponentBase):
         with QSignalBlocker(combobox):
             combobox.clear()
 
-        all_pint_units: list[pint.Unit] = []
-        found_type: AxisUnitEnum | None = None
         for axis_type in AxisUnitEnum:
-            cfg = axis_type.value
+            cfg = axis_type.config
             if cfg is None:
                 continue
-            all_pint_units.extend(cfg.pint_units())
             if unit_str is not None and unit_str in cfg.units:
-                found_type = axis_type
-
-        if found_type is not None:
-            chosen_cfg = found_type.value
-            if chosen_cfg is None:
-                return AxisUnitEnum.CUSTOM
-            pint_units = chosen_cfg.pint_units()
-        else:
-            pint_units = all_pint_units
-
-        ureg = pint.get_application_registry()
-        with QSignalBlocker(combobox):
-            for pu in pint_units:
-                combobox.addItem(str(pu), pu)
-            if found_type is None:
-                combobox.setCurrentIndex(0)
-            else:
+                ureg = pint.get_application_registry()
+                with QSignalBlocker(combobox):
+                    for pu in cfg.pint_units():
+                        combobox.addItem(str(pu), pu)
                 target = ureg.Unit(unit_str)
                 idx = combobox.findText(str(target))
                 combobox.setCurrentIndex(idx)
+                return axis_type
 
-        return found_type
+        return None
 
     def _sync_visibilities(self) -> None:
         """Toggle unit combobox / line-edit visibility per axis type."""
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentEnum()
+            axis_type = (
+                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
+            )
             show_combobox = axis_type != AxisUnitEnum.CUSTOM
             self._unit_comboboxes[i].setVisible(show_combobox)
             self._unit_line_edits[i].setVisible(not show_combobox)
@@ -439,20 +399,34 @@ class AxisUnits(AxisComponentBase):
             with QSignalBlocker(self._unit_line_edits[i]):
                 self._unit_line_edits[i].setText(str(current_units[i]))
 
+    @staticmethod
+    def _normalize_widget_unit_text(text: str) -> str:
+        """Map empty or explicit reset text to napari's pixel default."""
+        normalized = text.strip()
+        return (
+            'pixel'
+            if not normalized or normalized.lower() == 'none'
+            else normalized
+        )
+
     def _write_units_to_layer(self) -> None:
         """Collect current unit selections and apply to the layer."""
-        units: list[str | None] = []
+        units: list[str] = []
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentEnum()
+            axis_type = (
+                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
+            )
             if axis_type == AxisUnitEnum.CUSTOM:
-                text = self._unit_line_edits[i].text().strip()
                 units.append(
-                    None if (text.lower() == 'none' or not text) else text
+                    self._normalize_widget_unit_text(
+                        self._unit_line_edits[i].text()
+                    )
                 )
             else:
-                text = self._unit_comboboxes[i].currentText().strip()
                 units.append(
-                    None if (text.lower() == 'none' or not text) else text
+                    self._normalize_widget_unit_text(
+                        self._unit_comboboxes[i].currentText()
+                    )
                 )
         try:
             set_axes_units(self._napari_viewer, tuple(units))
@@ -466,8 +440,10 @@ class AxisUnits(AxisComponentBase):
             self._napari_viewer, resolve_layer(self._napari_viewer)
         )
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentEnum()
-            cfg = axis_type.value
+            axis_type = (
+                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
+            )
+            cfg = axis_type.config
             current_unit_str = (
                 str(current_units[i]) if i < len(current_units) else ''
             )

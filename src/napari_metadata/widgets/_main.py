@@ -553,7 +553,7 @@ class MetadataWidget(QWidget):
         """Build the axes inheritance collapsible section."""
         section = CollapsibleSectionContainer(
             self,
-            'Axes inheritance',
+            'Copy metadata',
             orientation=orientation,
             on_toggle=self._on_inheritance_toggled,
         )

@@ -1,4 +1,7 @@
+from typing import Any
+
 import numpy as np
+import pint
 import pytest
 from napari.components import ViewerModel
 
@@ -24,6 +27,8 @@ from napari_metadata.layer_utils import (
     set_axes_translations,
     set_axes_units,
 )
+
+REG = pint.get_application_registry()
 
 
 @pytest.fixture
@@ -144,6 +149,13 @@ class TestAxesUnits:
         set_axes_units(viewer, ('nanometer', 'nanometer'), layer=layer1)
         assert layer1.units == ('nanometer', 'nanometer')
 
+    def test_set_accepts_pint_units(self, viewer_model):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)), units=('pixel', 'pixel')
+        )
+        set_axes_units(viewer_model, (REG.micrometer, REG.nanometer))
+        assert layer.units == (REG.micrometer, REG.nanometer)
+
 
 class TestAxesScales:
     def test_get_empty_when_no_layers(self, viewer_model):
@@ -176,7 +188,8 @@ class TestAxesScales:
     def test_set_rejects_non_numeric(self, viewer_model):
         """Non-numeric values cause early return without modification."""
         layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
-        set_axes_scales(viewer_model, ('bad', 'values'))
+        bad_values: Any = ('bad', 'values')
+        set_axes_scales(viewer_model, bad_values)
         assert np.allclose(layer.scale, (1.0, 1.0))  # unchanged
 
     def test_set_accepts_int(self, viewer_model):
@@ -268,6 +281,18 @@ class TestGetLayerDataDtype:
         layer = viewer_model.add_shapes(shape_data, shape_type='polygon')
         dtype = get_layer_data_dtype(layer)
         assert dtype == 'float32'
+
+    def test_non_native_endian_dtype_is_human_readable(self, viewer_model):
+        """Non-native endian dtype like '>u2' should display as 'uint16', not '>u2'."""
+        data = np.zeros((4, 4), dtype=np.dtype('>u2'))
+        layer = viewer_model.add_image(data)
+        assert get_layer_data_dtype(layer) == 'uint16'
+
+    def test_little_endian_float64_is_human_readable(self, viewer_model):
+        """Little-endian dtype '<f8' should display as 'float64'."""
+        data = np.zeros((3, 3), dtype=np.dtype('<f8'))
+        layer = viewer_model.add_image(data)
+        assert get_layer_data_dtype(layer) == 'float64'
 
 
 class TestGetLayerSourcePath:
