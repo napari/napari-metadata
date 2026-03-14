@@ -360,7 +360,7 @@ class MetadataWidget(QWidget):
         """Build the axes inheritance collapsible section."""
         section = CollapsibleSectionContainer(
             self,
-            'Copy axes metadata',
+            'Copy metadata',
             orientation=orientation,
             on_toggle=lambda checked: (
                 self._axis_metadata_instance.set_checkboxes_visible(checked)
