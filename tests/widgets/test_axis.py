@@ -7,6 +7,7 @@ axis-specific component behavior and coordinator semantics.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -64,7 +65,7 @@ class TestAxisScales:
 
 
 class TestAxisLabels:
-    def test_shows_index_labels_and_update_is_noop(
+    def test_refreshes_when_layer_axis_labels_change(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         layer = viewer_model.add_image(
@@ -74,13 +75,18 @@ class TestAxisLabels:
         labels = AxisLabels(viewer_model, parent_widget)
 
         labels.load_entries(layer)
-        assert [lbl.text() for lbl in labels._axis_name_labels] == ['0', '1']
+        assert [lbl.text() for lbl in labels._axis_name_labels] == ['', '']
+        assert [lbl.text() for lbl in labels._line_edits] == ['row', 'col']
 
         layer.axis_labels = ('new_row', 'new_col')
         labels.update_axis_name_labels()
 
-        # AxisLabels intentionally keeps index labels.
-        assert [lbl.text() for lbl in labels._axis_name_labels] == ['0', '1']
+        # AxisLabels should refresh when axis labels change.
+        assert [lbl.text() for lbl in labels._axis_name_labels] == ['', '']
+        assert [lbl.text() for lbl in labels._line_edits] == [
+            'new_row',
+            'new_col',
+        ]
 
 
 class TestAxisMetadataCoordinator:
@@ -147,7 +153,7 @@ class TestAxisMetadataCoordinator:
 
 
 class TestAxisUnits:
-    def test_string_units_flow_writes_line_edit_value(
+    def test_custom_units_flow_writes_line_edit_value(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         layer = viewer_model.add_image(
@@ -158,16 +164,13 @@ class TestAxisUnits:
         units_component.load_entries(layer)
 
         type_combobox = units_component._type_comboboxes[0]
-        string_index = type_combobox.findData(AxisUnitEnum.STRING)
-        assert string_index != -1
-
-        type_combobox.setCurrentIndex(string_index)
+        type_combobox.setCurrentEnum(AxisUnitEnum.CUSTOM)
         units_component._unit_line_edits[0].setText('furlong')
         units_component._unit_line_edits[0].editingFinished.emit()
 
         assert str(layer.units[0]) == 'furlong'
 
-    def test_string_type_toggles_widget_visibility(
+    def test_custom_type_toggles_widget_visibility(
         self, viewer_model: ViewerModel, parent_widget: QWidget
     ):
         layer = viewer_model.add_image(
@@ -182,8 +185,30 @@ class TestAxisUnits:
         assert units_component._unit_line_edits[0].isHidden()
 
         type_combobox = units_component._type_comboboxes[0]
-        string_index = type_combobox.findData(AxisUnitEnum.STRING)
-        type_combobox.setCurrentIndex(string_index)
+        type_combobox.setCurrentEnum(AxisUnitEnum.CUSTOM)
 
         assert units_component._unit_comboboxes[0].isHidden()
         assert not units_component._unit_line_edits[0].isHidden()
+
+    def test_invalid_pint_unit_warns_and_keeps_previous_value(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        """An unrecognised unit string should warn and leave the layer unchanged."""
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)),
+            units=('pixel', 'second'),
+        )
+        units_component = AxisUnits(viewer_model, parent_widget)
+        units_component.load_entries(layer)
+
+        type_combobox = units_component._type_comboboxes[0]
+        type_combobox.setCurrentEnum(AxisUnitEnum.CUSTOM)
+
+        with patch('napari_metadata.widgets._axis.show_warning') as mock_warn:
+            units_component._unit_line_edits[0].setText('notaunit_xyz')
+            units_component._unit_line_edits[0].editingFinished.emit()
+
+            mock_warn.assert_called_once()
+
+        # Layer unit should be unchanged (kept at original value).
+        assert str(layer.units[0]) == 'pixel'

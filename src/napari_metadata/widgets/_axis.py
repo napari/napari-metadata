@@ -17,8 +17,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pint
-from napari.utils.notifications import show_error
-from qtpy.QtCore import QSignalBlocker, Qt
+from napari.utils.notifications import show_warning
+from qtpy.QtCore import QSignalBlocker
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -26,6 +26,7 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QWidget,
 )
+from superqt import QEnumComboBox
 
 from napari_metadata.layer_utils import (
     get_axes_labels,
@@ -51,10 +52,6 @@ if TYPE_CHECKING:
 
 class AxisLabels(AxisComponentBase):
     """Per-axis label editor using ``QLineEdit`` widgets.
-
-    Unlike the other axis components, ``AxisLabels`` shows the axis
-    *index* (-3, -2, -1...) in its name label column, because *it* is the
-    widget that edits the axis names.
 
     Parameters
     ----------
@@ -86,10 +83,9 @@ class AxisLabels(AxisComponentBase):
         if ndim == 0:
             return
         for i in range(ndim):
-            # Index label (not the axis name)
-            index_label = QLabel(str(i), parent=self._parent_widget)
-            index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._axis_name_labels.append(index_label)
+            # Empty label for layout alignment
+            empty_label = QLabel(parent=self._parent_widget)
+            self._axis_name_labels.append(empty_label)
 
             line_edit = QLineEdit(parent=self._parent_widget)
             line_edit.setText(labels[i] if i < len(labels) else '')
@@ -116,7 +112,9 @@ class AxisLabels(AxisComponentBase):
         set_axes_labels(self._napari_viewer, tuple(values))
 
     def update_axis_name_labels(self) -> None:
-        """No-op: AxisLabels shows indices, not axis names."""
+        """Refresh line edits when axis labels change in the layer."""
+        if self._selected_layer is not None:
+            self._refresh_values(self._selected_layer)
 
     def get_line_edit_values(self) -> tuple[str, ...]:
         """Return current text from all label line-edits."""
@@ -255,16 +253,17 @@ class AxisUnits(AxisComponentBase):
 
     Each axis has three widgets:
 
-    * **type combobox** - selects ``AxisUnitEnum`` (space / time / string)
+    * **type combobox** - selects ``AxisUnitEnum`` (space / time / custom)
     * **unit combobox** - shown for space/time; curated list of pint units
-    * **unit line-edit** - shown for string type; free-form text
+    * **unit line-edit** - shown for custom type; any pint-parseable unit
     """
 
     _label_text = 'Units:'
+    _tooltip_text = 'The Pint unit associated with each axis.'
 
     def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
         super().__init__(viewer, parent_widget)
-        self._type_comboboxes: list[QComboBox] = []
+        self._type_comboboxes: list[QEnumComboBox] = []
         self._unit_comboboxes: list[QComboBox] = []
         self._unit_line_edits: list[QLineEdit] = []
 
@@ -286,22 +285,21 @@ class AxisUnits(AxisComponentBase):
         for i in range(ndim):
             unit_str = str(layer_units[i]) if i < len(layer_units) else ''
 
-            # Type combobox (space / time / string)
-            type_cb = QComboBox(parent=self._parent_widget)
-            for axis_type in AxisUnitEnum:
-                type_cb.addItem(str(axis_type), axis_type)
+            # Type combobox (space / time / custom)
+            type_cb = QEnumComboBox(
+                parent=self._parent_widget, enum_class=AxisUnitEnum
+            )
 
             # Unit combobox (curated pint units)
             unit_cb = QComboBox(parent=self._parent_widget)
             matched_type = self._populate_unit_combobox(unit_str, unit_cb)
-            type_index = type_cb.findData(
+            type_cb.setCurrentEnum(
                 matched_type
                 if matched_type is not None
-                else AxisUnitEnum.STRING
+                else AxisUnitEnum.CUSTOM
             )
-            type_cb.setCurrentIndex(type_index)
 
-            # Free-form line edit for STRING type
+            # Free-form line edit for CUSTOM type
             line_edit = QLineEdit(parent=self._parent_widget)
 
             self._type_comboboxes.append(type_cb)
@@ -329,7 +327,7 @@ class AxisUnits(AxisComponentBase):
                 break
             unit_str = str(unit)
             # Determine which AxisUnitEnum this unit belongs to.
-            matched_type = AxisUnitEnum.STRING
+            matched_type = AxisUnitEnum.CUSTOM
             for at in AxisUnitEnum:
                 cfg = at.value
                 if cfg is not None and unit_str in cfg.units:
@@ -355,9 +353,7 @@ class AxisUnits(AxisComponentBase):
                         )
                     )
             with QSignalBlocker(self._type_comboboxes[i]):
-                self._type_comboboxes[i].setCurrentIndex(
-                    self._type_comboboxes[i].findText(str(matched_type))
-                )
+                self._type_comboboxes[i].setCurrentEnum(matched_type)  # type: ignore[arg-type]
         self._sync_line_edit_texts()
         self._sync_visibilities()
 
@@ -399,7 +395,7 @@ class AxisUnits(AxisComponentBase):
         if found_type is not None:
             chosen_cfg = found_type.value
             if chosen_cfg is None:
-                return AxisUnitEnum.STRING
+                return AxisUnitEnum.CUSTOM
             pint_units = chosen_cfg.pint_units()
         else:
             pint_units = all_pint_units
@@ -420,11 +416,8 @@ class AxisUnits(AxisComponentBase):
     def _sync_visibilities(self) -> None:
         """Toggle unit combobox / line-edit visibility per axis type."""
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentData()
-            show_combobox = (
-                isinstance(axis_type, AxisUnitEnum)
-                and axis_type != AxisUnitEnum.STRING
-            )
+            axis_type = self._type_comboboxes[i].currentEnum()
+            show_combobox = axis_type != AxisUnitEnum.CUSTOM
             self._unit_comboboxes[i].setVisible(show_combobox)
             self._unit_line_edits[i].setVisible(not show_combobox)
 
@@ -441,23 +434,21 @@ class AxisUnits(AxisComponentBase):
         """Collect current unit selections and apply to the layer."""
         units: list[str | None] = []
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentData()
-            if axis_type is None or axis_type == AxisUnitEnum.STRING:
+            axis_type = self._type_comboboxes[i].currentEnum()
+            if axis_type == AxisUnitEnum.CUSTOM:
                 text = self._unit_line_edits[i].text().strip()
-                if text.lower() == 'none' or not text:
-                    units.append(None)
-                else:
-                    units.append(text)
+                units.append(
+                    None if (text.lower() == 'none' or not text) else text
+                )
             else:
                 text = self._unit_comboboxes[i].currentText().strip()
-                if text.lower() == 'none' or not text:
-                    units.append(None)
-                else:
-                    units.append(text)
+                units.append(
+                    None if (text.lower() == 'none' or not text) else text
+                )
         try:
             set_axes_units(self._napari_viewer, tuple(units))
-        except (AttributeError, ValueError):
-            show_error(f'The layer units {units} has no pint.Unit equivalents')
+        except (AttributeError, ValueError) as e:
+            show_warning(str(e))
         self._sync_line_edit_texts()
 
     def _on_type_changed(self) -> None:
@@ -466,9 +457,7 @@ class AxisUnits(AxisComponentBase):
             self._napari_viewer, resolve_layer(self._napari_viewer)
         )
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentData()
-            if not isinstance(axis_type, AxisUnitEnum):
-                continue
+            axis_type = self._type_comboboxes[i].currentEnum()
             cfg = axis_type.value
             current_unit_str = (
                 str(current_units[i]) if i < len(current_units) else ''

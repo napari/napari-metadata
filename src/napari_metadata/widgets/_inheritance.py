@@ -60,7 +60,7 @@ class InheritanceWidget(QWidget):
             QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         )
 
-        self._template_layer_label = QLabel('Template layer')
+        self._template_layer_label = QLabel('Copy from template layer')
         self._template_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._template_layer_label.setStyleSheet('font-weight: bold;')
 
@@ -69,7 +69,7 @@ class InheritanceWidget(QWidget):
             self._on_combobox_selection_changed
         )
 
-        self._inheriting_layer_label: QLabel = QLabel('Inheriting layer')
+        self._inheriting_layer_label: QLabel = QLabel('Copy to layer')
         self._inheriting_layer_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._inheriting_layer_label.setStyleSheet('font-weight: bold')
 
