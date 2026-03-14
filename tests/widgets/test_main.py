@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
+from qtpy.QtCore import QEvent
+from qtpy.QtGui import QResizeEvent
 from qtpy.QtWidgets import QFrame, QGridLayout, QVBoxLayout, QWidget
 
 from napari_metadata.widgets._main import (
@@ -122,6 +124,13 @@ class TestMetadataWidgetInit:
 
         assert widget.sizeHint() == widget._content_page.sizeHint()
 
+    def test_size_hints_fall_back_to_super_on_no_layer_page(
+        self, metadata_widget: MetadataWidget
+    ):
+        assert metadata_widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+        assert metadata_widget.sizeHint().isValid()
+        assert metadata_widget.minimumSizeHint().isValid()
+
 
 class TestPageManagement:
     def test_refresh_page_shows_no_layer_when_none_selected(
@@ -226,6 +235,420 @@ class TestRebuildContent:
         # Should be a no-op — _scroll_area stays None
         assert widget._scroll_area is None
         widget._rebuilding = False
+
+
+class _FakeSection:
+    def __init__(self, name: str, expanded: bool) -> None:
+        self.name = name
+        self._expanded = expanded
+
+    def isExpanded(self) -> bool:
+        return self._expanded
+
+
+class _FakeViewport:
+    def __init__(self, *, width: int = 0, height: int = 0) -> None:
+        self._width = width
+        self._height = height
+
+    def width(self) -> int:
+        return self._width
+
+    def height(self) -> int:
+        return self._height
+
+
+class _FakeScrollArea:
+    def __init__(self, *, width: int = 0, height: int = 0) -> None:
+        self._viewport = _FakeViewport(width=width, height=height)
+
+    def viewport(self) -> _FakeViewport:
+        return self._viewport
+
+
+class TestSizingLogic:
+    def test_resize_event_recomputes_section_sizes(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            widget,
+            '_update_section_sizes',
+            lambda: calls.append('updated'),
+        )
+
+        event = QResizeEvent(widget.size(), widget.size())
+        widget.resizeEvent(event)
+
+        assert calls == ['updated']
+
+    def test_event_filter_updates_only_for_scroll_viewport_events(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        assert widget._scroll_area is not None
+        calls: list[str] = []
+        monkeypatch.setattr(
+            widget,
+            '_update_section_sizes',
+            lambda: calls.append('updated'),
+        )
+
+        viewport = widget._scroll_area.viewport()
+        widget.eventFilter(viewport, QEvent(QEvent.Type.Resize))
+        widget.eventFilter(widget, QEvent(QEvent.Type.Resize))
+        widget.eventFilter(viewport, QEvent(QEvent.Type.MouseButtonPress))
+        widget.eventFilter(viewport, None)
+
+        assert calls == ['updated']
+
+    def test_allocate_section_extent_handles_all_collapsed_sections(
+        self, metadata_widget: MetadataWidget
+    ):
+        sections = [_FakeSection('a', False), _FakeSection('b', False)]
+        applied: dict[str, int] = {}
+
+        metadata_widget._allocate_section_extent(
+            sections=sections,
+            available=100,
+            spacing=4,
+            collapsed_hint=lambda section: 10 if section.name == 'a' else 20,
+            preferred_hint=lambda section: 50,
+            apply_extent=lambda section, extent: applied.__setitem__(
+                section.name, extent
+            ),
+        )
+
+        assert applied == {'a': 10, 'b': 20}
+
+    def test_allocate_section_extent_uses_minimum_when_space_is_tight(
+        self, metadata_widget: MetadataWidget
+    ):
+        sections = [_FakeSection('a', True), _FakeSection('b', True)]
+        applied: dict[str, int] = {}
+
+        metadata_widget._allocate_section_extent(
+            sections=sections,
+            available=24,
+            spacing=4,
+            collapsed_hint=lambda _section: 10,
+            preferred_hint=lambda section: 30 if section.name == 'a' else 40,
+            apply_extent=lambda section, extent: applied.__setitem__(
+                section.name, extent
+            ),
+        )
+
+        assert applied == {'a': 10, 'b': 10}
+
+    def test_allocate_section_extent_uses_preferred_when_space_is_plentiful(
+        self, metadata_widget: MetadataWidget
+    ):
+        sections = [_FakeSection('a', True), _FakeSection('b', True)]
+        applied: dict[str, int] = {}
+
+        metadata_widget._allocate_section_extent(
+            sections=sections,
+            available=100,
+            spacing=4,
+            collapsed_hint=lambda _section: 10,
+            preferred_hint=lambda section: 30 if section.name == 'a' else 40,
+            apply_extent=lambda section, extent: applied.__setitem__(
+                section.name, extent
+            ),
+        )
+
+        assert applied == {'a': 30, 'b': 40}
+
+    def test_allocate_section_extent_water_fills_partial_space(
+        self, metadata_widget: MetadataWidget
+    ):
+        sections = [_FakeSection('a', True), _FakeSection('b', True)]
+        applied: dict[str, int] = {}
+
+        metadata_widget._allocate_section_extent(
+            sections=sections,
+            available=64,
+            spacing=4,
+            collapsed_hint=lambda _section: 10,
+            preferred_hint=lambda section: 20 if section.name == 'a' else 50,
+            apply_extent=lambda section, extent: applied.__setitem__(
+                section.name, extent
+            ),
+        )
+
+        assert applied == {'a': 20, 'b': 40}
+
+    def test_update_horizontal_section_widths_applies_allocations(
+        self, viewer_model: ViewerModel, parent_widget: QWidget, qtbot
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3, 2)))
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('horizontal')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(False)
+        widget._inheritance_section.setExpanded(True)
+        widget._scroll_area.resize(420, 200)
+
+        widget._update_horizontal_section_widths()
+
+        assert (
+            widget._file_section.width()
+            >= widget._file_section.collapsed_width_hint()
+        )
+        assert (
+            widget._axis_section.width()
+            == widget._axis_section.collapsed_width_hint()
+        )
+        assert (
+            widget._inheritance_section.width()
+            >= widget._inheritance_section.collapsed_width_hint()
+        )
+
+    def test_update_vertical_section_heights_applies_allocations(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(False)
+        widget._inheritance_section.setExpanded(True)
+        widget._scroll_area.resize(240, 420)
+
+        widget._update_vertical_section_heights()
+
+        assert (
+            widget._file_section.height()
+            >= widget._file_section.collapsed_height_hint()
+        )
+        assert (
+            widget._axis_section.height()
+            == widget._axis_section.collapsed_height_hint()
+        )
+        assert (
+            widget._inheritance_section.height()
+            >= widget._inheritance_section.collapsed_height_hint()
+        )
+
+    def test_update_section_sizes_ignores_missing_orientation(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        horizontal_calls: list[str] = []
+        vertical_calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_update_horizontal_section_widths',
+            lambda: horizontal_calls.append('horizontal'),
+        )
+        monkeypatch.setattr(
+            metadata_widget,
+            '_update_vertical_section_heights',
+            lambda: vertical_calls.append('vertical'),
+        )
+
+        metadata_widget._current_orientation = None
+        metadata_widget._update_section_sizes()
+
+        assert horizontal_calls == []
+        assert vertical_calls == []
+
+    def test_update_horizontal_section_widths_returns_without_horizontal_orientation(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+
+        metadata_widget._current_orientation = 'vertical'
+        metadata_widget._update_horizontal_section_widths()
+
+        assert calls == []
+
+    def test_update_horizontal_section_widths_returns_without_scroll_area(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+
+        metadata_widget._current_orientation = 'horizontal'
+        metadata_widget._scroll_area = None
+        metadata_widget._update_horizontal_section_widths()
+
+        assert calls == []
+
+    def test_update_horizontal_section_widths_returns_without_sections(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+
+        metadata_widget._current_orientation = 'horizontal'
+        metadata_widget._scroll_area = _FakeScrollArea(width=300)
+        metadata_widget._file_section = None
+        metadata_widget._axis_section = None
+        metadata_widget._inheritance_section = None
+        metadata_widget._update_horizontal_section_widths()
+
+        assert calls == []
+
+    def test_update_horizontal_section_widths_returns_for_zero_width(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('horizontal')
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+        widget._scroll_area = _FakeScrollArea(width=0)
+
+        widget._update_horizontal_section_widths()
+
+        assert calls == []
+
+    def test_update_vertical_section_heights_returns_without_vertical_orientation(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+
+        metadata_widget._current_orientation = 'horizontal'
+        metadata_widget._update_vertical_section_heights()
+
+        assert calls == []
+
+    def test_update_vertical_section_heights_returns_without_scroll_area(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+
+        metadata_widget._current_orientation = 'vertical'
+        metadata_widget._scroll_area = None
+        metadata_widget._update_vertical_section_heights()
+
+        assert calls == []
+
+    def test_update_vertical_section_heights_returns_without_sections(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+
+        metadata_widget._current_orientation = 'vertical'
+        metadata_widget._scroll_area = _FakeScrollArea(height=300)
+        metadata_widget._file_section = None
+        metadata_widget._axis_section = None
+        metadata_widget._inheritance_section = None
+        metadata_widget._update_vertical_section_heights()
+
+        assert calls == []
+
+    def test_update_vertical_section_heights_returns_for_zero_height(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            widget,
+            '_allocate_section_extent',
+            lambda **_: calls.append('allocated'),
+        )
+        widget._scroll_area = _FakeScrollArea(height=0)
+
+        widget._update_vertical_section_heights()
+
+        assert calls == []
+
+    def test_on_inheritance_toggled_updates_checkboxes_and_sizes(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+
+        calls: list[bool | str] = []
+        monkeypatch.setattr(
+            widget._axis_metadata_instance,
+            'set_checkboxes_visible',
+            lambda checked: calls.append(checked),
+        )
+        monkeypatch.setattr(
+            widget,
+            '_update_section_sizes',
+            lambda: calls.append('updated'),
+        )
+
+        widget._on_inheritance_toggled(False)
+
+        assert calls == [False, 'updated']
 
 
 class TestDetachComponentWidgets:
