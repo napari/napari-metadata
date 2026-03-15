@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from qtpy.QtCore import QSignalBlocker, Qt
@@ -12,22 +13,11 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata.layer_utils import (
-    connect_callback_to_layer_name_changed,
-    connect_callback_to_layer_selection_events,
-    connect_callback_to_list_events,
-    disconnect_callback_to_layer_name_changed,
-    disconnect_callback_to_layer_selection_events,
-    disconnect_callback_to_list_events,
-    get_layers_list,
-    resolve_layer,
-)
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from napari.components import ViewerModel
     from napari.layers import Layer
+    from napari.utils.events import SelectableEventedList
 
 BLOCKS_SPACING = 20
 
@@ -35,13 +25,13 @@ BLOCKS_SPACING = 20
 class InheritanceWidget(QWidget):
     def __init__(
         self,
-        napari_viewer: ViewerModel,
+        layers: SelectableEventedList[Layer],
         *,
         on_apply_inheritance: Callable[[Layer], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self._napari_viewer = napari_viewer
+        self._layers = layers
         self._template_layer: Layer | None = None
         self._inheriting_layer: Layer | None = None
         self._on_apply_inheritance = on_apply_inheritance
@@ -96,29 +86,23 @@ class InheritanceWidget(QWidget):
         self._layout.addWidget(self._apply_button)
         self._layout.addStretch(1)
 
-        self._update_layers_combobox_callback = self._update_layers_combobox
-        connect_callback_to_list_events(
-            self._napari_viewer, self._update_layers_combobox_callback
-        )
+        # Wire layer list events directly
+        self._layers.events.inserted.connect(self._update_layers_combobox)
+        self._layers.events.removed.connect(self._update_layers_combobox)
+        self._layers.events.changed.connect(self._update_layers_combobox)
 
-        self._update_inheriting_layer_callback = self._update_inheriting_label
-        connect_callback_to_layer_selection_events(
-            self._napari_viewer, self._update_inheriting_layer_callback
+        self._layers.selection.events.active.connect(
+            self._update_inheriting_label
         )
-
-        self._layer_name_changed_callback = self._on_layer_name_changed
-        self._layer_selection_changed_callback = (
+        self._layers.selection.events.active.connect(
             self._on_layer_selection_changed
-        )
-        connect_callback_to_layer_selection_events(
-            self._napari_viewer, self._layer_selection_changed_callback
         )
 
         self._update_layers_combobox()
         self._update_inheriting_label()
 
     def _update_layers_combobox(self) -> None:
-        layers_list: list[Layer] = get_layers_list(self._napari_viewer)
+        layers_list: list[Layer] = list(self._layers)
         with QSignalBlocker(self._template_combobox):
             self._template_combobox.clear()
         if not len(layers_list):
@@ -141,7 +125,7 @@ class InheritanceWidget(QWidget):
             self._template_combobox.setCurrentIndex(idx)
 
     def _update_inheriting_label(self) -> None:
-        active_layer: Layer | None = resolve_layer(self._napari_viewer, None)
+        active_layer: Layer | None = self._layers.selection.active
         if active_layer is None:
             self._inheriting_layer_name.setText('None selected')
             self._inheriting_layer = None
@@ -194,37 +178,42 @@ class InheritanceWidget(QWidget):
         self._update_inheriting_label()
 
     def _on_layer_selection_changed(self) -> None:
-        current_layer = resolve_layer(self._napari_viewer)
+        current_layer = self._layers.selection.active
         if current_layer is self._selected_layer:
             return
         if self._selected_layer is not None:
-            disconnect_callback_to_layer_name_changed(
-                self._napari_viewer,
-                self._layer_name_changed_callback,
-                self._selected_layer,
-            )
+            with suppress(TypeError, ValueError):
+                self._selected_layer.events.name.disconnect(
+                    self._on_layer_name_changed
+                )
         self._selected_layer = current_layer
         if current_layer is not None:
-            connect_callback_to_layer_name_changed(
-                self._napari_viewer,
-                self._layer_name_changed_callback,
-                current_layer,
-            )
+            current_layer.events.name.connect(self._on_layer_name_changed)
 
     def closeEvent(self, a0):
-        disconnect_callback_to_list_events(
-            self._napari_viewer, self._update_layers_combobox_callback
-        )
-        disconnect_callback_to_layer_selection_events(
-            self._napari_viewer, self._update_inheriting_layer_callback
-        )
-        disconnect_callback_to_layer_selection_events(
-            self._napari_viewer, self._layer_selection_changed_callback
-        )
-        if self._selected_layer is not None:
-            disconnect_callback_to_layer_name_changed(
-                self._napari_viewer,
-                self._layer_name_changed_callback,
-                self._selected_layer,
+        with suppress(TypeError, ValueError):
+            self._layers.events.inserted.disconnect(
+                self._update_layers_combobox
             )
+        with suppress(TypeError, ValueError):
+            self._layers.events.removed.disconnect(
+                self._update_layers_combobox
+            )
+        with suppress(TypeError, ValueError):
+            self._layers.events.changed.disconnect(
+                self._update_layers_combobox
+            )
+        with suppress(TypeError, ValueError):
+            self._layers.selection.events.active.disconnect(
+                self._update_inheriting_label
+            )
+        with suppress(TypeError, ValueError):
+            self._layers.selection.events.active.disconnect(
+                self._on_layer_selection_changed
+            )
+        if self._selected_layer is not None:
+            with suppress(TypeError, ValueError):
+                self._selected_layer.events.name.disconnect(
+                    self._on_layer_name_changed
+                )
         super().closeEvent(a0)
