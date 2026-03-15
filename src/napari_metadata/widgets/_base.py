@@ -1,7 +1,7 @@
 """Base classes and data structures for metadata components.
 
-``ComponentBase`` is the root of the component hierarchy, providing viewer
-reference, parent widget, and bold header label shared by all components.
+``ComponentBase`` is the root of the component hierarchy, providing
+parent widget and bold header label shared by all components.
 
 ``AxisComponentBase`` adds per-axis widget lifecycle, layout, and
 inheritance logic for editable axis components.
@@ -23,15 +23,8 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QCheckBox, QLabel, QWidget
 
-from napari_metadata.layer_utils import (
-    get_axes_labels,
-    get_layer_dimensions,
-    resolve_layer,
-)
-
 if TYPE_CHECKING:
     from napari.layers import Layer
-    from napari.viewer import ViewerModel
 
 
 _QWidgetT = TypeVar('_QWidgetT', bound=QWidget, covariant=True)
@@ -73,7 +66,7 @@ class ComponentBase(ABC):
 
     Provides:
 
-    * Viewer and parent-widget references
+    * Parent-widget reference
     * Bold header ``QLabel`` initialized from the ``_label_text``
       class variable
     * ``component_label`` property
@@ -90,10 +83,8 @@ class ComponentBase(ABC):
 
     def __init__(
         self,
-        viewer: ViewerModel,
         parent_widget: QWidget,
     ) -> None:
-        self._napari_viewer: ViewerModel = viewer
         self._parent_widget = parent_widget
 
         self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
@@ -109,8 +100,8 @@ class ComponentBase(ABC):
         return self._component_qlabel
 
     @abstractmethod
-    def load_entries(self, layer: Layer | None = None) -> None:
-        """Load or refresh widget state for *layer* (defaults to active)."""
+    def load_entries(self, layer: Layer) -> None:
+        """Load or refresh widget state for *layer*."""
 
 
 class AxisComponentBase(ComponentBase):
@@ -135,10 +126,9 @@ class AxisComponentBase(ComponentBase):
 
     def __init__(
         self,
-        viewer: ViewerModel,
         parent_widget: QWidget,
     ) -> None:
-        super().__init__(viewer, parent_widget)
+        super().__init__(parent_widget)
         self._selected_layer: Layer | None = None
 
         self._axis_name_labels: list[QLabel] = []
@@ -153,19 +143,21 @@ class AxisComponentBase(ComponentBase):
         """Number of per-axis widget rows currently alive (0 when empty)."""
         return len(self._axis_name_labels)
 
-    def load_entries(self, layer: Layer | None = None) -> None:
-        """Load or refresh widgets for *layer* (defaults to active layer).
+    def load_entries(self, layer: Layer) -> None:
+        """Load or refresh widgets for *layer*.
 
-        * Layer changed or ``None`` → destroy old widgets, create new ones.
+        * Layer changed → destroy old widgets, create new ones.
         * Same layer → refresh existing widget values in place.
         """
-        active_layer = resolve_layer(self._napari_viewer, layer)
-        if active_layer != self._selected_layer or active_layer is None:
+        if layer != self._selected_layer:
             self._clear_widgets()
-            if active_layer is not None:
-                self._create_widgets(active_layer)
+            self._create_widgets(layer)
             return
-        self._refresh_values(active_layer)
+        self._refresh_values(layer)
+
+    def clear(self) -> None:
+        """Destroy all per-axis widgets (used when no layer is active)."""
+        self._clear_widgets()
 
     def get_layout_entries(self, axis_index: int) -> list[LayoutEntry]:
         """Return ``LayoutEntry`` items for one axis row.
@@ -185,12 +177,12 @@ class AxisComponentBase(ComponentBase):
         )
         return entries
 
-    def update_axis_name_labels(self) -> None:
-        """Refresh axis-name ``QLabel`` texts from the current layer.
+    def update_axis_name_labels(self, layer: Layer) -> None:
+        """Refresh axis-name ``QLabel`` texts from *layer*.
 
         ``AxisLabels`` overrides this to refresh its line edits instead.
         """
-        labels = get_axes_labels(self._napari_viewer)
+        labels = layer.axis_labels
         for i, label in enumerate(labels):
             if i >= len(self._axis_name_labels):
                 break
@@ -201,16 +193,15 @@ class AxisComponentBase(ComponentBase):
         for cb in self._inherit_checkboxes:
             cb.setVisible(visible)
 
-    def inherit_layer_properties(self, template_layer: Layer) -> None:
+    def inherit_layer_properties(
+        self, template_layer: Layer, current_layer: Layer
+    ) -> None:
         """Merge current and template values based on checkbox states.
 
         Checked axes receive the template value; unchecked keep current.
         Resets ``_selected_layer`` so the next ``load_entries`` call fully
         rebuilds widgets with the merged values.
         """
-        current_layer = resolve_layer(self._napari_viewer)
-        if current_layer is None:
-            return
         current_values = self._get_layer_values(current_layer)
         template_values = self._get_layer_values(template_layer)
         merged: list[Any] = [
@@ -219,7 +210,7 @@ class AxisComponentBase(ComponentBase):
                 zip(current_values, template_values, strict=True)
             )
         ]
-        self._apply_values(merged)
+        self._apply_values(current_layer, merged)
         # Force full rebuild on next load_entries.
         self._selected_layer = None
 
@@ -249,8 +240,8 @@ class AxisComponentBase(ComponentBase):
         """Read the axis property tuple from *layer* (used by inheritance)."""
 
     @abstractmethod
-    def _apply_values(self, values: list) -> None:
-        """Write merged axis property values to the active layer."""
+    def _apply_values(self, layer: Layer, values: list) -> None:
+        """Write merged axis property values to *layer*."""
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -280,7 +271,7 @@ class AxisComponentBase(ComponentBase):
         Shows the axis label text, falling back to the axis index when
         the label is empty.
         """
-        labels = get_axes_labels(self._napari_viewer, layer)
+        labels = layer.axis_labels
         for i, label in enumerate(labels):
             qlabel = QLabel(
                 label if label else str(i),
@@ -291,7 +282,7 @@ class AxisComponentBase(ComponentBase):
 
     def _create_inherit_checkboxes(self, layer: Layer) -> None:
         """Create one inherit ``QCheckBox`` per axis (all checked)."""
-        for _ in range(get_layer_dimensions(layer)):
+        for _ in range(layer.ndim):
             cb = QCheckBox('', parent=self._parent_widget)
             cb.setChecked(True)
             cb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -304,8 +295,7 @@ class FileComponentBase(ComponentBase):
     Each concrete subclass presents one piece of layer information
     (name, shape, dtype, size, path).  The base class provides:
 
-    * **Display lifecycle** — ``load_entries`` resolves the active layer
-      and calls ``_update_display``.
+    * **Display lifecycle** — ``load_entries`` calls ``_update_display``.
     * **Default QLabel display** — simple read-only subclasses only need
       to implement ``_get_display_text``; the base handles the
       ``QLabel`` creation and update logic.
@@ -324,10 +314,9 @@ class FileComponentBase(ComponentBase):
 
     def __init__(
         self,
-        viewer: ViewerModel,
         parent_widget: QWidget,
     ) -> None:
-        super().__init__(viewer, parent_widget)
+        super().__init__(parent_widget)
         self._display_label = QLabel('None selected', parent=parent_widget)
         self._display_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -340,26 +329,26 @@ class FileComponentBase(ComponentBase):
         """The primary display widget.  Override for non-QLabel components."""
         return self._display_label
 
-    def load_entries(self, layer: Layer | None = None) -> None:
-        """Resolve the active layer and update the display."""
-        active_layer = resolve_layer(self._napari_viewer, layer)
+    def load_entries(self, layer: Layer) -> None:
+        """Update the display for *layer*."""
         self.value_widget.setToolTip(self._tooltip_text)
-        self._update_display(active_layer)
+        self._update_display(layer)
+
+    def clear(self) -> None:
+        """Reset the display to the no-layer placeholder."""
+        self._display_label.setText('None selected')
 
     # ------------------------------------------------------------------
     # Template methods
     # ------------------------------------------------------------------
 
-    def _update_display(self, layer: Layer | None) -> None:
+    def _update_display(self, layer: Layer) -> None:
         """Update the display widget for *layer*.
 
         Default implementation sets the ``_display_label`` text via
         ``_get_display_text``.  Override for custom widget types.
         """
-        if layer is None:
-            self._display_label.setText('None selected')
-        else:
-            self._display_label.setText(self._get_display_text(layer))
+        self._display_label.setText(self._get_display_text(layer))
 
     @abstractmethod
     def _get_display_text(self, layer: Layer) -> str:
