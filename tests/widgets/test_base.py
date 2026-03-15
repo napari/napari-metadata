@@ -6,15 +6,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
+from napari.layers import Image
 from qtpy.QtCore import QSignalBlocker
 from qtpy.QtWidgets import QLineEdit
 
-from napari_metadata.layer_utils import (
-    get_axes_labels,
-    get_axes_translations,
-    get_layer_dimensions,
-    set_axes_translations,
-)
 from napari_metadata.widgets._base import (
     AxisComponentBase,
     ComponentBase,
@@ -23,32 +18,27 @@ from napari_metadata.widgets._base import (
 )
 
 if TYPE_CHECKING:
-    from napari.components import ViewerModel
+    from napari.layers import Layer
     from qtpy.QtWidgets import QWidget
 
 
 class TestComponentBase:
-    def test_cannot_instantiate_directly(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
+    def test_cannot_instantiate_directly(self, parent_widget: QWidget):
         with pytest.raises(TypeError):
-            ComponentBase(viewer_model, parent_widget)
+            ComponentBase(parent_widget)
 
-    def test_shared_init_sets_viewer_and_parent(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        component = _DummyFileComponent(viewer_model, parent_widget)
+    def test_shared_init_sets_parent(self, parent_widget: QWidget):
+        component = _DummyFileComponent(parent_widget)
 
-        assert component._napari_viewer is viewer_model
         assert component._parent_widget is parent_widget
 
     def test_tooltip_text_defaults_to_empty_string(self):
         assert ComponentBase._tooltip_text == ''
 
     def test_shared_init_creates_bold_label_with_tooltip(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        component = _DummyFileComponent(viewer_model, parent_widget)
+        component = _DummyFileComponent(parent_widget)
 
         label = component.component_label
         assert label.text() == 'Test:'
@@ -60,8 +50,8 @@ class _DummyAxisComponent(AxisComponentBase):
     _label_text = 'Dummy:'
     _tooltip_text = 'Axis tooltip.'
 
-    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
-        super().__init__(viewer, parent_widget)
+    def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__(parent_widget)
         self._value_line_edits: list[QLineEdit] = []
         self.create_count = 0
         self.refresh_count = 0
@@ -70,18 +60,18 @@ class _DummyAxisComponent(AxisComponentBase):
     def _all_widget_lists(self) -> list[list[QWidget]]:
         return [*super()._all_widget_lists(), self._value_line_edits]
 
-    def _create_widgets(self, layer):
+    def _create_widgets(self, layer: Layer) -> None:
         self.create_count += 1
         self._create_axis_name_labels(layer)
-        for i in range(get_layer_dimensions(layer)):
+        for i in range(layer.ndim):
             line_edit = QLineEdit(str(i))
             self._value_line_edits.append(line_edit)
         self._create_inherit_checkboxes(layer)
         self._selected_layer = layer
 
-    def _refresh_values(self, layer):
+    def _refresh_values(self, layer: Layer) -> None:
         self.refresh_count += 1
-        labels = get_axes_labels(self._napari_viewer, layer)
+        labels = layer.axis_labels
         for i, label in enumerate(labels):
             if i < len(self._value_line_edits):
                 with QSignalBlocker(self._value_line_edits[i]):
@@ -90,12 +80,12 @@ class _DummyAxisComponent(AxisComponentBase):
     def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
         return [LayoutEntry(widgets=[self._value_line_edits[axis_index]])]
 
-    def _get_layer_values(self, layer) -> tuple:
-        return get_axes_translations(self._napari_viewer, layer)
+    def _get_layer_values(self, layer: Layer) -> tuple:
+        return tuple(layer.translate)
 
-    def _apply_values(self, values: list) -> None:
+    def _apply_values(self, layer: Layer, values: list) -> None:
         self.last_applied = list(values)
-        set_axes_translations(self._napari_viewer, tuple(values))
+        layer.translate = tuple(values)
 
 
 class TestLayoutEntry:
@@ -107,10 +97,10 @@ class TestLayoutEntry:
 
 class TestAxisComponentBaseLifecycle:
     def test_load_entries_creates_widgets_on_new_layer(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyAxisComponent(parent_widget)
 
         component.load_entries(layer)
 
@@ -120,12 +110,10 @@ class TestAxisComponentBaseLifecycle:
         assert component.num_axes == 2
 
     def test_load_entries_refreshes_for_same_layer(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)), axis_labels=('y', 'x')
-        )
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+        layer = Image(np.zeros((4, 3)), axis_labels=('y', 'x'))
+        component = _DummyAxisComponent(parent_widget)
 
         component.load_entries(layer)
         first_widget_id = id(component._value_line_edits[0])
@@ -139,26 +127,23 @@ class TestAxisComponentBaseLifecycle:
         assert component._value_line_edits[0].text() == 'row'
         assert component._value_line_edits[1].text() == 'col'
 
-    def test_load_entries_clears_widgets_when_no_active_layer(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+    def test_clear_removes_all_widgets(self, parent_widget: QWidget):
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyAxisComponent(parent_widget)
 
         component.load_entries(layer)
         assert component.num_axes == 2
 
-        viewer_model.layers.selection.active = None
-        component.load_entries()
+        component.clear()
 
         assert component.num_axes == 0
         assert component._selected_layer is None
 
     def test_get_layout_entries_structure_and_tooltips(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyAxisComponent(parent_widget)
         component.load_entries(layer)
 
         for axis_idx in range(layer.data.ndim):
@@ -184,26 +169,24 @@ class TestAxisComponentBaseLifecycle:
 
 class TestAxisComponentBaseHelpers:
     def test_update_axis_name_labels_uses_label_or_index_fallback(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
+        layer = Image(
             np.zeros((4, 3)),
             axis_labels=('a', 'b'),
         )
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+        component = _DummyAxisComponent(parent_widget)
         component.load_entries(layer)
 
         layer.axis_labels = ('new', '')
-        component.update_axis_name_labels()
+        component.update_axis_name_labels(layer)
 
         assert component._axis_name_labels[0].text() == 'new'
         assert component._axis_name_labels[1].text() == '1'
 
-    def test_set_checkboxes_visible_toggles_all(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+    def test_set_checkboxes_visible_toggles_all(self, parent_widget: QWidget):
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyAxisComponent(parent_widget)
         component.load_entries(layer)
 
         component.set_checkboxes_visible(False)
@@ -220,40 +203,37 @@ class TestAxisComponentBaseHelpers:
 
 class TestAxisComponentBaseInheritance:
     def test_inherit_layer_properties_merges_checked_axes(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        current = viewer_model.add_image(
-            np.zeros((4, 3)), translate=(1.0, 2.0)
-        )
-        template = viewer_model.add_image(
-            np.zeros((4, 3)), translate=(10.0, 20.0)
-        )
-        viewer_model.layers.selection.active = current
+        current = Image(np.zeros((4, 3)), translate=(1.0, 2.0))
+        template = Image(np.zeros((4, 3)), translate=(10.0, 20.0))
 
-        component = _DummyAxisComponent(viewer_model, parent_widget)
+        component = _DummyAxisComponent(parent_widget)
         component.load_entries(current)
         component._inherit_checkboxes[0].setChecked(True)
         component._inherit_checkboxes[1].setChecked(False)
 
-        component.inherit_layer_properties(template)
+        component.inherit_layer_properties(template, current)
 
         assert tuple(current.translate) == pytest.approx((10.0, 2.0))
         assert component.last_applied == [10.0, 2.0]
         assert component._selected_layer is None
 
-    def test_inherit_layer_properties_no_active_layer_is_noop(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+    def test_inherit_layer_properties_uses_both_layers(
+        self, parent_widget: QWidget
     ):
-        template = viewer_model.add_image(
-            np.zeros((4, 3)), translate=(10.0, 20.0)
-        )
-        viewer_model.layers.selection.active = None
+        """Checked axes get template values, unchecked keep current."""
+        current = Image(np.zeros((4, 3)), translate=(1.0, 2.0))
+        template = Image(np.zeros((4, 3)), translate=(10.0, 20.0))
 
-        component = _DummyAxisComponent(viewer_model, parent_widget)
-        component.inherit_layer_properties(template)
+        component = _DummyAxisComponent(parent_widget)
+        component.load_entries(current)
+        component._inherit_checkboxes[0].setChecked(False)
+        component._inherit_checkboxes[1].setChecked(True)
 
-        assert component.last_applied is None
-        assert component._selected_layer is None
+        component.inherit_layer_properties(template, current)
+
+        assert tuple(current.translate) == pytest.approx((1.0, 20.0))
 
 
 class _DummyFileComponent(FileComponentBase):
@@ -261,11 +241,11 @@ class _DummyFileComponent(FileComponentBase):
     _tooltip_text = 'File tooltip.'
     _under_label_in_vertical = True
 
-    def __init__(self, viewer, parent_widget):
-        super().__init__(viewer, parent_widget)
+    def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__(parent_widget)
         self.get_text_calls: list[str] = []
 
-    def _get_display_text(self, layer) -> str:
+    def _get_display_text(self, layer: Layer) -> str:
         text = f'shape={layer.data.shape}'
         self.get_text_calls.append(text)
         return text
@@ -277,35 +257,32 @@ class _DummyFileComponentWithLineEdit(FileComponentBase):
     _label_text = 'Custom:'
     _tooltip_text = 'Line edit tooltip.'
 
-    def __init__(self, viewer, parent_widget):
-        super().__init__(viewer, parent_widget)
+    def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__(parent_widget)
         self._line_edit = QLineEdit(parent=parent_widget)
 
     @property
     def value_widget(self) -> QLineEdit:
         return self._line_edit
 
-    def _get_display_text(self, layer) -> str:
+    def _get_display_text(self, layer: Layer) -> str:
         return layer.name
 
 
 class TestFileComponentBaseLifecycle:
-    def test_load_entries_shows_placeholder_when_no_layer(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        component = _DummyFileComponent(viewer_model, parent_widget)
-        viewer_model.layers.selection.active = None
+    def test_clear_shows_placeholder(self, parent_widget: QWidget):
+        component = _DummyFileComponent(parent_widget)
 
-        component.load_entries()
+        component.clear()
 
         assert component.value_widget.text() == 'None selected'
         assert len(component.get_text_calls) == 0
 
     def test_load_entries_updates_display_and_tooltip(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        component = _DummyFileComponent(viewer_model, parent_widget)
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyFileComponent(parent_widget)
 
         component.load_entries(layer)
 
@@ -313,43 +290,28 @@ class TestFileComponentBaseLifecycle:
         assert len(component.get_text_calls) == 1
         assert component.value_widget.toolTip() == 'File tooltip.'
 
-    def test_load_entries_uses_active_layer_when_none_passed(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(np.zeros((5, 5)))
-        viewer_model.layers.selection.active = layer
-        component = _DummyFileComponent(viewer_model, parent_widget)
-
-        component.load_entries()
-
-        assert component.value_widget.text() == 'shape=(5, 5)'
-
     def test_default_value_widget_is_display_label(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        component = _DummyFileComponent(viewer_model, parent_widget)
+        component = _DummyFileComponent(parent_widget)
 
         assert component.value_widget is component._display_label
 
-    def test_under_label_in_vertical_default_is_false(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
+    def test_under_label_in_vertical_default_is_false(self):
         assert FileComponentBase._under_label_in_vertical is False
 
     def test_load_entries_tooltip_on_custom_value_widget(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        component = _DummyFileComponentWithLineEdit(
-            viewer_model, parent_widget
-        )
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyFileComponentWithLineEdit(parent_widget)
 
         component.load_entries(layer)
 
         assert component.value_widget.toolTip() == 'Line edit tooltip.'
 
     def test_under_label_in_vertical_can_be_overridden(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        component = _DummyFileComponent(viewer_model, parent_widget)
+        component = _DummyFileComponent(parent_widget)
         assert component._under_label_in_vertical is True
