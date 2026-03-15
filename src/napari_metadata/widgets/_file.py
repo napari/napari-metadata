@@ -24,13 +24,11 @@ from napari_metadata.layer_utils import (
     get_layer_data_dtype,
     get_layer_data_shape,
     get_layer_source_path,
-    resolve_layer,
 )
 from napari_metadata.widgets._base import FileComponentBase
 
 if TYPE_CHECKING:
     from napari.layers import Layer
-    from napari.viewer import ViewerModel
 
 
 class LayerName(FileComponentBase):
@@ -43,8 +41,8 @@ class LayerName(FileComponentBase):
     _label_text = 'Layer Name:'
     _under_label_in_vertical = True
 
-    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
-        super().__init__(viewer, parent_widget)
+    def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__(parent_widget)
         self._line_edit = QLineEdit(parent=parent_widget)
         self._line_edit.setSizePolicy(
             QSizePolicy(
@@ -52,30 +50,35 @@ class LayerName(FileComponentBase):
             )
         )
         self._line_edit.editingFinished.connect(self._on_name_changed)
+        self._selected_layer: Layer | None = None
 
     @property
     def value_widget(self) -> QWidget:
         return self._line_edit
 
+    def load_entries(self, layer: Layer) -> None:
+        self._selected_layer = layer
+        super().load_entries(layer)
+
+    def clear(self) -> None:
+        self._selected_layer = None
+        self._line_edit.setText('None selected')
+
     def _get_display_text(self, layer: Layer) -> str:
         return layer.name
 
-    def _update_display(self, layer: Layer | None) -> None:
-        if layer is None:
-            self._line_edit.setText('None selected')
-        else:
-            self._line_edit.setText(self._get_display_text(layer))
+    def _update_display(self, layer: Layer) -> None:
+        self._line_edit.setText(self._get_display_text(layer))
 
     def _on_name_changed(self) -> None:
         """Write the edited name back to the active layer."""
         text = self._line_edit.text()
-        active_layer = resolve_layer(self._napari_viewer)
-        if active_layer is None:
+        if self._selected_layer is None:
             self._line_edit.setText('No layer selected')
             return
-        if text == active_layer.name:
+        if text == self._selected_layer.name:
             return
-        active_layer.name = text
+        self._selected_layer.name = text
 
 
 class LayerShape(FileComponentBase):
@@ -119,8 +122,8 @@ class SourcePath(FileComponentBase):
     _label_text = 'Source Path:'
     _under_label_in_vertical = True
 
-    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
-        super().__init__(viewer, parent_widget)
+    def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__(parent_widget)
         self._path_line_edit = QLineEdit(parent=parent_widget)
         self._path_line_edit.setReadOnly(True)
         self._path_line_edit.setSizePolicy(
@@ -134,11 +137,11 @@ class SourcePath(FileComponentBase):
     def _get_display_text(self, layer: Layer) -> str:
         return str(get_layer_source_path(layer))
 
-    def _update_display(self, layer: Layer | None) -> None:
-        if layer is None:
-            self._path_line_edit.setText('None selected')
-        else:
-            self._path_line_edit.setText(self._get_display_text(layer))
+    def _update_display(self, layer: Layer) -> None:
+        self._path_line_edit.setText(self._get_display_text(layer))
+
+    def clear(self) -> None:
+        self._path_line_edit.setText('None selected')
 
 
 class FileGeneralMetadata:
@@ -148,12 +151,12 @@ class FileGeneralMetadata:
     ``components`` property for iteration by ``MetadataWidget``.
     """
 
-    def __init__(self, viewer: ViewerModel, parent_widget: QWidget) -> None:
-        self._layer_name = LayerName(viewer, parent_widget)
-        self._layer_shape = LayerShape(viewer, parent_widget)
-        self._layer_dtype = LayerDataType(viewer, parent_widget)
-        self._file_size = FileSize(viewer, parent_widget)
-        self._source_path = SourcePath(viewer, parent_widget)
+    def __init__(self, parent_widget: QWidget) -> None:
+        self._layer_name = LayerName(parent_widget)
+        self._layer_shape = LayerShape(parent_widget)
+        self._layer_dtype = LayerDataType(parent_widget)
+        self._file_size = FileSize(parent_widget)
+        self._source_path = SourcePath(parent_widget)
 
         self._components: list[FileComponentBase] = [
             self._layer_name,
