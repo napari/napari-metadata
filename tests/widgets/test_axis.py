@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from napari.layers import Image
 from qtpy.QtWidgets import QComboBox
 
 from napari_metadata.units import AxisUnitEnum
@@ -22,22 +23,20 @@ from napari_metadata.widgets._axis import (
 )
 
 if TYPE_CHECKING:
-    from napari.components import ViewerModel
     from napari.layers import Layer
     from qtpy.QtWidgets import QWidget
 
 
-def _add_test_image_layer(viewer_model: ViewerModel, **kwargs: Any) -> Layer:
-    viewer_model.add_image(np.zeros((4, 3)), **kwargs)
-    return viewer_model.layers[-1]
+def _make_layer(**kwargs: Any) -> Layer:
+    return Image(np.zeros((4, 3)), **kwargs)
 
 
 class TestAxisScales:
     def test_clamps_spinbox_display_and_layer_value(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(viewer_model, scale=(1.0, 1.0))
-        scales = AxisScales(viewer_model, parent_widget)
+        layer = _make_layer(scale=(1.0, 1.0))
+        scales = AxisScales(parent_widget)
 
         scales.load_entries(layer)
         spinbox = scales._spinboxes[0]
@@ -48,12 +47,11 @@ class TestAxisScales:
 
     def test_can_type_decimal_with_intermediate_zeros(
         self,
-        viewer_model: ViewerModel,
         parent_widget: QWidget,
         qtbot,
     ):
-        layer = _add_test_image_layer(viewer_model, scale=(1.0, 1.0))
-        scales = AxisScales(viewer_model, parent_widget)
+        layer = _make_layer(scale=(1.0, 1.0))
+        scales = AxisScales(parent_widget)
 
         scales.load_entries(layer)
         spinbox = scales._spinboxes[0]
@@ -61,9 +59,6 @@ class TestAxisScales:
         assert line_edit is not None
 
         line_edit.selectAll()
-        # this types '0.020' in one go, which is important to test that the
-        # intermediate '0.0' is accepted and doesn't reset to the clamped
-        # value of 0.001 before the full value is entered.
         qtbot.keyClicks(line_edit, '0.020')
         spinbox.editingFinished.emit()
 
@@ -73,20 +68,17 @@ class TestAxisScales:
 
 class TestAxisLabels:
     def test_refreshes_when_layer_axis_labels_change(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(
-            viewer_model,
-            axis_labels=('row', 'col'),
-        )
-        labels = AxisLabels(viewer_model, parent_widget)
+        layer = _make_layer(axis_labels=('row', 'col'))
+        labels = AxisLabels(parent_widget)
 
         labels.load_entries(layer)
         assert [lbl.text() for lbl in labels._axis_name_labels] == ['', '']
         assert [lbl.text() for lbl in labels._line_edits] == ['row', 'col']
 
         layer.axis_labels = ('new_row', 'new_col')
-        labels.update_axis_name_labels()
+        labels.update_axis_name_labels(layer)
 
         # AxisLabels should refresh when axis labels change.
         assert [lbl.text() for lbl in labels._axis_name_labels] == ['', '']
@@ -98,19 +90,19 @@ class TestAxisLabels:
 
 class TestAxisMetadataCoordinator:
     def test_label_changes_propagate_to_sibling_components(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(
-            viewer_model,
+        layer = _make_layer(
             axis_labels=('y', 'x'),
             scale=(1.0, 1.0),
             translate=(0.0, 0.0),
             units=('pixel', 'pixel'),
         )
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        axis_metadata = AxisMetadata(parent_widget)
 
         for component in axis_metadata.components:
             component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
 
         labels_component = axis_metadata._labels
         scales_component = axis_metadata._scales
@@ -122,16 +114,15 @@ class TestAxisMetadataCoordinator:
         assert scales_component._axis_name_labels[0].text() == 'test'
 
     def test_set_checkboxes_visible_updates_all_components(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(
-            viewer_model,
+        layer = _make_layer(
             axis_labels=('y', 'x'),
             scale=(1.0, 1.0),
             translate=(0.0, 0.0),
             units=('pixel', 'pixel'),
         )
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
 
@@ -149,10 +140,8 @@ class TestAxisMetadataCoordinator:
                 for checkbox in component._inherit_checkboxes
             )
 
-    def test_components_property_returns_copy(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+    def test_components_property_returns_copy(self, parent_widget: QWidget):
+        axis_metadata = AxisMetadata(parent_widget)
         components = axis_metadata.components
         components.clear()
 
@@ -161,10 +150,10 @@ class TestAxisMetadataCoordinator:
 
 class TestAxisUnits:
     def test_custom_units_flow_writes_line_edit_value(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
-        units_component = AxisUnits(viewer_model, parent_widget)
+        layer = _make_layer(units=('pixel', 'second'))
+        units_component = AxisUnits(parent_widget)
         units_component.load_entries(layer)
 
         type_combobox = units_component._type_comboboxes[0]
@@ -175,10 +164,10 @@ class TestAxisUnits:
         assert str(layer.units[0]) == 'furlong'
 
     def test_custom_type_toggles_widget_visibility(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
-        units_component = AxisUnits(viewer_model, parent_widget)
+        layer = _make_layer(units=('pixel', 'second'))
+        units_component = AxisUnits(parent_widget)
         units_component.load_entries(layer)
 
         # Initially SPACE/TIME shows combobox and hides line edit.
@@ -192,11 +181,11 @@ class TestAxisUnits:
         assert not units_component._unit_line_edits[0].isHidden()
 
     def test_invalid_pint_unit_warns_and_keeps_previous_value(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
         """An unrecognised unit string should warn and leave the layer unchanged."""
-        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
-        units_component = AxisUnits(viewer_model, parent_widget)
+        layer = _make_layer(units=('pixel', 'second'))
+        units_component = AxisUnits(parent_widget)
         units_component.load_entries(layer)
 
         type_combobox = units_component._type_comboboxes[0]
@@ -234,10 +223,10 @@ class TestAxisUnits:
         assert combobox.count() == 0
 
     def test_refresh_values_updates_known_and_custom_units(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
-        units_component = AxisUnits(viewer_model, parent_widget)
+        layer = _make_layer(units=('pixel', 'second'))
+        units_component = AxisUnits(parent_widget)
         units_component.load_entries(layer)
 
         layer.units = ('furlong', 'hour')
@@ -256,10 +245,10 @@ class TestAxisUnits:
         assert units_component._unit_comboboxes[1].currentText() == 'hour'
 
     def test_custom_none_text_resets_layer_unit_to_pixel(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(viewer_model, units=('pixel', 'second'))
-        units_component = AxisUnits(viewer_model, parent_widget)
+        layer = _make_layer(units=('pixel', 'second'))
+        units_component = AxisUnits(parent_widget)
         units_component.load_entries(layer)
 
         units_component._type_comboboxes[0].setCurrentEnum(AxisUnitEnum.CUSTOM)
@@ -270,12 +259,10 @@ class TestAxisUnits:
         assert units_component._unit_line_edits[0].text() == 'pixel'
 
     def test_switching_custom_axis_type_uses_category_default(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = _add_test_image_layer(
-            viewer_model, units=('furlong', 'second')
-        )
-        units_component = AxisUnits(viewer_model, parent_widget)
+        layer = _make_layer(units=('furlong', 'second'))
+        units_component = AxisUnits(parent_widget)
         units_component.load_entries(layer)
 
         units_component._type_comboboxes[0].setCurrentEnum(AxisUnitEnum.SPACE)
@@ -288,12 +275,10 @@ class TestAxisEventDriven:
     """Tests that programmatic layer changes update the axis metadata widgets."""
 
     def test_axis_labels_event_updates_line_edits(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)), axis_labels=('y', 'x')
-        )
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        layer = _make_layer(axis_labels=('y', 'x'))
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
         axis_metadata.connect_layer_events(layer)
@@ -304,12 +289,10 @@ class TestAxisEventDriven:
         assert [le.text() for le in labels._line_edits] == ['row', 'col']
 
     def test_axis_labels_event_updates_sibling_axis_name_labels(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
+        self, parent_widget: QWidget
     ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)), axis_labels=('y', 'x'), scale=(1.0, 1.0)
-        )
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        layer = _make_layer(axis_labels=('y', 'x'), scale=(1.0, 1.0))
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
         axis_metadata.connect_layer_events(layer)
@@ -319,11 +302,9 @@ class TestAxisEventDriven:
         scales = axis_metadata._scales
         assert [lbl.text() for lbl in scales._axis_name_labels] == ['A', 'B']
 
-    def test_scale_event_updates_spinboxes(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 2.0))
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+    def test_scale_event_updates_spinboxes(self, parent_widget: QWidget):
+        layer = _make_layer(scale=(1.0, 2.0))
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
         axis_metadata.connect_layer_events(layer)
@@ -334,11 +315,9 @@ class TestAxisEventDriven:
         assert scales._spinboxes[0].value() == pytest.approx(3.0)
         assert scales._spinboxes[1].value() == pytest.approx(4.0)
 
-    def test_translate_event_updates_spinboxes(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(np.zeros((4, 3)), translate=(0.0, 0.0))
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+    def test_translate_event_updates_spinboxes(self, parent_widget: QWidget):
+        layer = _make_layer(translate=(0.0, 0.0))
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
         axis_metadata.connect_layer_events(layer)
@@ -349,13 +328,9 @@ class TestAxisEventDriven:
         assert translations._spinboxes[0].value() == pytest.approx(10.0)
         assert translations._spinboxes[1].value() == pytest.approx(20.0)
 
-    def test_units_event_updates_comboboxes(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(
-            np.zeros((4, 3)), units=('pixel', 'pixel')
-        )
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+    def test_units_event_updates_comboboxes(self, parent_widget: QWidget):
+        layer = _make_layer(units=('pixel', 'pixel'))
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
         axis_metadata.connect_layer_events(layer)
@@ -370,11 +345,9 @@ class TestAxisEventDriven:
             layer.units[1]
         )
 
-    def test_disconnect_stops_updates(
-        self, viewer_model: ViewerModel, parent_widget: QWidget
-    ):
-        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
-        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+    def test_disconnect_stops_updates(self, parent_widget: QWidget):
+        layer = _make_layer(scale=(1.0, 1.0))
+        axis_metadata = AxisMetadata(parent_widget)
         for component in axis_metadata.components:
             component.load_entries(layer)
         axis_metadata.connect_layer_events(layer)
