@@ -80,7 +80,7 @@ class TestMetadataWidgetInit:
         self, metadata_widget: MetadataWidget
     ):
         assert metadata_widget._general_metadata_instance is not None
-        assert len(metadata_widget._general_metadata_instance.components) == 5
+        assert len(metadata_widget._general_metadata_instance.components) == 9
 
     def test_has_axis_metadata_instance(self, metadata_widget: MetadataWidget):
         assert metadata_widget._axis_metadata_instance is not None

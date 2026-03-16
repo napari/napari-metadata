@@ -328,7 +328,7 @@ class FileComponentBase(ComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(viewer, parent_widget)
-        self._display_label = QLabel('None selected', parent=parent_widget)
+        self._display_label = QLabel('', parent=parent_widget)
         self._display_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
     # ------------------------------------------------------------------
@@ -346,6 +346,11 @@ class FileComponentBase(ComponentBase):
         self.value_widget.setToolTip(self._tooltip_text)
         self._update_display(active_layer)
 
+    def set_visible(self, visible: bool) -> None:
+        """Show or hide both the header label and value widget for this component."""
+        self.component_label.setVisible(visible)
+        self.value_widget.setVisible(visible)
+
     # ------------------------------------------------------------------
     # Template methods
     # ------------------------------------------------------------------
@@ -357,7 +362,7 @@ class FileComponentBase(ComponentBase):
         ``_get_display_text``.  Override for custom widget types.
         """
         if layer is None:
-            self._display_label.setText('None selected')
+            self._display_label.setText('')
         else:
             self._display_label.setText(self._get_display_text(layer))
 
