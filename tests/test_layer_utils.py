@@ -19,7 +19,7 @@ from napari_metadata.layer_utils import (
     get_layer_data_dtype,
     get_layer_data_shape,
     get_layer_dimensions,
-    get_layer_source_path,
+    get_layer_source_metadata,
     get_layers_list,
     resolve_layer,
     set_axes_labels,
@@ -295,14 +295,77 @@ class TestGetLayerDataDtype:
         assert get_layer_data_dtype(layer) == 'float64'
 
 
-class TestGetLayerSourcePath:
-    def test_none_layer(self):
-        assert get_layer_source_path(None) == ''
+class TestGetLayerSourceMetadata:
+    def test_none_layer_returns_empty_dict(self):
+        assert get_layer_source_metadata(None) == {}
 
-    def test_in_memory_layer_has_no_path(self, viewer_model):
+    def test_in_memory_layer_returns_empty_dict(self, viewer_model):
         layer = viewer_model.add_image(np.zeros((4, 3)))
-        path = get_layer_source_path(layer)
-        assert path == '' or isinstance(path, str)
+        assert get_layer_source_metadata(layer) == {}
+
+    def test_layer_with_path_only(self, viewer_model):
+        from napari.layers._source import Source
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        layer._source = Source(path='/images/test.tif')
+        metadata = get_layer_source_metadata(layer)
+        assert metadata == {'path': '/images/test.tif'}
+
+    def test_layer_with_reader_plugin(self, viewer_model):
+        from napari.layers._source import Source
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        layer._source = Source(reader_plugin='my-reader')
+        metadata = get_layer_source_metadata(layer)
+        assert metadata == {'reader_plugin': 'my-reader'}
+
+    def test_layer_with_sample(self, viewer_model):
+        from napari.layers._source import Source
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        layer._source = Source(sample=('ndevio', 'ndevio.neuron_labels'))
+        metadata = get_layer_source_metadata(layer)
+        assert metadata == {'sample': str(('ndevio', 'ndevio.neuron_labels'))}
+
+    def test_layer_with_multiple_non_none_attrs(self, viewer_model):
+        from napari.layers._source import Source
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        layer._source = Source(
+            path='https://example.com/data.zarr',
+            reader_plugin='zarr-reader',
+        )
+        metadata = get_layer_source_metadata(layer)
+        assert metadata == {
+            'path': 'https://example.com/data.zarr',
+            'reader_plugin': 'zarr-reader',
+        }
+
+    def test_none_attrs_excluded(self, viewer_model):
+        from napari.layers._source import Source
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        layer._source = Source(
+            path='/test.tif',
+            reader_plugin=None,
+            sample=None,
+        )
+        metadata = get_layer_source_metadata(layer)
+        assert 'reader_plugin' not in metadata
+        assert 'sample' not in metadata
+        assert metadata['path'] == '/test.tif'
+
+    def test_layer_with_parent(self, viewer_model):
+        from napari.layers._source import Source
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        parent_layer = viewer_model.add_image(np.zeros((4, 3)))
+        layer._source = Source(parent=parent_layer)
+        metadata = get_layer_source_metadata(layer)
+        assert 'parent' in metadata
+        # Parent is stored as a weakref, so just check it exists as a string
+        assert isinstance(metadata['parent'], str)
+        assert len(metadata['parent']) > 0
 
 
 class TestGetLayerDimensions:
