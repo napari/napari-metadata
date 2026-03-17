@@ -19,6 +19,7 @@ from napari_metadata.widgets._axis import (
     AxisLabels,
     AxisMetadata,
     AxisScales,
+    AxisTranslations,
     AxisUnits,
 )
 
@@ -42,6 +43,23 @@ class TestAxisScales:
         spinbox = scales._spinboxes[0]
         spinbox.setValue(0.0)
 
+        assert layer.scale[0] == pytest.approx(0.001)
+        assert spinbox.value() == pytest.approx(0.001)
+
+    def test_editing_finished_syncs_spinbox_to_clamped_layer_value(
+        self, parent_widget: QWidget
+    ):
+        """After editing finishes, spinbox display syncs to the clamped layer value."""
+        layer = _make_layer(scale=(1.0, 1.0))
+        scales = AxisScales(parent_widget)
+        scales.load_entries(layer)
+
+        # Simulate typing a value below the clamp threshold
+        spinbox = scales._spinboxes[0]
+        spinbox.setValue(0.0005)
+        spinbox.editingFinished.emit()
+
+        # Layer clamps to 0.001; spinbox should sync back
         assert layer.scale[0] == pytest.approx(0.001)
         assert spinbox.value() == pytest.approx(0.001)
 
@@ -86,6 +104,42 @@ class TestAxisLabels:
             'new_row',
             'new_col',
         ]
+
+    def test_get_line_edit_values_returns_current_text(
+        self, parent_widget: QWidget
+    ):
+        layer = _make_layer(axis_labels=('y', 'x'))
+        labels = AxisLabels(parent_widget)
+        labels.load_entries(layer)
+
+        labels._line_edits[0].setText('row')
+        labels._line_edits[1].setText('col')
+
+        assert labels.get_line_edit_values() == ('row', 'col')
+
+
+class TestAxisTranslations:
+    def test_spinbox_value_change_writes_to_layer(
+        self, parent_widget: QWidget
+    ):
+        layer = _make_layer(translate=(0.0, 0.0))
+        translations = AxisTranslations(parent_widget)
+        translations.load_entries(layer)
+
+        translations._spinboxes[0].setValue(5.0)
+
+        assert tuple(layer.translate) == pytest.approx((5.0, 0.0))
+
+    def test_refresh_updates_spinbox_from_layer(self, parent_widget: QWidget):
+        layer = _make_layer(translate=(0.0, 0.0))
+        translations = AxisTranslations(parent_widget)
+        translations.load_entries(layer)
+
+        layer.translate = (10.0, 20.0)
+        translations.load_entries(layer)
+
+        assert translations._spinboxes[0].value() == pytest.approx(10.0)
+        assert translations._spinboxes[1].value() == pytest.approx(20.0)
 
 
 class TestAxisMetadataCoordinator:
