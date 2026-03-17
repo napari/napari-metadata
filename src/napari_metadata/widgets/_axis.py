@@ -14,6 +14,7 @@ provides aggregate operations (label propagation, checkbox toggling).
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 import pint
@@ -490,6 +491,7 @@ class AxisMetadata:
             self._scales,
             self._units,
         ]
+        self._selected_layer: Layer | None = None
 
         self.set_checkboxes_visible(False)
 
@@ -497,6 +499,38 @@ class AxisMetadata:
     def components(self) -> list[AxisComponentBase]:
         """All axis components in display order."""
         return list(self._components)
+
+    def connect_layer_events(self, layer: Layer) -> None:
+        """Subscribe to *layer* events that require widget refresh."""
+        self._selected_layer = layer
+        layer.events.axis_labels.connect(self._on_labels_changed)
+        layer.events.scale.connect(self._on_scale_changed)
+        layer.events.translate.connect(self._on_translate_changed)
+        layer.events.units.connect(self._on_units_changed)
+
+    def disconnect_layer_events(self, layer: Layer) -> None:
+        """Unsubscribe from *layer* events."""
+        self._selected_layer = None
+        with suppress(TypeError, ValueError, RuntimeError):
+            layer.events.axis_labels.disconnect(self._on_labels_changed)
+        with suppress(TypeError, ValueError, RuntimeError):
+            layer.events.scale.disconnect(self._on_scale_changed)
+        with suppress(TypeError, ValueError, RuntimeError):
+            layer.events.translate.disconnect(self._on_translate_changed)
+        with suppress(TypeError, ValueError, RuntimeError):
+            layer.events.units.disconnect(self._on_units_changed)
+
+    def _on_scale_changed(self) -> None:
+        if self._selected_layer is not None:
+            self._scales._refresh_values(self._selected_layer)
+
+    def _on_translate_changed(self) -> None:
+        if self._selected_layer is not None:
+            self._translations._refresh_values(self._selected_layer)
+
+    def _on_units_changed(self) -> None:
+        if self._selected_layer is not None:
+            self._units._refresh_values(self._selected_layer)
 
     def set_checkboxes_visible(self, visible: bool) -> None:
         """Show or hide inheritance checkboxes on all components."""

@@ -369,3 +369,77 @@ class TestFileGeneralMetadata:
         assert isinstance(meta._source_reader_plugin.value_widget.text(), str)
         assert isinstance(meta._source_sample.value_widget.text(), str)
         assert isinstance(meta._source_parent.value_widget.text(), str)
+
+
+class TestFileEventDriven:
+    """Tests that programmatic layer changes update the file metadata widgets."""
+
+    def test_name_event_updates_layer_name_widget(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)), name='original')
+        file_meta = FileGeneralMetadata(viewer_model, parent_widget)
+        for component in file_meta.components:
+            component.load_entries(layer)
+        file_meta.connect_layer_events(layer)
+
+        layer.name = 'renamed'
+
+        assert file_meta._layer_name.value_widget.text() == 'renamed'
+
+    def test_data_event_updates_shape_widget(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3), dtype=np.uint8), name='test'
+        )
+        file_meta = FileGeneralMetadata(viewer_model, parent_widget)
+        for component in file_meta.components:
+            component.load_entries(layer)
+        file_meta.connect_layer_events(layer)
+
+        layer.data = np.zeros((6, 5), dtype=np.uint8)
+
+        assert file_meta._layer_shape.value_widget.text() == '(6, 5)'
+
+    def test_data_event_updates_dtype_widget(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3), dtype=np.uint8))
+        file_meta = FileGeneralMetadata(viewer_model, parent_widget)
+        for component in file_meta.components:
+            component.load_entries(layer)
+        file_meta.connect_layer_events(layer)
+
+        layer.data = np.zeros((4, 3), dtype=np.float32)
+
+        assert file_meta._layer_dtype.value_widget.text() == 'float32'
+
+    def test_source_path_not_updated_on_data_change(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        """SourcePath is excluded from data-change refresh (immutable after creation)."""
+        layer = viewer_model.add_image(np.zeros((4, 3)), name='test')
+        file_meta = FileGeneralMetadata(viewer_model, parent_widget)
+        for component in file_meta.components:
+            component.load_entries(layer)
+        file_meta.connect_layer_events(layer)
+        initial_path = file_meta._source_path.value_widget.text()
+
+        layer.data = np.zeros((6, 5))
+
+        assert file_meta._source_path.value_widget.text() == initial_path
+
+    def test_disconnect_stops_name_updates(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)), name='first')
+        file_meta = FileGeneralMetadata(viewer_model, parent_widget)
+        for component in file_meta.components:
+            component.load_entries(layer)
+        file_meta.connect_layer_events(layer)
+        file_meta.disconnect_layer_events(layer)
+
+        layer.name = 'second'
+
+        assert file_meta._layer_name.value_widget.text() == 'first'

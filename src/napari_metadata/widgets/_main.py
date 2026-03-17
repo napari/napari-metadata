@@ -260,22 +260,19 @@ class MetadataWidget(QWidget):
             return
 
         if self._selected_layer is not None:
-            self._selected_layer.events.name.disconnect(
-                self._on_selected_layer_name_changed
+            self._general_metadata_instance.disconnect_layer_events(
+                self._selected_layer
+            )
+            self._axis_metadata_instance.disconnect_layer_events(
+                self._selected_layer
             )
 
         if layer is not None:
-            layer.events.name.connect(self._on_selected_layer_name_changed)
+            self._general_metadata_instance.connect_layer_events(layer)
+            self._axis_metadata_instance.connect_layer_events(layer)
 
         self._selected_layer = layer
         self._refresh_page()
-
-    def _on_selected_layer_name_changed(self) -> None:
-        """Refresh file metadata when the active layer's name changes."""
-        if self._selected_layer is None:
-            return
-        for component in self._general_metadata_instance.components:
-            component.load_entries()
 
     # ------------------------------------------------------------------
     # Orientation detection

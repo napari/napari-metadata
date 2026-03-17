@@ -21,6 +21,7 @@ corresponding ``layer.source`` attribute is ``None``.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from qtpy.QtWidgets import QLineEdit, QSizePolicy, QWidget
@@ -235,6 +236,35 @@ class FileGeneralMetadata:
             self._source_widget,
             self._source_parent,
         ]
+        self._selected_layer: Layer | None = None
+
+    def connect_layer_events(self, layer: Layer) -> None:
+        """Subscribe to *layer* events that require widget refresh."""
+        self._selected_layer = layer
+        layer.events.name.connect(self._on_name_changed)
+        layer.events.data.connect(self._on_data_changed)
+
+    def disconnect_layer_events(self, layer: Layer) -> None:
+        """Unsubscribe from *layer* events."""
+        self._selected_layer = None
+        with suppress(TypeError, ValueError, RuntimeError):
+            layer.events.name.disconnect(self._on_name_changed)
+        with suppress(TypeError, ValueError, RuntimeError):
+            layer.events.data.disconnect(self._on_data_changed)
+
+    def _on_name_changed(self) -> None:
+        if self._selected_layer is not None:
+            for component in self._components:
+                component.load_entries(self._selected_layer)
+
+    def _on_data_changed(self) -> None:
+        if self._selected_layer is not None:
+            for component in (
+                self._layer_shape,
+                self._layer_dtype,
+                self._file_size,
+            ):
+                component.load_entries(self._selected_layer)
 
     @property
     def components(self) -> list[FileComponentBase]:

@@ -282,3 +282,106 @@ class TestAxisUnits:
 
         assert str(layer.units[0]) == AxisUnitEnum.SPACE.value.default
         assert units_component._unit_comboboxes[0].currentText() == 'pixel'
+
+
+class TestAxisEventDriven:
+    """Tests that programmatic layer changes update the axis metadata widgets."""
+
+    def test_axis_labels_event_updates_line_edits(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)), axis_labels=('y', 'x')
+        )
+        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        for component in axis_metadata.components:
+            component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
+
+        layer.axis_labels = ('row', 'col')
+
+        labels = axis_metadata._labels
+        assert [le.text() for le in labels._line_edits] == ['row', 'col']
+
+    def test_axis_labels_event_updates_sibling_axis_name_labels(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)), axis_labels=('y', 'x'), scale=(1.0, 1.0)
+        )
+        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        for component in axis_metadata.components:
+            component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
+
+        layer.axis_labels = ('A', 'B')
+
+        scales = axis_metadata._scales
+        assert [lbl.text() for lbl in scales._axis_name_labels] == ['A', 'B']
+
+    def test_scale_event_updates_spinboxes(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 2.0))
+        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        for component in axis_metadata.components:
+            component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
+
+        layer.scale = (3.0, 4.0)
+
+        scales = axis_metadata._scales
+        assert scales._spinboxes[0].value() == pytest.approx(3.0)
+        assert scales._spinboxes[1].value() == pytest.approx(4.0)
+
+    def test_translate_event_updates_spinboxes(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)), translate=(0.0, 0.0))
+        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        for component in axis_metadata.components:
+            component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
+
+        layer.translate = (10.0, 20.0)
+
+        translations = axis_metadata._translations
+        assert translations._spinboxes[0].value() == pytest.approx(10.0)
+        assert translations._spinboxes[1].value() == pytest.approx(20.0)
+
+    def test_units_event_updates_comboboxes(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)), units=('pixel', 'pixel')
+        )
+        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        for component in axis_metadata.components:
+            component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
+
+        layer.units = ('millimeter', 'second')
+
+        units_cmp = axis_metadata._units
+        assert units_cmp._unit_comboboxes[0].currentText() == str(
+            layer.units[0]
+        )
+        assert units_cmp._unit_comboboxes[1].currentText() == str(
+            layer.units[1]
+        )
+
+    def test_disconnect_stops_updates(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3)), scale=(1.0, 1.0))
+        axis_metadata = AxisMetadata(viewer_model, parent_widget)
+        for component in axis_metadata.components:
+            component.load_entries(layer)
+        axis_metadata.connect_layer_events(layer)
+        axis_metadata.disconnect_layer_events(layer)
+
+        layer.scale = (5.0, 6.0)
+
+        scales = axis_metadata._scales
+        assert scales._spinboxes[0].value() == pytest.approx(1.0)
+        assert scales._spinboxes[1].value() == pytest.approx(1.0)
