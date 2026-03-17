@@ -112,8 +112,7 @@ class AxisLabels(AxisComponentBase):
 
     def update_axis_name_labels(self, layer: Layer) -> None:
         """Refresh line edits when axis labels change in the layer."""
-        if self._selected_layer is not None:
-            self._refresh_values(self._selected_layer)
+        self._refresh_values(layer)
 
     def get_line_edit_values(self) -> tuple[str, ...]:
         """Return current text from all label line-edits."""
@@ -377,9 +376,7 @@ class AxisUnits(AxisComponentBase):
     def _sync_visibilities(self) -> None:
         """Toggle unit combobox / line-edit visibility per axis type."""
         for i in range(len(self._type_comboboxes)):
-            axis_type = (
-                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
-            )
+            axis_type = self._type_comboboxes[i].currentEnum()
             show_combobox = axis_type != AxisUnitEnum.CUSTOM
             self._unit_comboboxes[i].setVisible(show_combobox)
             self._unit_line_edits[i].setVisible(not show_combobox)
@@ -409,9 +406,7 @@ class AxisUnits(AxisComponentBase):
             return
         units: list[str] = []
         for i in range(len(self._type_comboboxes)):
-            axis_type = (
-                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
-            )
+            axis_type = self._type_comboboxes[i].currentEnum()
             if axis_type == AxisUnitEnum.CUSTOM:
                 units.append(
                     self._normalize_widget_unit_text(
@@ -436,9 +431,7 @@ class AxisUnits(AxisComponentBase):
             return
         current_units = self._selected_layer.units
         for i in range(len(self._type_comboboxes)):
-            axis_type = (
-                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
-            )
+            axis_type = self._type_comboboxes[i].currentEnum()
             cfg = axis_type.config
             current_unit_str = (
                 str(current_units[i]) if i < len(current_units) else ''

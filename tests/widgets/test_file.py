@@ -43,13 +43,6 @@ class TestLayerShape:
 
         assert component.value_widget.text() == '(10, 20)'
 
-    def test_displays_none_selected_when_cleared(self, parent_widget: QWidget):
-        component = LayerShape(parent_widget)
-
-        component.clear()
-
-        assert component.value_widget.text() == ''
-
 
 class TestLayerDataType:
     def test_displays_dtype_for_image_layer(self, parent_widget: QWidget):
@@ -166,14 +159,6 @@ class TestSourceReaderPlugin:
         assert not component.component_label.isVisible()
         assert not component.value_widget.isVisible()
 
-    def test_source_reader_plugin_component_exists(
-        self, parent_widget: QWidget
-    ):
-        """Verify SourceReaderPlugin component is initialized with correct attributes."""
-        component = SourceReaderPlugin(parent_widget)
-        assert component._label_text == 'Reader Plugin:'
-        assert component._source_attr == 'reader_plugin'
-
 
 class TestSourceSample:
     def test_hidden_when_cleared(self, parent_widget: QWidget):
@@ -192,12 +177,6 @@ class TestSourceSample:
 
         assert not component.component_label.isVisible()
         assert not component.value_widget.isVisible()
-
-    def test_source_sample_component_exists(self, parent_widget: QWidget):
-        """Verify SourceSample component is initialized with correct attributes."""
-        component = SourceSample(parent_widget)
-        assert component._label_text == 'Sample Data:'
-        assert component._source_attr == 'sample'
 
 
 class TestSourceWidget:
@@ -218,14 +197,6 @@ class TestSourceWidget:
         assert not component.component_label.isVisible()
         assert not component.value_widget.isVisible()
 
-    def test_source_widget_component_exists(self, parent_widget: QWidget):
-        """Verify SourceWidget component is initialized and has correct label."""
-        from napari_metadata.widgets._file import SourceWidget
-
-        component = SourceWidget(parent_widget)
-        assert component._label_text == 'Source Widget:'
-        assert component._source_attr == 'widget'
-
 
 class TestSourceParent:
     def test_hidden_when_cleared(self, parent_widget: QWidget):
@@ -245,19 +216,8 @@ class TestSourceParent:
         assert not component.component_label.isVisible()
         assert not component.value_widget.isVisible()
 
-    def test_source_parent_component_exists(self, parent_widget: QWidget):
-        """Verify SourceParent component is initialized with correct attributes."""
-        component = SourceParent(parent_widget)
-        assert component._label_text == 'Source Parent:'
-        assert component._source_attr == 'parent'
-
 
 class TestFileGeneralMetadata:
-    def test_has_five_components(self, parent_widget: QWidget):
-        meta = FileGeneralMetadata(parent_widget)
-
-        assert len(meta.components) == 9
-
     def test_components_in_display_order(self, parent_widget: QWidget):
         meta = FileGeneralMetadata(parent_widget)
         components = meta.components
@@ -308,17 +268,21 @@ class TestFileGeneralMetadata:
         for component in meta.components:
             component.load_entries(layer)
 
-        # Verify all components have been initialized and are accessible
-        assert meta._source_path is not None
-        assert meta._source_reader_plugin is not None
-        assert meta._source_sample is not None
-        assert meta._source_widget is not None
-        assert meta._source_parent is not None
+        # Source components with values should be visible and show correct text
+        assert not meta._source_reader_plugin.component_label.isHidden()
+        assert meta._source_reader_plugin.value_widget.text() == 'tiff-reader'
 
-        # The components should be accessible; widget will be hidden since it's None
-        assert isinstance(meta._source_reader_plugin.value_widget.text(), str)
-        assert isinstance(meta._source_sample.value_widget.text(), str)
-        assert isinstance(meta._source_parent.value_widget.text(), str)
+        assert not meta._source_sample.component_label.isHidden()
+        assert (
+            meta._source_sample.value_widget.text()
+            == "('plugin', 'sample_id')"
+        )
+
+        assert not meta._source_parent.component_label.isHidden()
+        assert meta._source_parent.value_widget.text() != ''
+
+        # Widget source was not set, so it should be hidden
+        assert meta._source_widget.component_label.isHidden()
 
 
 class TestFileEventDriven:

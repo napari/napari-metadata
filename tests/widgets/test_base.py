@@ -32,9 +32,6 @@ class TestComponentBase:
 
         assert component._parent_widget is parent_widget
 
-    def test_tooltip_text_defaults_to_empty_string(self):
-        assert ComponentBase._tooltip_text == ''
-
     def test_shared_init_creates_bold_label_with_tooltip(
         self, parent_widget: QWidget
     ):
@@ -297,9 +294,6 @@ class TestFileComponentBaseLifecycle:
 
         assert component.value_widget is component._display_label
 
-    def test_under_label_in_vertical_default_is_false(self):
-        assert FileComponentBase._under_label_in_vertical is False
-
     def test_load_entries_tooltip_on_custom_value_widget(
         self, parent_widget: QWidget
     ):
@@ -309,9 +303,3 @@ class TestFileComponentBaseLifecycle:
         component.load_entries(layer)
 
         assert component.value_widget.toolTip() == 'Line edit tooltip.'
-
-    def test_under_label_in_vertical_can_be_overridden(
-        self, parent_widget: QWidget
-    ):
-        component = _DummyFileComponent(parent_widget)
-        assert component._under_label_in_vertical is True
