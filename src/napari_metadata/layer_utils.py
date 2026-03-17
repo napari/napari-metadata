@@ -55,10 +55,3 @@ def get_layer_data_dtype(layer: Layer) -> str:
     ):
         return layer_data[0].dtype.name
     return 'Unknown'
-
-
-def get_layer_source_path(layer: Layer) -> str:
-    """Get the source path of the layer if available."""
-    if layer.source.path is None:
-        return ''
-    return layer.source.path

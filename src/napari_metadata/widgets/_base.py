@@ -89,9 +89,6 @@ class ComponentBase(ABC):
 
         self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
         self._component_qlabel.setStyleSheet('font-weight: bold')
-        self._component_qlabel.setAlignment(
-            Qt.AlignmentFlag.AlignLeft
-        )  # this seems to do nothing
         self._component_qlabel.setToolTip(self._tooltip_text)
 
     @property
@@ -317,7 +314,7 @@ class FileComponentBase(ComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(parent_widget)
-        self._display_label = QLabel('None selected', parent=parent_widget)
+        self._display_label = QLabel('', parent=parent_widget)
         self._display_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
     # ------------------------------------------------------------------
@@ -335,8 +332,13 @@ class FileComponentBase(ComponentBase):
         self._update_display(layer)
 
     def clear(self) -> None:
-        """Reset the display to the no-layer placeholder."""
-        self._display_label.setText('None selected')
+        """Reset the display to empty (no-layer state)."""
+        self._display_label.setText('')
+
+    def set_visible(self, visible: bool) -> None:
+        """Show or hide both the header label and value widget for this component."""
+        self.component_label.setVisible(visible)
+        self.value_widget.setVisible(visible)
 
     # ------------------------------------------------------------------
     # Template methods

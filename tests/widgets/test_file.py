@@ -22,10 +22,15 @@ from napari_metadata.widgets._file import (
     LayerDataType,
     LayerName,
     LayerShape,
+    SourceParent,
     SourcePath,
+    SourceReaderPlugin,
+    SourceSample,
+    SourceWidget,
 )
 
 if TYPE_CHECKING:
+    from napari.components import ViewerModel
     from qtpy.QtWidgets import QWidget
 
 
@@ -43,7 +48,7 @@ class TestLayerShape:
 
         component.clear()
 
-        assert component.value_widget.text() == 'None selected'
+        assert component.value_widget.text() == ''
 
 
 class TestLayerDataType:
@@ -122,7 +127,7 @@ class TestSourcePath:
 
         component.clear()
 
-        assert component.value_widget.text() == 'None selected'
+        assert component.value_widget.text() == ''
 
     def test_line_edit_is_read_only(self, parent_widget: QWidget):
         component = SourcePath(parent_widget)
@@ -141,11 +146,117 @@ class TestSourcePath:
         assert component.value_widget.text() == ''
 
 
+class TestSourceReaderPlugin:
+    def test_hidden_when_cleared(self, parent_widget: QWidget):
+        component = SourceReaderPlugin(parent_widget)
+
+        component.clear()
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_hidden_when_layer_has_no_reader_plugin(
+        self, parent_widget: QWidget
+    ):
+        layer = Image(np.zeros((4, 3)))
+        component = SourceReaderPlugin(parent_widget)
+
+        component.load_entries(layer)
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_source_reader_plugin_component_exists(
+        self, parent_widget: QWidget
+    ):
+        """Verify SourceReaderPlugin component is initialized with correct attributes."""
+        component = SourceReaderPlugin(parent_widget)
+        assert component._label_text == 'Reader Plugin:'
+        assert component._source_attr == 'reader_plugin'
+
+
+class TestSourceSample:
+    def test_hidden_when_cleared(self, parent_widget: QWidget):
+        component = SourceSample(parent_widget)
+
+        component.clear()
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_hidden_when_layer_has_no_sample(self, parent_widget: QWidget):
+        layer = Image(np.zeros((4, 3)))
+        component = SourceSample(parent_widget)
+
+        component.load_entries(layer)
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_source_sample_component_exists(self, parent_widget: QWidget):
+        """Verify SourceSample component is initialized with correct attributes."""
+        component = SourceSample(parent_widget)
+        assert component._label_text == 'Sample Data:'
+        assert component._source_attr == 'sample'
+
+
+class TestSourceWidget:
+    def test_hidden_when_cleared(self, parent_widget: QWidget):
+        component = SourceWidget(parent_widget)
+
+        component.clear()
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_hidden_when_layer_has_no_widget(self, parent_widget: QWidget):
+        layer = Image(np.zeros((4, 3)))
+        component = SourceWidget(parent_widget)
+
+        component.load_entries(layer)
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_source_widget_component_exists(self, parent_widget: QWidget):
+        """Verify SourceWidget component is initialized and has correct label."""
+        from napari_metadata.widgets._file import SourceWidget
+
+        component = SourceWidget(parent_widget)
+        assert component._label_text == 'Source Widget:'
+        assert component._source_attr == 'widget'
+
+
+class TestSourceParent:
+    def test_hidden_when_cleared(self, parent_widget: QWidget):
+        component = SourceParent(parent_widget)
+
+        component.clear()
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_hidden_when_layer_has_no_parent(self, parent_widget: QWidget):
+        layer = Image(np.zeros((4, 3)))
+        component = SourceParent(parent_widget)
+
+        component.load_entries(layer)
+
+        assert not component.component_label.isVisible()
+        assert not component.value_widget.isVisible()
+
+    def test_source_parent_component_exists(self, parent_widget: QWidget):
+        """Verify SourceParent component is initialized with correct attributes."""
+        component = SourceParent(parent_widget)
+        assert component._label_text == 'Source Parent:'
+        assert component._source_attr == 'parent'
+
+
 class TestFileGeneralMetadata:
     def test_has_five_components(self, parent_widget: QWidget):
         meta = FileGeneralMetadata(parent_widget)
 
-        assert len(meta.components) == 5
+        assert len(meta.components) == 9
 
     def test_components_in_display_order(self, parent_widget: QWidget):
         meta = FileGeneralMetadata(parent_widget)
@@ -156,13 +267,17 @@ class TestFileGeneralMetadata:
         assert isinstance(components[2], LayerDataType)
         assert isinstance(components[3], FileSize)
         assert isinstance(components[4], SourcePath)
+        assert isinstance(components[5], SourceReaderPlugin)
+        assert isinstance(components[6], SourceSample)
+        assert isinstance(components[7], SourceWidget)
+        assert isinstance(components[8], SourceParent)
 
     def test_components_property_returns_copy(self, parent_widget: QWidget):
         meta = FileGeneralMetadata(parent_widget)
         components = meta.components
         components.clear()
 
-        assert len(meta.components) == 5
+        assert len(meta.components) == 9
 
     def test_all_components_load_entries(self, parent_widget: QWidget):
         layer = Image(np.zeros((4, 3), dtype=np.uint8), name='test')
@@ -174,6 +289,36 @@ class TestFileGeneralMetadata:
         assert meta._layer_name.value_widget.text() == 'test'
         assert meta._layer_shape.value_widget.text() == '(4, 3)'
         assert meta._layer_dtype.value_widget.text() == 'uint8'
+
+    def test_source_components_with_all_attributes(
+        self, viewer_model: ViewerModel, parent_widget: QWidget
+    ):
+        """Test FileGeneralMetadata with a layer having multiple source attributes."""
+        from napari.layers._source import Source
+
+        parent_layer = viewer_model.add_image(np.zeros((4, 3)), name='parent')
+        layer = viewer_model.add_image(np.zeros((4, 3)), name='child')
+        layer._source = Source(
+            reader_plugin='tiff-reader',
+            sample=('plugin', 'sample_id'),
+            parent=parent_layer,
+        )
+        meta = FileGeneralMetadata(parent_widget)
+
+        for component in meta.components:
+            component.load_entries(layer)
+
+        # Verify all components have been initialized and are accessible
+        assert meta._source_path is not None
+        assert meta._source_reader_plugin is not None
+        assert meta._source_sample is not None
+        assert meta._source_widget is not None
+        assert meta._source_parent is not None
+
+        # The components should be accessible; widget will be hidden since it's None
+        assert isinstance(meta._source_reader_plugin.value_widget.text(), str)
+        assert isinstance(meta._source_sample.value_widget.text(), str)
+        assert isinstance(meta._source_parent.value_widget.text(), str)
 
 
 class TestFileEventDriven:

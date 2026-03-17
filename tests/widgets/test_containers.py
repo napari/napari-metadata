@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from qtpy.QtCore import Qt
 
 from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
@@ -134,6 +135,109 @@ class TestSetContentWidget:
         current = w._expanding_area.widget()
         assert current is not None
 
+    def test_vertical_content_area_uses_content_size_hint(self, qtbot):
+        from qtpy.QtCore import QSize
+        from qtpy.QtWidgets import QWidget
+
+        class _HintWidget(QWidget):
+            def sizeHint(self):
+                return QSize(120, 80)
+
+        w = CollapsibleSectionContainer(None, 'T', 'vertical')
+        qtbot.addWidget(w)
+        content = _HintWidget()
+        w.set_content_widget(content)
+
+        expected = (
+            content.sizeHint().height() + 2 * w._expanding_area.frameWidth()
+        )
+        assert w._expanding_area.sizeHint().height() == expected
+        assert w._expanding_area.sizeHint().width() > 0
+
+    def test_horizontal_content_area_uses_wrapper_size_hint(self, qtbot):
+        from qtpy.QtWidgets import QLabel
+
+        w = CollapsibleSectionContainer(None, 'T', 'horizontal')
+        qtbot.addWidget(w)
+        content = QLabel('hello')
+        w.set_content_widget(content)
+
+        wrapper = w._expanding_area.widget()
+        assert wrapper is not None
+        expected = (
+            wrapper.sizeHint().width() + 2 * w._expanding_area.frameWidth()
+        )
+        assert w._expanding_area.sizeHint().width() == expected
+        assert w._expanding_area.sizeHint().height() == 0
+
+    @pytest.mark.parametrize('orientation', ORIENTATIONS)
+    def test_content_area_falls_back_to_base_hints_without_widget(
+        self, qtbot, orientation
+    ):
+        w = CollapsibleSectionContainer(None, 'T', orientation)
+        qtbot.addWidget(w)
+
+        assert w._expanding_area.widget() is None
+        assert w._expanding_area.sizeHint().isValid()
+        assert w._expanding_area.minimumSizeHint().isValid()
+
+
+class TestScrollPolicies:
+    def test_vertical_sections_allow_visible_vertical_scrolling(self, qtbot):
+        w = CollapsibleSectionContainer(None, 'T', 'vertical')
+        qtbot.addWidget(w)
+        assert (
+            w._expanding_area.verticalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+
+    def test_horizontal_sections_allow_inner_horizontal_scrolling(self, qtbot):
+        w = CollapsibleSectionContainer(None, 'T', 'horizontal')
+        qtbot.addWidget(w)
+        assert (
+            w._expanding_area.horizontalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        assert w._expanding_area.widgetResizable()
+
+    def test_vertical_section_button_expands_with_parent_width(self, qtbot):
+        from qtpy.QtWidgets import QVBoxLayout, QWidget
+
+        parent = QWidget()
+        parent.resize(320, 200)
+        layout = QVBoxLayout(parent)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        w = CollapsibleSectionContainer(parent, 'T', 'vertical')
+        layout.addWidget(w)
+        qtbot.addWidget(parent)
+        parent.show()
+        qtbot.waitExposed(parent)
+
+        assert w._button.width() >= parent.width() - 20
+
+    def test_horizontal_width_setter_is_ignored_for_vertical_sections(
+        self, qtbot
+    ):
+        w = CollapsibleSectionContainer(None, 'T', 'vertical')
+        qtbot.addWidget(w)
+
+        before = w.maximumWidth()
+        w.set_horizontal_section_width(200)
+
+        assert w.maximumWidth() == before
+
+    def test_vertical_height_setter_is_ignored_for_horizontal_sections(
+        self, qtbot
+    ):
+        w = CollapsibleSectionContainer(None, 'T', 'horizontal')
+        qtbot.addWidget(w)
+
+        before = w.maximumHeight()
+        w.set_vertical_section_height(200)
+
+        assert w.maximumHeight() == before
+
 
 class TestRotatedButton:
     def test_size_hint_is_transposed(self, qtbot):
@@ -153,6 +257,20 @@ class TestRotatedButton:
 
 
 class TestHorizontalOnlyOuterScrollArea:
+    def test_resize_event_pins_child_height_to_viewport(self, qtbot):
+        from qtpy.QtWidgets import QWidget
+
+        area = HorizontalOnlyOuterScrollArea()
+        content = QWidget()
+        area.setWidget(content)
+        area.resize(240, 160)
+        qtbot.addWidget(area)
+
+        area.show()
+        qtbot.waitExposed(area)
+
+        assert content.height() == area.viewport().height()
+
     def test_wheel_event_is_ignored(self, qtbot):
         """Wheel event must be flagged as ignored (propagated to parent)."""
         from qtpy.QtCore import QPoint, QPointF, Qt

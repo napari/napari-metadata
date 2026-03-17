@@ -8,7 +8,6 @@ from napari.layers import Image
 from napari_metadata.layer_utils import (
     get_layer_data_dtype,
     get_layer_data_shape,
-    get_layer_source_path,
     set_axes_scales,
 )
 
@@ -112,14 +111,3 @@ class TestGetLayerDataDtype:
     def test_standalone_layer(self):
         layer = Image(np.zeros((3, 3), dtype=np.int32))
         assert get_layer_data_dtype(layer) == 'int32'
-
-
-class TestGetLayerSourcePath:
-    def test_in_memory_layer_has_no_path(self, viewer_model: ViewerModel):
-        layer = viewer_model.add_image(np.zeros((4, 3)))
-        path = get_layer_source_path(layer)
-        assert path == '' or isinstance(path, str)
-
-    def test_standalone_layer(self):
-        layer = Image(np.zeros((4, 3)))
-        assert get_layer_source_path(layer) == ''

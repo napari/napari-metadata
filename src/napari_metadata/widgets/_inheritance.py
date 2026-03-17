@@ -42,12 +42,13 @@ class InheritanceWidget(QWidget):
         self._layout.setSpacing(3)
         self._layout.setContentsMargins(10, 10, 10, 10)
 
-        self.setMinimumWidth(300)
-
         self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.setSizePolicy(
-            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            QSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
         )
 
         self._template_layer_label = QLabel('Copy from template layer')
