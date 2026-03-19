@@ -120,8 +120,6 @@ class AxisLabels(AxisComponentBase):
 
     def _on_editing_finished(self) -> None:
         """Handle editingFinished from any label QLineEdit."""
-        if self._selected_layer is None:
-            return
         labels = self.get_line_edit_values()
         self._selected_layer.axis_labels = labels
         if self._on_labels_changed is not None:
@@ -172,8 +170,6 @@ class AxisTranslations(AxisComponentBase):
         layer.translate = tuple(values)
 
     def _on_value_changed(self) -> None:
-        if self._selected_layer is None:
-            return
         values = tuple(sb.value() for sb in self._spinboxes)
         self._selected_layer.translate = values
 
@@ -234,15 +230,11 @@ class AxisScales(AxisComponentBase):
         )
 
     def _on_value_changed(self) -> None:
-        if self._selected_layer is None:
-            return
         values = np.array(tuple(sb.value() for sb in self._spinboxes))
         self._selected_layer.scale = values
 
     def _on_editing_finished(self) -> None:
         """Sync displayed values to the layer values after edit commit."""
-        if self._selected_layer is None:
-            return
         scales = self._selected_layer.scale
         for i, value in enumerate(scales):
             if i < len(self._spinboxes):
@@ -387,8 +379,6 @@ class AxisUnits(AxisComponentBase):
 
     def _sync_line_edit_texts(self) -> None:
         """Update free-form line-edit texts from layer units."""
-        if self._selected_layer is None:
-            return
         current_units = self._selected_layer.units
         for i in range(min(len(self._unit_line_edits), len(current_units))):
             with QSignalBlocker(self._unit_line_edits[i]):
@@ -406,8 +396,6 @@ class AxisUnits(AxisComponentBase):
 
     def _write_units_to_layer(self) -> None:
         """Collect current unit selections and apply to the layer."""
-        if self._selected_layer is None:
-            return
         units: list[str] = []
         for i in range(len(self._type_comboboxes)):
             axis_type = self._type_comboboxes[i].currentEnum()
@@ -431,8 +419,6 @@ class AxisUnits(AxisComponentBase):
 
     def _on_type_changed(self) -> None:
         """Repopulate unit comboboxes when a type combobox changes."""
-        if self._selected_layer is None:
-            return
         current_units = self._selected_layer.units
         for i in range(len(self._type_comboboxes)):
             axis_type = self._type_comboboxes[i].currentEnum()

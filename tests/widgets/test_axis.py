@@ -414,10 +414,8 @@ class TestAxisEventDriven:
         assert scales._spinboxes[1].value() == pytest.approx(1.0)
 
 
-class TestAxisComponentsWithoutLayer:
-    """Guard paths invoked when no layer has been loaded into a component."""
-
-    def test_axis_labels_get_value_entries_returns_line_edit_entry(
+class TestAxisLabelsGetValueEntries:
+    def test_get_value_entries_returns_line_edit_entry(
         self, parent_widget: QWidget
     ):
         """_get_value_entries returns an entry wrapping the correct QLineEdit."""
@@ -430,62 +428,12 @@ class TestAxisComponentsWithoutLayer:
         assert len(entries) == 1
         assert entries[0].widgets[0] is labels._line_edits[0]
 
-    def test_axis_labels_editing_finished_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        labels = AxisLabels(parent_widget)
-        assert labels._selected_layer is None
-        assert labels.num_axes == 0
-        labels._on_editing_finished()  # no layer — must not raise
 
-    def test_axis_translations_on_value_changed_noop_without_layer(
+class TestAxisMetadataNoLayer:
+    def test_on_labels_changed_noop_without_layer(
         self, parent_widget: QWidget
     ):
-        translations = AxisTranslations(parent_widget)
-        assert translations._selected_layer is None
-        assert translations.num_axes == 0
-        translations._on_value_changed()  # no layer — must not raise
-
-    def test_axis_scales_on_value_changed_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        scales = AxisScales(parent_widget)
-        assert scales._selected_layer is None
-        assert scales.num_axes == 0
-        scales._on_value_changed()  # no layer — must not raise
-
-    def test_axis_scales_editing_finished_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        scales = AxisScales(parent_widget)
-        assert scales._selected_layer is None
-        scales._on_editing_finished()  # no layer — must not raise
-
-    def test_axis_units_sync_line_edits_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        units = AxisUnits(parent_widget)
-        assert units._selected_layer is None
-        assert units.num_axes == 0
-        units._sync_line_edit_texts()  # no layer — must not raise
-
-    def test_axis_units_write_units_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        units = AxisUnits(parent_widget)
-        assert units._selected_layer is None
-        units._write_units_to_layer()  # no layer — must not raise
-
-    def test_axis_units_on_type_changed_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        units = AxisUnits(parent_widget)
-        assert units._selected_layer is None
-        units._on_type_changed()  # no layer — must not raise
-
-    def test_axis_metadata_on_labels_changed_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
+        """AxisMetadata._on_labels_changed is a no-op when no layer is connected."""
         metadata = AxisMetadata(parent_widget)
         assert metadata._selected_layer is None
         metadata._on_labels_changed()  # must not raise

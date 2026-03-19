@@ -134,7 +134,7 @@ class TestAxisComponentBaseLifecycle:
         component.clear()
 
         assert component.num_axes == 0
-        assert component._selected_layer is None
+        assert component._selected_layer is layer
 
     def test_get_layout_entries_structure_and_tooltips(
         self, parent_widget: QWidget

@@ -121,13 +121,17 @@ class AxisComponentBase(ComponentBase):
     below.
     """
 
+    #: The layer currently loaded into this component.  Set by
+    #: ``_create_widgets``; guaranteed to be a live ``Layer`` whenever
+    #: any signal handler runs (signals are blocked during teardown).
+    #: **Do not access before the first** ``load_entries`` **call.**
+    _selected_layer: Layer
+
     def __init__(
         self,
         parent_widget: QWidget,
     ) -> None:
         super().__init__(parent_widget)
-        self._selected_layer: Layer | None = None
-
         self._axis_name_labels: list[QLabel] = []
         self._inherit_checkboxes: list[QCheckBox] = []
 
@@ -143,14 +147,14 @@ class AxisComponentBase(ComponentBase):
     def load_entries(self, layer: Layer) -> None:
         """Load or refresh widgets for *layer*.
 
-        * Layer changed → destroy old widgets, create new ones.
-        * Same layer → refresh existing widget values in place.
+        * First call or layer changed -> destroy old widgets, create new ones.
+        * Same layer -> refresh existing widget values in place.
         """
-        if layer != self._selected_layer:
+        if self.num_axes > 0 and layer is self._selected_layer:
+            self._refresh_values(layer)
+        else:
             self._clear_widgets()
             self._create_widgets(layer)
-            return
-        self._refresh_values(layer)
 
     def clear(self) -> None:
         """Destroy all per-axis widgets (used when no layer is active)."""
@@ -253,11 +257,14 @@ class AxisComponentBase(ComponentBase):
         return [self._axis_name_labels, self._inherit_checkboxes]
 
     def _clear_widgets(self) -> None:
-        """Block signals, destroy all per-axis widgets, and reset ``_selected_layer``.
+        """Block signals and destroy all per-axis widgets.
 
         Signals are blocked before ``setParent(None)`` to prevent Qt
         focus-loss events (e.g. ``editingFinished``) from reaching
-        handlers while widgets are being torn down.
+        handlers while widgets are being torn down.  ``_selected_layer``
+        is intentionally left pointing at the previous layer so that
+        ``load_entries`` can detect whether the next call is for the same
+        layer or a new one.
         """
         for widget_list in self._all_widget_lists():
             for w in widget_list:
@@ -265,7 +272,6 @@ class AxisComponentBase(ComponentBase):
                 w.setParent(None)
                 w.deleteLater()
             widget_list.clear()
-        self._selected_layer = None
 
     def _create_axis_name_labels(self, layer: Layer) -> None:
         """Create per-axis name QLabels from the layer's axis labels.
