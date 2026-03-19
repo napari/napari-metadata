@@ -50,10 +50,10 @@ class TestInheritanceWidgetInit:
     ) -> None:
         assert not inheritance_widget._apply_button.isEnabled()
 
-    def test_selected_layer_is_none_at_init(
+    def test_event_connected_layer_is_none_at_init(
         self, inheritance_widget: InheritanceWidget
     ) -> None:
-        assert inheritance_widget._selected_layer is None
+        assert inheritance_widget._event_connected_layer is None
 
 
 class TestComboboxPopulation:
@@ -269,7 +269,7 @@ class TestCloseDisconnectsLayerNameCallback:
 
         # Adding a layer auto-selects it, which wires the name-changed callback
         layer = viewer_model.add_image(np.zeros((4, 4)), name='before-close')
-        assert widget._selected_layer is layer
+        assert widget._event_connected_layer is layer
 
         widget.close()
 
@@ -281,15 +281,15 @@ class TestCloseDisconnectsLayerNameCallback:
         ]
         assert 'after-close' not in items
 
-    def test_close_safe_when_no_selected_layer(
+    def test_close_safe_when_no_event_connected_layer(
         self,
         viewer_model: ViewerModel,
         parent_widget: QWidget,
         qtbot,
     ) -> None:
-        """close() must not raise when _selected_layer is None."""
+        """close() must not raise when _event_connected_layer is None."""
         widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
-        assert widget._selected_layer is None
+        assert widget._event_connected_layer is None
         # Should complete without error
         widget.close()

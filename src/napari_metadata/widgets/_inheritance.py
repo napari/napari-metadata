@@ -35,7 +35,7 @@ class InheritanceWidget(QWidget):
         self._template_layer: Layer | None = None
         self._inheriting_layer: Layer | None = None
         self._on_apply_inheritance = on_apply_inheritance
-        self._selected_layer: Layer | None = None
+        self._event_connected_layer: Layer | None = None
 
         self._layout: QVBoxLayout = QVBoxLayout()
         self.setLayout(self._layout)
@@ -180,14 +180,14 @@ class InheritanceWidget(QWidget):
 
     def _on_layer_selection_changed(self) -> None:
         current_layer = self._layers.selection.active
-        if current_layer is self._selected_layer:
+        if current_layer is self._event_connected_layer:
             return
-        if self._selected_layer is not None:
+        if self._event_connected_layer is not None:
             with suppress(TypeError, ValueError):
-                self._selected_layer.events.name.disconnect(
+                self._event_connected_layer.events.name.disconnect(
                     self._on_layer_name_changed
                 )
-        self._selected_layer = current_layer
+        self._event_connected_layer = current_layer
         if current_layer is not None:
             current_layer.events.name.connect(self._on_layer_name_changed)
 
@@ -212,9 +212,9 @@ class InheritanceWidget(QWidget):
             self._layers.selection.events.active.disconnect(
                 self._on_layer_selection_changed
             )
-        if self._selected_layer is not None:
+        if self._event_connected_layer is not None:
             with suppress(TypeError, ValueError):
-                self._selected_layer.events.name.disconnect(
+                self._event_connected_layer.events.name.disconnect(
                     self._on_layer_name_changed
                 )
         super().closeEvent(a0)
