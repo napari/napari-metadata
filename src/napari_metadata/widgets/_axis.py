@@ -29,7 +29,6 @@ from qtpy.QtWidgets import (
 )
 from superqt import QEnumComboBox
 
-from napari_metadata.layer_utils import set_axes_scales
 from napari_metadata.units import AxisUnitEnum
 from napari_metadata.widgets._base import (
     AxisComponentBase,
@@ -181,10 +180,12 @@ class AxisTranslations(AxisComponentBase):
 class AxisScales(AxisComponentBase):
     """Per-axis scale editor using ``QDoubleSpinBox`` widgets.
 
-    ``set_axes_scales`` enforces a lower bound of ``0.001`` in the layer
-    model. The spinbox keeps live updates while typing and only syncs its
-    displayed value back to the model value when editing is committed.
+    The spinbox range enforces a lower bound of ``0.001``.  Live updates
+    are pushed while typing; the displayed value syncs back to the layer
+    model when editing is committed.
     """
+
+    _SCALE_MINIMUM = 0.0001
 
     _label_text = 'Scale:'
 
@@ -204,7 +205,7 @@ class AxisScales(AxisComponentBase):
             sb = QDoubleSpinBox(parent=self._parent_widget)
             sb.setDecimals(3)
             sb.setSingleStep(0.1)
-            sb.setRange(0.001, 1_000_000)
+            sb.setRange(self._SCALE_MINIMUM, 1_000_000)
             sb.setValue(value)
             sb.valueChanged.connect(self._on_value_changed)
             sb.editingFinished.connect(self._on_editing_finished)
@@ -227,13 +228,13 @@ class AxisScales(AxisComponentBase):
         return tuple(layer.scale)
 
     def _apply_values(self, layer: Layer, values: list) -> None:
-        set_axes_scales(layer, tuple(values))
+        layer.scale = tuple(max(v, self._SCALE_MINIMUM) for v in values)
 
     def _on_value_changed(self) -> None:
         if self._selected_layer is None:
             return
         values = tuple(sb.value() for sb in self._spinboxes)
-        set_axes_scales(self._selected_layer, values)
+        self._selected_layer.scale = values
 
     def _on_editing_finished(self) -> None:
         """Sync displayed values to the layer values after edit commit."""
