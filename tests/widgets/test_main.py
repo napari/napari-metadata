@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from napari import viewer
 import numpy as np
 import pytest
 from qtpy.QtCore import QEvent
@@ -23,8 +22,8 @@ from qtpy.QtWidgets import QFrame, QGridLayout, QVBoxLayout, QWidget
 
 from napari_metadata.widgets._main import (
     _CONTENT_PAGE,
-    _NO_LAYER_PAGE,
     _MULTI_LAYER_PAGE,
+    _NO_LAYER_PAGE,
     MetadataWidget,
     Orientation,
     _add_horizontal_separator,
