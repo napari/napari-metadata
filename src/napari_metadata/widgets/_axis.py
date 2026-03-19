@@ -17,6 +17,7 @@ from __future__ import annotations
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pint
 from napari.utils.notifications import show_warning
 from qtpy.QtCore import QSignalBlocker
@@ -185,7 +186,7 @@ class AxisScales(AxisComponentBase):
     model when editing is committed.
     """
 
-    _SCALE_MINIMUM = 0.0001
+    _SCALE_MINIMUM = 0.001
 
     _label_text = 'Scale:'
 
@@ -228,12 +229,14 @@ class AxisScales(AxisComponentBase):
         return tuple(layer.scale)
 
     def _apply_values(self, layer: Layer, values: list) -> None:
-        layer.scale = tuple(max(v, self._SCALE_MINIMUM) for v in values)
+        layer.scale = np.array(
+            tuple(max(v, self._SCALE_MINIMUM) for v in values)
+        )
 
     def _on_value_changed(self) -> None:
         if self._selected_layer is None:
             return
-        values = tuple(sb.value() for sb in self._spinboxes)
+        values = np.array(tuple(sb.value() for sb in self._spinboxes))
         self._selected_layer.scale = values
 
     def _on_editing_finished(self) -> None:
