@@ -100,19 +100,7 @@ class TestLayerName:
 
         assert layer.name == 'keep'
 
-    def test_editing_with_no_active_layer_shows_message(
-        self, parent_widget: QWidget
-    ):
-        component = LayerName(parent_widget)
-
-        component._line_edit.setText('anything')
-        component._line_edit.editingFinished.emit()
-
-        assert component._line_edit.text() == 'No layer selected'
-
-    def test_clear_resets_selected_layer_and_clears_text(
-        self, parent_widget: QWidget
-    ):
+    def test_clear_clears_text(self, parent_widget: QWidget):
         layer = Image(np.zeros((4, 3)), name='test')
         component = LayerName(parent_widget)
         component.load_entries(layer)
@@ -120,7 +108,7 @@ class TestLayerName:
 
         component.clear()
 
-        assert component._selected_layer is None
+        assert component._selected_layer is layer
         assert component._line_edit.text() == ''
 
 

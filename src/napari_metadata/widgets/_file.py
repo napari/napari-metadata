@@ -47,6 +47,12 @@ class LayerName(FileComponentBase):
     _label_text = 'Layer Name:'
     _under_label_in_vertical = True
 
+    #: The layer currently loaded.  Set by ``load_entries``; valid whenever
+    #: ``_on_name_changed`` runs (the signal is only reachable after
+    #: ``load_entries`` has been called).
+    #: **Do not access before the first** ``load_entries`` **call.**
+    _selected_layer: Layer
+
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
         self._line_edit = QLineEdit(parent=parent_widget)
@@ -56,7 +62,6 @@ class LayerName(FileComponentBase):
             )
         )
         self._line_edit.editingFinished.connect(self._on_name_changed)
-        self._selected_layer: Layer | None = None
 
     @property
     def value_widget(self) -> QWidget:
@@ -67,7 +72,6 @@ class LayerName(FileComponentBase):
         super().load_entries(layer)
 
     def clear(self) -> None:
-        self._selected_layer = None
         self._line_edit.setText('')
 
     def _get_display_text(self, layer: Layer) -> str:
@@ -79,9 +83,6 @@ class LayerName(FileComponentBase):
     def _on_name_changed(self) -> None:
         """Write the edited name back to the active layer."""
         text = self._line_edit.text()
-        if self._selected_layer is None:
-            self._line_edit.setText('No layer selected')
-            return
         if text == self._selected_layer.name:
             return
         self._selected_layer.name = text

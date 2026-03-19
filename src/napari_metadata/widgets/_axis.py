@@ -453,6 +453,11 @@ class AxisMetadata:
     * Toggle inheritance checkboxes globally
     """
 
+    #: The layer whose events are currently connected.  Set by
+    #: ``connect_layer_events``; valid whenever any handler runs.
+    #: **Do not access before the first** ``connect_layer_events`` **call.**
+    _selected_layer: Layer
+
     def __init__(self, parent_widget: QWidget) -> None:
         self._labels = AxisLabels(
             parent_widget,
@@ -468,7 +473,6 @@ class AxisMetadata:
             self._scales,
             self._units,
         ]
-        self._selected_layer: Layer | None = None
 
         self.set_checkboxes_visible(False)
 
@@ -487,7 +491,6 @@ class AxisMetadata:
 
     def disconnect_layer_events(self, layer: Layer) -> None:
         """Unsubscribe from *layer* events."""
-        self._selected_layer = None
         with suppress(TypeError, ValueError, RuntimeError):
             layer.events.axis_labels.disconnect(self._on_labels_changed)
         with suppress(TypeError, ValueError, RuntimeError):
@@ -498,16 +501,13 @@ class AxisMetadata:
             layer.events.units.disconnect(self._on_units_changed)
 
     def _on_scale_changed(self) -> None:
-        if self._selected_layer is not None:
-            self._scales._refresh_values(self._selected_layer)
+        self._scales._refresh_values(self._selected_layer)
 
     def _on_translate_changed(self) -> None:
-        if self._selected_layer is not None:
-            self._translations._refresh_values(self._selected_layer)
+        self._translations._refresh_values(self._selected_layer)
 
     def _on_units_changed(self) -> None:
-        if self._selected_layer is not None:
-            self._units._refresh_values(self._selected_layer)
+        self._units._refresh_values(self._selected_layer)
 
     def set_checkboxes_visible(self, visible: bool) -> None:
         """Show or hide inheritance checkboxes on all components."""
@@ -516,7 +516,5 @@ class AxisMetadata:
 
     def _on_labels_changed(self) -> None:
         """Propagate axis-label text changes to all sibling components."""
-        if self._selected_layer is None:
-            return
         for c in self._components:
             c.update_axis_name_labels(self._selected_layer)

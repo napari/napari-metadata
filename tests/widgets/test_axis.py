@@ -427,13 +427,3 @@ class TestAxisLabelsGetValueEntries:
 
         assert len(entries) == 1
         assert entries[0].widgets[0] is labels._line_edits[0]
-
-
-class TestAxisMetadataNoLayer:
-    def test_on_labels_changed_noop_without_layer(
-        self, parent_widget: QWidget
-    ):
-        """AxisMetadata._on_labels_changed is a no-op when no layer is connected."""
-        metadata = AxisMetadata(parent_widget)
-        assert metadata._selected_layer is None
-        metadata._on_labels_changed()  # must not raise
