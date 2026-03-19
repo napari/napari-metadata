@@ -24,6 +24,7 @@ from __future__ import annotations
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
+from qtpy.QtCore import QSignalBlocker
 from qtpy.QtWidgets import QLineEdit, QSizePolicy, QWidget
 
 from napari_metadata.file_size import generate_display_size
@@ -47,11 +48,10 @@ class LayerName(FileComponentBase):
     _label_text = 'Layer Name:'
     _under_label_in_vertical = True
 
-    #: The layer currently loaded.  Set by ``load_entries``; valid whenever
-    #: ``_on_name_changed`` runs (the signal is only reachable after
-    #: ``load_entries`` has been called).
-    #: **Do not access before the first** ``load_entries`` **call.**
-    _selected_layer: Layer
+    #: The layer currently loaded. Cleared on ``clear()`` so a late
+    #: ``editingFinished`` cannot write back to a stale layer after the widget
+    #: has transitioned to the no-layer state.
+    _selected_layer: Layer | None
 
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
@@ -72,7 +72,9 @@ class LayerName(FileComponentBase):
         super().load_entries(layer)
 
     def clear(self) -> None:
-        self._line_edit.setText('')
+        self._selected_layer = None
+        with QSignalBlocker(self._line_edit):
+            self._line_edit.setText('')
 
     def _get_display_text(self, layer: Layer) -> str:
         return layer.name
@@ -82,6 +84,8 @@ class LayerName(FileComponentBase):
 
     def _on_name_changed(self) -> None:
         """Write the edited name back to the active layer."""
+        if self._selected_layer is None:
+            return
         text = self._line_edit.text()
         if text == self._selected_layer.name:
             return

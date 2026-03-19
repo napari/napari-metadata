@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from napari.utils.notifications import show_info
-from qtpy.QtCore import QEvent, QObject, Qt
+from qtpy.QtCore import QEvent, QObject, QSignalBlocker, Qt
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QDockWidget,
@@ -517,16 +517,19 @@ class MetadataWidget(QWidget):
         """
         for comp in self._general_metadata_instance.components:
             comp.component_label.setParent(self)
-            comp.value_widget.setParent(self)
+            with QSignalBlocker(comp.value_widget):
+                comp.value_widget.setParent(self)
 
         for comp in self._axis_metadata_instance.components:
             comp.component_label.setParent(self)
             for i in range(comp.num_axes):
                 for entry in comp.get_layout_entries(i):
                     for w in entry.widgets:
-                        w.setParent(self)
+                        with QSignalBlocker(w):
+                            w.setParent(self)
 
-        self._inheritance_instance.setParent(self)
+        with QSignalBlocker(self._inheritance_instance):
+            self._inheritance_instance.setParent(self)
 
     def _on_inheritance_toggled(self, checked: bool) -> None:
         """Handle inheritance section toggle — sync checkboxes and sizes."""

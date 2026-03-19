@@ -108,7 +108,22 @@ class TestLayerName:
 
         component.clear()
 
-        assert component._selected_layer is layer
+        assert component._selected_layer is None
+        assert component._line_edit.text() == ''
+
+    def test_clear_ignores_late_editing_finished(self, parent_widget: QWidget):
+        layer = Image(np.zeros((4, 3)), name='original')
+        component = LayerName(parent_widget)
+        component.load_entries(layer)
+
+        component._line_edit.setText('edited')
+        component.clear()
+
+        # Simulate a late focus-loss signal arriving after the widget has
+        # already transitioned to the no-layer state.
+        component._line_edit.editingFinished.emit()
+
+        assert layer.name == 'original'
         assert component._line_edit.text() == ''
 
 
