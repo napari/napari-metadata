@@ -82,6 +82,7 @@ class ComponentBase(ABC):
         self,
         parent_widget: QWidget,
     ) -> None:
+        super().__init__()
         self._parent_widget = parent_widget
 
         self._component_qlabel = QLabel(self._label_text, parent=parent_widget)
@@ -101,7 +102,8 @@ class ComponentBase(ABC):
 class BoundLayerOwner:
     """Shared bound-layer state and validation helpers."""
 
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self._selected_layer: Layer | None = None
 
     def _bind_layer_reference(self, layer: Layer) -> None:
@@ -180,8 +182,7 @@ class AxisComponentBase(BoundLayerOwner, ComponentBase):
         self,
         parent_widget: QWidget,
     ) -> None:
-        ComponentBase.__init__(self, parent_widget)
-        BoundLayerOwner.__init__(self)
+        super().__init__(parent_widget)
         self._axis_name_labels: list[QLabel] = []
         self._inherit_checkboxes: list[QCheckBox] = []
 
@@ -434,8 +435,7 @@ class BoundFileComponentBase(BoundLayerOwner, FileComponentBase):
     """Template lifecycle for file components that need a bound layer."""
 
     def __init__(self, parent_widget: QWidget) -> None:
-        FileComponentBase.__init__(self, parent_widget)
-        BoundLayerOwner.__init__(self)
+        super().__init__(parent_widget)
 
     def bind_layer(self, layer: Layer) -> None:
         """Bind this interactive file component to *layer*."""
