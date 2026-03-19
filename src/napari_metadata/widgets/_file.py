@@ -140,7 +140,8 @@ class _SourceAttributeComponent(FileComponentBase):
         self._display_label.setText(text)
 
     def clear(self) -> None:
-        """Hide this component when no layer is selected."""
+        """Hide this component and reset display when no layer is selected."""
+        self._display_label.setText('')
         self.set_visible(False)
 
     def _update_display(self, layer: Layer) -> None:
