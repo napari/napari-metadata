@@ -434,47 +434,58 @@ class TestAxisComponentsWithoutLayer:
         self, parent_widget: QWidget
     ):
         labels = AxisLabels(parent_widget)
+        assert labels._selected_layer is None
+        assert labels.num_axes == 0
         labels._on_editing_finished()  # no layer — must not raise
 
     def test_axis_translations_on_value_changed_noop_without_layer(
         self, parent_widget: QWidget
     ):
         translations = AxisTranslations(parent_widget)
+        assert translations._selected_layer is None
+        assert translations.num_axes == 0
         translations._on_value_changed()  # no layer — must not raise
 
     def test_axis_scales_on_value_changed_noop_without_layer(
         self, parent_widget: QWidget
     ):
         scales = AxisScales(parent_widget)
+        assert scales._selected_layer is None
+        assert scales.num_axes == 0
         scales._on_value_changed()  # no layer — must not raise
 
     def test_axis_scales_editing_finished_noop_without_layer(
         self, parent_widget: QWidget
     ):
         scales = AxisScales(parent_widget)
+        assert scales._selected_layer is None
         scales._on_editing_finished()  # no layer — must not raise
 
     def test_axis_units_sync_line_edits_noop_without_layer(
         self, parent_widget: QWidget
     ):
         units = AxisUnits(parent_widget)
+        assert units._selected_layer is None
+        assert units.num_axes == 0
         units._sync_line_edit_texts()  # no layer — must not raise
 
     def test_axis_units_write_units_noop_without_layer(
         self, parent_widget: QWidget
     ):
         units = AxisUnits(parent_widget)
+        assert units._selected_layer is None
         units._write_units_to_layer()  # no layer — must not raise
 
     def test_axis_units_on_type_changed_noop_without_layer(
         self, parent_widget: QWidget
     ):
         units = AxisUnits(parent_widget)
+        assert units._selected_layer is None
         units._on_type_changed()  # no layer — must not raise
 
     def test_axis_metadata_on_labels_changed_noop_without_layer(
         self, parent_widget: QWidget
     ):
         metadata = AxisMetadata(parent_widget)
-        # _selected_layer is None by construction — must not raise
-        metadata._on_labels_changed()
+        assert metadata._selected_layer is None
+        metadata._on_labels_changed()  # must not raise
