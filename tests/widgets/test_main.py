@@ -746,6 +746,7 @@ class TestLayerSelectionFlow:
         widget._refresh_page()
 
         widget._selected_layer = None
+        viewer_model.layers.selection.clear()
         widget._refresh_page()
 
         assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
