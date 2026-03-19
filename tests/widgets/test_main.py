@@ -824,6 +824,96 @@ class TestLayerSelectionFlow:
         assert widget._inheritance_section.isExpanded()
         _assert_section_content_available(widget)
 
+    def test_expanded_sections_preserved_through_no_layer_transition(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        """Sections stay expanded when the active layer briefly becomes None.
+
+        This simulates what happens when a layer is added or removed: napari
+        may transiently fire ``active=None`` before selecting the new layer,
+        which tears down the sections.  Expanded states must survive that cycle.
+        """
+        layer_a = viewer_model.add_image(
+            np.zeros((4, 3)), name='a', axis_labels=('y', 'x')
+        )
+
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer_a
+        widget._rebuild_content('vertical')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        # Expand all three sections.
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(True)
+        widget._inheritance_section.setExpanded(True)
+
+        # Simulate the transient no-layer state (active layer becomes None).
+        widget._selected_layer = None
+        widget._refresh_page()
+
+        # Sections are torn down; we are on the no-layer page.
+        assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+        assert widget._file_section is None
+
+        # Simulate the new layer becoming active (e.g. after add_image).
+        layer_b = viewer_model.add_image(
+            np.zeros((4, 3)), name='b', axis_labels=('y', 'x')
+        )
+        widget._selected_layer = layer_b
+        widget._refresh_page()
+
+        # All sections must be expanded again.
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+        assert widget._file_section.isExpanded()
+        assert widget._axis_section.isExpanded()
+        assert widget._inheritance_section.isExpanded()
+        _assert_section_content_available(widget)
+
+    def test_collapsed_sections_stay_collapsed_through_no_layer_transition(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        """Sections that were collapsed before a layer change stay collapsed."""
+        layer_a = viewer_model.add_image(np.zeros((4, 3)), name='a')
+
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer_a
+        widget._rebuild_content('vertical')
+
+        # Leave all sections collapsed (default).
+        assert widget._file_section is not None
+        assert not widget._file_section.isExpanded()
+
+        # Go through the no-layer transition.
+        widget._selected_layer = None
+        widget._refresh_page()
+
+        layer_b = viewer_model.add_image(np.zeros((4, 3)), name='b')
+        widget._selected_layer = layer_b
+        widget._refresh_page()
+
+        # Sections must still be collapsed.
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+        assert not widget._file_section.isExpanded()
+        assert not widget._axis_section.isExpanded()
+        assert not widget._inheritance_section.isExpanded()
+
 
 class TestSelectedLayerChangedHandler:
     """Tests for _on_selected_layers_changed — the active-layer event handler."""

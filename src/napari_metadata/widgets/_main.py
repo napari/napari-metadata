@@ -142,6 +142,12 @@ class MetadataWidget(QWidget):
         self._already_shown: bool = False
         self._rebuilding: bool = False
 
+        # Expanded states for each section — persisted across teardown/rebuild
+        # cycles so that adding or removing layers does not collapse sections.
+        self._file_section_expanded: bool = False
+        self._axis_section_expanded: bool = False
+        self._inheritance_section_expanded: bool = False
+
         # ── Persistent component instances ──────────────────────────
         self._general_metadata_instance = FileGeneralMetadata(self)
         self._axis_metadata_instance = AxisMetadata(self)
@@ -319,24 +325,8 @@ class MetadataWidget(QWidget):
     def _do_rebuild_content(self, orientation: Orientation) -> None:
         is_vertical = orientation == 'vertical'
 
-        # Capture expanded states before destroying the old sections so they
-        # can be restored after the rebuild (layer change or orientation switch).
-        file_expanded = (
-            self._file_section.isExpanded()
-            if self._file_section is not None
-            else False
-        )
-        axis_expanded = (
-            self._axis_section.isExpanded()
-            if self._axis_section is not None
-            else False
-        )
-        inheritance_expanded = (
-            self._inheritance_section.isExpanded()
-            if self._inheritance_section is not None
-            else False
-        )
-
+        # _teardown_content saves expanded states to instance variables before
+        # destroying the old sections, so they survive layer add/remove cycles.
         self._teardown_content()
 
         # Create orientation-appropriate scroll area
@@ -388,10 +378,13 @@ class MetadataWidget(QWidget):
         sections_layout.addStretch(1)
 
         # Restore expanded states carried over from the previous build so that
-        # sections stay open across layer changes and orientation switches.
-        self._file_section.setExpanded(file_expanded)
-        self._axis_section.setExpanded(axis_expanded)
-        self._inheritance_section.setExpanded(inheritance_expanded)
+        # sections stay open across layer changes, orientation switches, and
+        # layer add/remove cycles (including any transient no-layer state).
+        self._file_section.setExpanded(self._file_section_expanded)
+        self._axis_section.setExpanded(self._axis_section_expanded)
+        self._inheritance_section.setExpanded(
+            self._inheritance_section_expanded
+        )
 
         # Keep axis inheritance checkboxes in sync with the rebuilt section's
         # expanded state.
@@ -491,6 +484,16 @@ class MetadataWidget(QWidget):
         )
 
     def _teardown_content(self) -> None:
+        # Save expanded states before nullifying sections so they survive the
+        # transition through a no-layer page (e.g. during layer add/remove).
+        if self._file_section is not None:
+            self._file_section_expanded = self._file_section.isExpanded()
+        if self._axis_section is not None:
+            self._axis_section_expanded = self._axis_section.isExpanded()
+        if self._inheritance_section is not None:
+            self._inheritance_section_expanded = (
+                self._inheritance_section.isExpanded()
+            )
         self._detach_component_widgets()
         self._remove_scroll_area()
         self._file_section = None
