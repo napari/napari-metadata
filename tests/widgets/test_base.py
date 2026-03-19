@@ -12,6 +12,9 @@ from qtpy.QtWidgets import QLineEdit
 
 from napari_metadata.widgets._base import (
     AxisComponentBase,
+    BoundFileComponentBase,
+    BoundLayerCoordinator,
+    BoundLayerOwner,
     ComponentBase,
     FileComponentBase,
     LayoutEntry,
@@ -43,6 +46,180 @@ class TestComponentBase:
         assert label.toolTip() == 'File tooltip.'
 
 
+class _DummyBoundLayerOwner(BoundLayerOwner):
+    def bind(self, layer: Layer) -> None:
+        self._bind_layer_reference(layer)
+
+    def unbind(self) -> None:
+        self._unbind_layer_reference()
+
+
+class _DummyBindable:
+    def __init__(self) -> None:
+        self.bound_layers: list[Layer] = []
+        self.unbind_count = 0
+
+    def bind_layer(self, layer: Layer) -> None:
+        self.bound_layers.append(layer)
+
+    def unbind_layer(self) -> None:
+        self.unbind_count += 1
+
+
+class _DummyCoordinator(BoundLayerCoordinator):
+    def __init__(self) -> None:
+        super().__init__()
+        self._bindable = _DummyBindable()
+        self.connected_layers: list[Layer] = []
+        self.disconnected_layers: list[Layer] = []
+
+    @property
+    def components(self) -> list[_DummyBindable]:
+        return [self._bindable]
+
+    def _connect_bound_layer_events(self, layer: Layer) -> None:
+        self.connected_layers.append(layer)
+
+    def _disconnect_bound_layer_events(self, layer: Layer) -> None:
+        self.disconnected_layers.append(layer)
+
+
+class _DummyBoundFileComponent(BoundFileComponentBase):
+    _label_text = 'Bound:'
+
+    def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__(parent_widget)
+        self._line_edit = QLineEdit(parent=parent_widget)
+        self.connected_count = 0
+        self.disconnected_count = 0
+
+    @property
+    def value_widget(self) -> QLineEdit:
+        return self._line_edit
+
+    def _get_display_text(self, layer: Layer) -> str:
+        return layer.name
+
+    def _update_display(self, layer: Layer) -> None:
+        self._line_edit.setText(self._get_display_text(layer))
+
+    def _clear_bound_display(self) -> None:
+        self._line_edit.setText('')
+
+    def _connect_bound_layer_signals(self) -> None:
+        self.connected_count += 1
+
+    def _disconnect_bound_layer_signals(self) -> None:
+        self.disconnected_count += 1
+
+
+class TestBoundLayerOwner:
+    def test_require_selected_layer_raises_when_unbound(self):
+        owner = _DummyBoundLayerOwner()
+
+        with pytest.raises(RuntimeError, match='not bound to a layer'):
+            owner._require_selected_layer()
+
+    def test_bind_and_unbind_layer_reference(self):
+        owner = _DummyBoundLayerOwner()
+        layer = Image(np.zeros((4, 3)))
+
+        owner.bind(layer)
+        assert owner._require_selected_layer() is layer
+
+        owner.unbind()
+        with pytest.raises(RuntimeError, match='not bound to a layer'):
+            owner._require_selected_layer()
+
+
+class TestBoundLayerCoordinator:
+    def test_bind_layer_binds_children_and_connects_events(self):
+        coordinator = _DummyCoordinator()
+        layer = Image(np.zeros((4, 3)))
+
+        coordinator.bind_layer(layer)
+
+        assert coordinator._require_selected_layer() is layer
+        assert coordinator._bindable.bound_layers == [layer]
+        assert coordinator.connected_layers == [layer]
+
+    def test_unbind_layer_disconnects_events_and_children(self):
+        coordinator = _DummyCoordinator()
+        layer = Image(np.zeros((4, 3)))
+        coordinator.bind_layer(layer)
+
+        coordinator.unbind_layer()
+
+        assert coordinator.disconnected_layers == [layer]
+        assert coordinator._bindable.unbind_count == 1
+        with pytest.raises(RuntimeError, match='not bound to a layer'):
+            coordinator._require_selected_layer()
+
+    def test_rebinding_same_layer_is_noop(self):
+        coordinator = _DummyCoordinator()
+        layer = Image(np.zeros((4, 3)))
+        coordinator.bind_layer(layer)
+
+        coordinator.bind_layer(layer)  # same layer: should be a no-op
+
+        assert coordinator._bindable.bound_layers == [layer]  # bound only once
+        assert coordinator.connected_layers == [layer]  # connected only once
+
+    def test_binding_different_layer_unbinds_old_first(self):
+        coordinator = _DummyCoordinator()
+        layer_a = Image(np.zeros((4, 3)))
+        layer_b = Image(np.zeros((4, 3)))
+        coordinator.bind_layer(layer_a)
+
+        coordinator.bind_layer(layer_b)
+
+        assert coordinator.disconnected_layers == [layer_a]
+        assert coordinator._bindable.unbind_count == 1
+        assert coordinator._require_selected_layer() is layer_b
+        assert coordinator.connected_layers == [layer_a, layer_b]
+
+
+class TestBoundFileComponentBase:
+    def test_bind_layer_updates_display_and_connects_signals(
+        self, parent_widget: QWidget
+    ):
+        component = _DummyBoundFileComponent(parent_widget)
+        layer = Image(np.zeros((4, 3)), name='bound')
+
+        component.bind_layer(layer)
+
+        assert component._require_selected_layer() is layer
+        assert component.value_widget.text() == 'bound'
+        assert component.connected_count == 1
+
+    def test_unbind_layer_clears_display_and_disconnects_signals(
+        self, parent_widget: QWidget
+    ):
+        component = _DummyBoundFileComponent(parent_widget)
+        layer = Image(np.zeros((4, 3)), name='bound')
+        component.bind_layer(layer)
+
+        component.unbind_layer()
+
+        assert component.value_widget.text() == ''
+        assert component.disconnected_count == 1
+        with pytest.raises(RuntimeError, match='not bound to a layer'):
+            component._require_selected_layer()
+
+    def test_rebinding_same_layer_refreshes_display_without_reconnecting(
+        self, parent_widget: QWidget
+    ):
+        component = _DummyBoundFileComponent(parent_widget)
+        layer = Image(np.zeros((4, 3)), name='first')
+        component.bind_layer(layer)
+
+        layer.name = 'updated'
+        component.bind_layer(layer)  # same layer object
+
+        assert component.value_widget.text() == 'updated'
+        assert component.connected_count == 1  # no reconnect
+
+
 class _DummyAxisComponent(AxisComponentBase):
     _label_text = 'Dummy:'
     _tooltip_text = 'Axis tooltip.'
@@ -64,7 +241,6 @@ class _DummyAxisComponent(AxisComponentBase):
             line_edit = QLineEdit(str(i))
             self._value_line_edits.append(line_edit)
         self._create_inherit_checkboxes(layer)
-        self._selected_layer = layer
 
     def _refresh_values(self, layer: Layer) -> None:
         self.refresh_count += 1
@@ -134,7 +310,7 @@ class TestAxisComponentBaseLifecycle:
         component.clear()
 
         assert component.num_axes == 0
-        assert component._selected_layer is layer
+        assert component._selected_layer is None
 
     def test_get_layout_entries_structure_and_tooltips(
         self, parent_widget: QWidget

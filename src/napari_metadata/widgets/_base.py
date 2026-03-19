@@ -16,7 +16,7 @@ old ``get_entries_dict`` API.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
@@ -101,7 +101,76 @@ class ComponentBase(ABC):
         """Load or refresh widget state for *layer*."""
 
 
-class AxisComponentBase(ComponentBase):
+class _LayerBindable(Protocol):
+    """Minimal interface for objects that participate in layer binding."""
+
+    def bind_layer(self, layer: Layer) -> None: ...
+
+    def unbind_layer(self) -> None: ...
+
+
+class BoundLayerOwner:
+    """Shared bound-layer state and validation helpers."""
+
+    def __init__(self) -> None:
+        self._selected_layer: Layer | None = None
+
+    def _bind_layer_reference(self, layer: Layer) -> None:
+        self._selected_layer = layer
+
+    def _unbind_layer_reference(self) -> None:
+        self._selected_layer = None
+
+    def _require_selected_layer(self) -> Layer:
+        layer = self._selected_layer
+        if layer is None:
+            raise RuntimeError(
+                f'{type(self).__name__} is not bound to a layer.'
+            )
+        return layer
+
+
+class BoundLayerCoordinator(BoundLayerOwner, ABC):
+    """Template lifecycle for coordinators that bind child components."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    @property
+    @abstractmethod
+    def components(self) -> Sequence[_LayerBindable]:
+        """All bound child components managed by this coordinator."""
+
+    def bind_layer(self, layer: Layer) -> None:
+        """Bind the coordinator and all children to *layer*."""
+        if layer is self._selected_layer:
+            return
+        if self._selected_layer is not None:
+            self.unbind_layer()
+        self._bind_layer_reference(layer)
+        for component in self.components:
+            component.bind_layer(layer)
+        self._connect_bound_layer_events(layer)
+
+    def unbind_layer(self) -> None:
+        """Unbind the coordinator and all children from the current layer."""
+        layer = self._selected_layer
+        if layer is not None:
+            self._disconnect_bound_layer_events(layer)
+        self._unbind_layer_reference()
+        for component in self.components:
+            component.unbind_layer()
+
+    @abstractmethod
+    def _connect_bound_layer_events(self, layer: Layer) -> None:
+        """Connect model events for the bound *layer*."""
+
+    @abstractmethod
+    def _disconnect_bound_layer_events(self, layer: Layer) -> None:
+        """Disconnect model events for the previously bound *layer*."""
+
+
+class AxisComponentBase(BoundLayerOwner, ComponentBase):
     """Abstract base for per-axis metadata editing components.
 
     Each concrete subclass manages one kind of per-axis data (labels,
@@ -121,17 +190,12 @@ class AxisComponentBase(ComponentBase):
     below.
     """
 
-    #: The layer currently loaded into this component.  Set by
-    #: ``_create_widgets``; guaranteed to be a live ``Layer`` whenever
-    #: any signal handler runs (signals are blocked during teardown).
-    #: **Do not access before the first** ``load_entries`` **call.**
-    _selected_layer: Layer
-
     def __init__(
         self,
         parent_widget: QWidget,
     ) -> None:
-        super().__init__(parent_widget)
+        ComponentBase.__init__(self, parent_widget)
+        BoundLayerOwner.__init__(self)
         self._axis_name_labels: list[QLabel] = []
         self._inherit_checkboxes: list[QCheckBox] = []
 
@@ -145,20 +209,28 @@ class AxisComponentBase(ComponentBase):
         return len(self._axis_name_labels)
 
     def load_entries(self, layer: Layer) -> None:
-        """Load or refresh widgets for *layer*.
+        """Refresh widgets for *layer*, binding first when needed."""
+        if layer is not self._selected_layer:
+            self.bind_layer(layer)
+            return
+        self._refresh_values(layer)
 
-        * First call or layer changed -> destroy old widgets, create new ones.
-        * Same layer -> refresh existing widget values in place.
-        """
-        if self.num_axes > 0 and layer is self._selected_layer:
-            self._refresh_values(layer)
-        else:
-            self._clear_widgets()
-            self._create_widgets(layer)
+    def bind_layer(self, layer: Layer) -> None:
+        """Bind this component to *layer* and create widgets if needed."""
+        if layer is self._selected_layer and self.num_axes > 0:
+            return
+        self._clear_widgets()
+        self._bind_layer_reference(layer)
+        self._create_widgets(layer)
+
+    def unbind_layer(self) -> None:
+        """Clear widgets and remove any bound layer reference."""
+        self._clear_widgets()
+        self._unbind_layer_reference()
 
     def clear(self) -> None:
         """Destroy all per-axis widgets (used when no layer is active)."""
-        self._clear_widgets()
+        self.unbind_layer()
 
     def get_layout_entries(self, axis_index: int) -> list[LayoutEntry]:
         """Return ``LayoutEntry`` items for one axis row.
@@ -223,8 +295,7 @@ class AxisComponentBase(ComponentBase):
         """Create all per-axis widgets for *layer*.
 
         Must populate ``_axis_name_labels``, ``_inherit_checkboxes``,
-        and any component-specific widget lists.  Must set
-        ``self._selected_layer = layer`` at the end.
+        and any component-specific widget lists.
         """
 
     @abstractmethod
@@ -261,10 +332,7 @@ class AxisComponentBase(ComponentBase):
 
         Signals are blocked before ``setParent(None)`` to prevent Qt
         focus-loss events (e.g. ``editingFinished``) from reaching
-        handlers while widgets are being torn down.  ``_selected_layer``
-        is intentionally left pointing at the previous layer so that
-        ``load_entries`` can detect whether the next call is for the same
-        layer or a new one.
+        handlers while widgets are being torn down.
         """
         for widget_list in self._all_widget_lists():
             for w in widget_list:
@@ -342,6 +410,14 @@ class FileComponentBase(ComponentBase):
         self.value_widget.setToolTip(self._tooltip_text)
         self._update_display(layer)
 
+    def bind_layer(self, layer: Layer) -> None:
+        """Bind this component to *layer* and refresh its display."""
+        self.load_entries(layer)
+
+    def unbind_layer(self) -> None:
+        """Clear any displayed state for an unbound component."""
+        self.clear()
+
     def clear(self) -> None:
         """Reset the display to empty (no-layer state)."""
         self._display_label.setText('')
@@ -366,3 +442,42 @@ class FileComponentBase(ComponentBase):
     @abstractmethod
     def _get_display_text(self, layer: Layer) -> str:
         """Return the display string for *layer*."""
+
+
+class BoundFileComponentBase(BoundLayerOwner, FileComponentBase):
+    """Template lifecycle for file components that need a bound layer."""
+
+    def __init__(self, parent_widget: QWidget) -> None:
+        FileComponentBase.__init__(self, parent_widget)
+        BoundLayerOwner.__init__(self)
+
+    def bind_layer(self, layer: Layer) -> None:
+        """Bind this interactive file component to *layer*."""
+        if layer is self._selected_layer:
+            FileComponentBase.bind_layer(self, layer)
+            return
+        if self._selected_layer is not None:
+            self._disconnect_bound_layer_signals()
+        self._bind_layer_reference(layer)
+        self._connect_bound_layer_signals()
+        FileComponentBase.bind_layer(self, layer)
+
+    def unbind_layer(self) -> None:
+        """Unbind this interactive file component and clear its display."""
+        self._disconnect_bound_layer_signals()
+        self._unbind_layer_reference()
+        self._clear_bound_display()
+
+    def clear(self) -> None:
+        """Clear the display and unbind any active layer."""
+        self.unbind_layer()
+
+    def _clear_bound_display(self) -> None:
+        """Clear the display widget for an unbound component."""
+        FileComponentBase.clear(self)
+
+    def _connect_bound_layer_signals(self) -> None:
+        """Connect widget signals that require a bound layer."""
+
+    def _disconnect_bound_layer_signals(self) -> None:
+        """Disconnect widget signals that require a bound layer."""
