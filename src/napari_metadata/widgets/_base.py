@@ -196,8 +196,9 @@ class AxisComponentBase(ComponentBase):
         """Merge current and template values based on checkbox states.
 
         Checked axes receive the template value; unchecked keep current.
-        Resets ``_selected_layer`` so the next ``load_entries`` call fully
-        rebuilds widgets with the merged values.
+        The caller (``MetadataWidget.apply_inheritance_to_current_layer``)
+        is responsible for triggering a page rebuild after all components
+        have been updated.
         """
         current_values = self._get_layer_values(current_layer)
         template_values = self._get_layer_values(template_layer)
@@ -208,8 +209,6 @@ class AxisComponentBase(ComponentBase):
             )
         ]
         self._apply_values(current_layer, merged)
-        # Force full rebuild on next load_entries.
-        self._selected_layer = None
 
     # ------------------------------------------------------------------
     # Template methods — subclasses must implement
@@ -254,9 +253,15 @@ class AxisComponentBase(ComponentBase):
         return [self._axis_name_labels, self._inherit_checkboxes]
 
     def _clear_widgets(self) -> None:
-        """Destroy all per-axis widgets and reset ``_selected_layer``."""
+        """Block signals, destroy all per-axis widgets, and reset ``_selected_layer``.
+
+        Signals are blocked before ``setParent(None)`` to prevent Qt
+        focus-loss events (e.g. ``editingFinished``) from reaching
+        handlers while widgets are being torn down.
+        """
         for widget_list in self._all_widget_lists():
             for w in widget_list:
+                w.blockSignals(True)
                 w.setParent(None)
                 w.deleteLater()
             widget_list.clear()

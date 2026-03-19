@@ -214,7 +214,7 @@ class TestAxisComponentBaseInheritance:
 
         assert tuple(current.translate) == pytest.approx((10.0, 2.0))
         assert component.last_applied == [10.0, 2.0]
-        assert component._selected_layer is None
+        assert component._selected_layer is current
 
     def test_inherit_layer_properties_uses_both_layers(
         self, parent_widget: QWidget
