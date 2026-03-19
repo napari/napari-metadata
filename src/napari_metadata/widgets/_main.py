@@ -275,6 +275,8 @@ class MetadataWidget(QWidget):
         """Handle layer selection change — always refresh page."""
         layer: Layer | None = self._viewer.layers.selection.active
         if layer is self._selected_layer:
+            if len(self._viewer.layers.selection) > 0:
+                self._refresh_page()
             return
 
         if self._selected_layer is not None:
