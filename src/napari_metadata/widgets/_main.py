@@ -134,7 +134,6 @@ class MetadataWidget(QWidget):
         self.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        self._viewer = napari_viewer
         self._layers = napari_viewer.layers
         self._selected_layer: Layer | None = None
         self._current_orientation: Orientation | None = None
