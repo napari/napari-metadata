@@ -30,12 +30,12 @@ from qtpy.QtWidgets import (
 )
 from superqt import QEnumComboBox
 
-from napari_metadata.units import AxisUnitEnum
+from napari_metadata.units import AxisUnitEnum, _UnitConfig
 from napari_metadata.widgets._base import (
     AxisComponentBase,
     BoundLayerCoordinator,
     LayoutEntry,
-    _ClearableWidgetCollection,
+    _WidgetCollection,
 )
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ class AxisLabels(AxisComponentBase):
         self._on_labels_changed = on_labels_changed
         self._line_edits: list[QLineEdit] = []
 
-    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
+    def _all_widget_lists(self) -> list[_WidgetCollection]:
         return [*super()._all_widget_lists(), self._line_edits]
 
     def _create_widgets(self, layer: Layer) -> None:
@@ -135,7 +135,7 @@ class AxisTranslations(AxisComponentBase):
         super().__init__(parent_widget)
         self._spinboxes: list[QDoubleSpinBox] = []
 
-    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
+    def _all_widget_lists(self) -> list[_WidgetCollection]:
         return [*super()._all_widget_lists(), self._spinboxes]
 
     def _create_widgets(self, layer: Layer) -> None:
@@ -191,7 +191,7 @@ class AxisScales(AxisComponentBase):
 
     # -- AxisComponentBase overrides ----------------------------------------
 
-    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
+    def _all_widget_lists(self) -> list[_WidgetCollection]:
         return [*super()._all_widget_lists(), self._spinboxes]
 
     def _create_widgets(self, layer: Layer) -> None:
@@ -259,7 +259,7 @@ class AxisUnits(AxisComponentBase):
         self._unit_comboboxes: list[QComboBox] = []
         self._unit_line_edits: list[QLineEdit] = []
 
-    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
+    def _all_widget_lists(self) -> list[_WidgetCollection]:
         return [
             *super()._all_widget_lists(),
             self._type_comboboxes,
@@ -419,21 +419,23 @@ class AxisUnits(AxisComponentBase):
         """Repopulate unit comboboxes when a type combobox changes."""
         current_units = self._require_selected_layer().units
         for i in range(len(self._type_comboboxes)):
-            axis_type = (
-                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
+            axis_type = self._type_comboboxes[i].currentEnum()
+            config: _UnitConfig | None = (
+                None if axis_type is None else axis_type.config
             )
-            cfg = axis_type.config
             current_unit_str = (
                 str(current_units[i]) if i < len(current_units) else ''
             )
             with QSignalBlocker(self._unit_comboboxes[i]):
                 self._unit_comboboxes[i].clear()
-                if cfg is not None:
-                    for unit in cfg.pint_units():
-                        self._unit_comboboxes[i].addItem(str(unit), unit)
+                if config is None:
+                    idx = -1
+                else:
+                    for unit in config.units:
+                        self._unit_comboboxes[i].addItem(unit, unit)
                 idx = self._unit_comboboxes[i].findText(current_unit_str)
-                if idx == -1 and cfg is not None:
-                    idx = self._unit_comboboxes[i].findText(cfg.default)
+                if idx == -1 and config is not None:
+                    idx = self._unit_comboboxes[i].findText(config.default)
                 self._unit_comboboxes[i].setCurrentIndex(idx)
         self._write_units_to_layer()
         self._sync_visibilities()
