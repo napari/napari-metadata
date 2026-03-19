@@ -137,27 +137,29 @@ class InheritanceWidget(QWidget):
         self._compare_template_and_inheriting_layers()
 
     def _compare_template_and_inheriting_layers(self) -> None:
+        template_layer = self._template_layer
+        inheriting_layer = self._inheriting_layer
         if (
-            self._inheriting_layer is self._template_layer
-            or self._template_layer is None
-            or self._inheriting_layer is None
+            template_layer is None
+            or inheriting_layer is None
+            or inheriting_layer is template_layer
         ):
             self._apply_button.setEnabled(False)
             self._different_dims_label.setVisible(False)
-        else:
-            if self._template_layer.ndim != self._inheriting_layer.ndim:
-                self._apply_button.setEnabled(False)
-                self._different_dims_label.setVisible(True)
-            else:
-                self._apply_button.setEnabled(True)
-                self._different_dims_label.setVisible(False)
+            return
+
+        if template_layer.ndim != inheriting_layer.ndim:
+            self._apply_button.setEnabled(False)
+            self._different_dims_label.setVisible(True)
+            return
+
+        self._apply_button.setEnabled(True)
+        self._different_dims_label.setVisible(False)
 
     def _on_apply_button_pressed(self) -> None:
         template_layer = self._template_layer
-        if template_layer is None:
-            return
         inheriting_layer = self._inheriting_layer
-        if inheriting_layer is None:
+        if template_layer is None or inheriting_layer is None:
             return
         if (
             template_layer is inheriting_layer
