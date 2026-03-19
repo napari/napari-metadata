@@ -18,7 +18,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QCheckBox, QLabel, QWidget
@@ -27,13 +27,10 @@ if TYPE_CHECKING:
     from napari.layers import Layer
 
 
-_QWidgetT = TypeVar('_QWidgetT', bound=QWidget, covariant=True)
-
-
-class _ClearableWidgetCollection(Protocol[_QWidgetT]):
+class _WidgetCollection(Protocol):
     """Minimal widget collection interface needed for cleanup."""
 
-    def __iter__(self) -> Iterator[_QWidgetT]: ...
+    def __iter__(self) -> Iterator[QWidget]: ...
 
     def clear(self) -> None: ...
 
@@ -101,14 +98,6 @@ class ComponentBase(ABC):
         """Load or refresh widget state for *layer*."""
 
 
-class _LayerBindable(Protocol):
-    """Minimal interface for objects that participate in layer binding."""
-
-    def bind_layer(self, layer: Layer) -> None: ...
-
-    def unbind_layer(self) -> None: ...
-
-
 class BoundLayerOwner:
     """Shared bound-layer state and validation helpers."""
 
@@ -133,12 +122,9 @@ class BoundLayerOwner:
 class BoundLayerCoordinator(BoundLayerOwner, ABC):
     """Template lifecycle for coordinators that bind child components."""
 
-    def __init__(self) -> None:
-        super().__init__()
-
     @property
     @abstractmethod
-    def components(self) -> Sequence[_LayerBindable]:
+    def components(self) -> Sequence[Any]:
         """All bound child components managed by this coordinator."""
 
     def bind_layer(self, layer: Layer) -> None:
@@ -318,7 +304,7 @@ class AxisComponentBase(BoundLayerOwner, ComponentBase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _all_widget_lists(self) -> list[_ClearableWidgetCollection[QWidget]]:
+    def _all_widget_lists(self) -> list[_WidgetCollection]:
         """Return all per-axis widget lists for cleanup.
 
         Subclasses override to include their own lists (spinboxes, etc.)
