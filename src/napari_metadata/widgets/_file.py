@@ -223,6 +223,11 @@ class FileGeneralMetadata:
     ``layer.source`` attribute is ``None``.
     """
 
+    #: The layer whose events are currently connected.  Set by
+    #: ``connect_layer_events``; valid whenever any handler runs.
+    #: **Do not access before the first** ``connect_layer_events`` **call.**
+    _selected_layer: Layer
+
     def __init__(self, parent_widget: QWidget) -> None:
         self._layer_name = LayerName(parent_widget)
         self._layer_shape = LayerShape(parent_widget)
@@ -245,7 +250,6 @@ class FileGeneralMetadata:
             self._source_widget,
             self._source_parent,
         ]
-        self._selected_layer: Layer | None = None
 
     def connect_layer_events(self, layer: Layer) -> None:
         """Subscribe to *layer* events that require widget refresh."""
@@ -255,25 +259,22 @@ class FileGeneralMetadata:
 
     def disconnect_layer_events(self, layer: Layer) -> None:
         """Unsubscribe from *layer* events."""
-        self._selected_layer = None
         with suppress(TypeError, ValueError, RuntimeError):
             layer.events.name.disconnect(self._on_name_changed)
         with suppress(TypeError, ValueError, RuntimeError):
             layer.events.data.disconnect(self._on_data_changed)
 
     def _on_name_changed(self) -> None:
-        if self._selected_layer is not None:
-            for component in self._components:
-                component.load_entries(self._selected_layer)
+        for component in self._components:
+            component.load_entries(self._selected_layer)
 
     def _on_data_changed(self) -> None:
-        if self._selected_layer is not None:
-            for component in (
-                self._layer_shape,
-                self._layer_dtype,
-                self._file_size,
-            ):
-                component.load_entries(self._selected_layer)
+        for component in (
+            self._layer_shape,
+            self._layer_dtype,
+            self._file_size,
+        ):
+            component.load_entries(self._selected_layer)
 
     @property
     def components(self) -> list[FileComponentBase]:
