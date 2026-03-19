@@ -22,6 +22,7 @@ from qtpy.QtWidgets import QFrame, QGridLayout, QVBoxLayout, QWidget
 
 from napari_metadata.widgets._main import (
     _CONTENT_PAGE,
+    _MULTI_LAYER_PAGE,
     _NO_LAYER_PAGE,
     MetadataWidget,
     Orientation,
@@ -142,7 +143,7 @@ class TestMetadataWidgetInit:
     def test_stacked_layout_has_two_pages(
         self, metadata_widget: MetadataWidget
     ):
-        assert metadata_widget._stacked_layout.count() == 2
+        assert metadata_widget._stacked_layout.count() == 3
 
     def test_starts_with_no_scroll_area(self, metadata_widget: MetadataWidget):
         assert metadata_widget._scroll_area is None
@@ -200,6 +201,24 @@ class TestPageManagement:
         metadata_widget._refresh_page()
 
         assert metadata_widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+        assert metadata_widget._current_orientation is None
+
+    def test_refresh_page_show_multi_layer_when_multi_selected(
+        self, metadata_widget: MetadataWidget, viewer_model: ViewerModel
+    ):
+        viewer_model.layers.selection.clear()
+        metadata_widget._selected_layer = None
+        metadata_widget._refresh_page()
+
+        layer1 = viewer_model.add_image(np.zeros((4, 3)))
+        layer2 = viewer_model.add_image(np.zeros((4, 3)))
+        viewer_model.layers.selection = [layer1, layer2]
+        metadata_widget._selected_layer = None
+        metadata_widget._refresh_page()
+
+        assert (
+            metadata_widget._stacked_layout.currentIndex() == _MULTI_LAYER_PAGE
+        )
         assert metadata_widget._current_orientation is None
 
     def test_refresh_page_shows_content_when_layer_selected(
@@ -727,6 +746,7 @@ class TestLayerSelectionFlow:
         widget._refresh_page()
 
         widget._selected_layer = None
+        viewer_model.layers.selection.clear()
         widget._refresh_page()
 
         assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE

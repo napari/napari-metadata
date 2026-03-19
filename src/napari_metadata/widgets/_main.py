@@ -49,6 +49,7 @@ if TYPE_CHECKING:
 
 _CONTENT_PAGE = 0
 _NO_LAYER_PAGE = 1
+_MULTI_LAYER_PAGE = 2
 
 #: Spacing (px) between collapsible sections inside the outer scroll area.
 #: Used both in the sections QLayout and in the manual size allocator.
@@ -185,6 +186,23 @@ class MetadataWidget(QWidget):
         no_layer_layout.addStretch(1)
         self._stacked_layout.addWidget(no_layer_page)  # index 1
 
+        # Multi-layer page
+        multi_layer_page = QWidget(self)
+        multi_layer_layout = QVBoxLayout(multi_layer_page)
+        multi_layer_layout.setContentsMargins(0, 0, 0, 0)
+        multi_layer_label = QLabel('Multiple layers selected')
+        multi_layer_label_2 = QLabel(
+            'Select only one layer to display its metadata'
+        )
+        multi_layer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        multi_layer_label_2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        multi_layer_label.setStyleSheet('font-weight: bold;')
+        multi_layer_label_2.setStyleSheet('font-weight: bold;')
+        multi_layer_layout.addWidget(multi_layer_label)
+        multi_layer_layout.addWidget(multi_layer_label_2)
+        multi_layer_layout.addStretch(1)
+        self._stacked_layout.addWidget(multi_layer_page)  # index 2
+
         # Track the status of each area for teardown
         self._scroll_area: QScrollArea | None = None
         self._file_section: CollapsibleSectionContainer | None = None
@@ -263,6 +281,8 @@ class MetadataWidget(QWidget):
         """Handle layer selection change — always refresh page."""
         layer: Layer | None = self._viewer.layers.selection.active
         if layer is self._selected_layer:
+            if len(self._viewer.layers.selection) > 0:
+                self._refresh_page()
             return
 
         if self._selected_layer is not None:
@@ -307,7 +327,10 @@ class MetadataWidget(QWidget):
         """Show the correct page and rebuild content if a layer is active."""
         if self._selected_layer is None:
             self._teardown_content()
-            self._stacked_layout.setCurrentIndex(_NO_LAYER_PAGE)
+            if len(self._napari_viewer.layers.selection) > 0:
+                self._stacked_layout.setCurrentIndex(_MULTI_LAYER_PAGE)
+            else:
+                self._stacked_layout.setCurrentIndex(_NO_LAYER_PAGE)
             self._current_orientation = None
             return
 
