@@ -13,7 +13,7 @@ the container widgets and grid layouts are recreated.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from napari.utils.notifications import show_info
 from qtpy.QtCore import QEvent, QObject, QSignalBlocker, Qt
@@ -281,7 +281,9 @@ class MetadataWidget(QWidget):
         if not isinstance(self._widget_parent, QDockWidget):
             return 'vertical'
         dock = self._widget_parent
-        main_window = cast(QMainWindow, dock.parent())
+        main_window = dock.parent()
+        if not isinstance(main_window, QMainWindow):
+            return 'vertical'
         area = main_window.dockWidgetArea(dock)
         if (
             area == Qt.DockWidgetArea.LeftDockWidgetArea

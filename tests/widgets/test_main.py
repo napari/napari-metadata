@@ -1236,6 +1236,18 @@ class TestGetRequiredOrientation:
         # No QDockWidget parent — should default to vertical
         assert metadata_widget._get_required_orientation() == 'vertical'
 
+    def test_defaults_to_vertical_when_dock_has_no_main_window_parent(
+        self,
+        viewer_model: ViewerModel,
+        qtbot,
+    ):
+        dock = QDockWidget()
+        qtbot.addWidget(dock)
+        widget = MetadataWidget(viewer_model)
+        widget._widget_parent = dock
+
+        assert widget._get_required_orientation() == 'vertical'
+
 
 class TestGetDockWidget:
     def test_returns_none_without_dock_parent(
