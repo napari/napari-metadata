@@ -153,10 +153,7 @@ class TestAxisMetadataCoordinator:
             units=('pixel', 'pixel'),
         )
         axis_metadata = AxisMetadata(parent_widget)
-
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
 
         labels_component = axis_metadata._labels
         scales_component = axis_metadata._scales
@@ -333,9 +330,7 @@ class TestAxisEventDriven:
     ):
         layer = _make_layer(axis_labels=('y', 'x'))
         axis_metadata = AxisMetadata(parent_widget)
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
 
         layer.axis_labels = ('row', 'col')
 
@@ -347,9 +342,7 @@ class TestAxisEventDriven:
     ):
         layer = _make_layer(axis_labels=('y', 'x'), scale=(1.0, 1.0))
         axis_metadata = AxisMetadata(parent_widget)
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
 
         layer.axis_labels = ('A', 'B')
 
@@ -359,9 +352,7 @@ class TestAxisEventDriven:
     def test_scale_event_updates_spinboxes(self, parent_widget: QWidget):
         layer = _make_layer(scale=(1.0, 2.0))
         axis_metadata = AxisMetadata(parent_widget)
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
 
         layer.scale = (3.0, 4.0)
 
@@ -372,9 +363,7 @@ class TestAxisEventDriven:
     def test_translate_event_updates_spinboxes(self, parent_widget: QWidget):
         layer = _make_layer(translate=(0.0, 0.0))
         axis_metadata = AxisMetadata(parent_widget)
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
 
         layer.translate = (10.0, 20.0)
 
@@ -385,9 +374,7 @@ class TestAxisEventDriven:
     def test_units_event_updates_comboboxes(self, parent_widget: QWidget):
         layer = _make_layer(units=('pixel', 'pixel'))
         axis_metadata = AxisMetadata(parent_widget)
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
 
         layer.units = ('millimeter', 'second')
 
@@ -399,19 +386,18 @@ class TestAxisEventDriven:
             layer.units[1]
         )
 
-    def test_disconnect_stops_updates(self, parent_widget: QWidget):
+    def test_unbind_removes_widgets_and_stops_updates(
+        self, parent_widget: QWidget
+    ):
         layer = _make_layer(scale=(1.0, 1.0))
         axis_metadata = AxisMetadata(parent_widget)
-        for component in axis_metadata.components:
-            component.load_entries(layer)
-        axis_metadata.connect_layer_events(layer)
-        axis_metadata.disconnect_layer_events(layer)
+        axis_metadata.bind_layer(layer)
+        axis_metadata.unbind_layer()
 
         layer.scale = (5.0, 6.0)
 
         scales = axis_metadata._scales
-        assert scales._spinboxes[0].value() == pytest.approx(1.0)
-        assert scales._spinboxes[1].value() == pytest.approx(1.0)
+        assert scales._spinboxes == []
 
 
 class TestAxisLabelsGetValueEntries:

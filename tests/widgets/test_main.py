@@ -731,8 +731,8 @@ class TestLayerSelectionFlow:
         assert widget._scroll_area is None
 
         layer = viewer_model.add_image(np.zeros((4, 3)))
-        widget._selected_layer = layer
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
 
         assert widget._scroll_area is not None
         assert widget._stacked_layout.currentIndex() == _CONTENT_PAGE
@@ -748,11 +748,11 @@ class TestLayerSelectionFlow:
         qtbot.addWidget(widget)
 
         layer = viewer_model.add_image(np.zeros((4, 3)))
-        widget._selected_layer = layer
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
 
-        widget._selected_layer = None
-        widget._refresh_page()
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
 
         assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
 
@@ -769,15 +769,15 @@ class TestLayerSelectionFlow:
         layer_a = viewer_model.add_image(
             np.zeros((4, 3)), name='a', axis_labels=('y', 'x')
         )
-        widget._selected_layer = layer_a
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
         first_scroll = widget._scroll_area
 
         layer_b = viewer_model.add_image(
             np.zeros((5, 5, 5)), name='b', axis_labels=('z', 'y', 'x')
         )
-        widget._selected_layer = layer_b
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
         second_scroll = widget._scroll_area
 
         # New scroll area was created (content rebuilt)
@@ -800,8 +800,8 @@ class TestLayerSelectionFlow:
         widget = MetadataWidget(viewer_model)
         widget.setParent(parent_widget)
         qtbot.addWidget(widget)
-        widget._selected_layer = layer_a
-        widget._rebuild_content('vertical')
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
 
         assert widget._file_section is not None
         assert widget._axis_section is not None
@@ -813,8 +813,8 @@ class TestLayerSelectionFlow:
         widget._inheritance_section.setExpanded(True)
 
         # Switch to a different layer — the sections must stay expanded.
-        widget._selected_layer = layer_b
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
 
         assert widget._file_section is not None
         assert widget._axis_section is not None
@@ -843,8 +843,8 @@ class TestLayerSelectionFlow:
         widget = MetadataWidget(viewer_model)
         widget.setParent(parent_widget)
         qtbot.addWidget(widget)
-        widget._selected_layer = layer_a
-        widget._rebuild_content('vertical')
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
 
         assert widget._file_section is not None
         assert widget._axis_section is not None
@@ -856,8 +856,8 @@ class TestLayerSelectionFlow:
         widget._inheritance_section.setExpanded(True)
 
         # Simulate the transient no-layer state (active layer becomes None).
-        widget._selected_layer = None
-        widget._refresh_page()
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
 
         # Sections are torn down; we are on the no-layer page.
         assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
@@ -867,8 +867,8 @@ class TestLayerSelectionFlow:
         layer_b = viewer_model.add_image(
             np.zeros((4, 3)), name='b', axis_labels=('y', 'x')
         )
-        widget._selected_layer = layer_b
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
 
         # All sections must be expanded again.
         assert widget._file_section is not None
@@ -891,20 +891,20 @@ class TestLayerSelectionFlow:
         widget = MetadataWidget(viewer_model)
         widget.setParent(parent_widget)
         qtbot.addWidget(widget)
-        widget._selected_layer = layer_a
-        widget._rebuild_content('vertical')
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
 
         # Leave all sections collapsed (default).
         assert widget._file_section is not None
         assert not widget._file_section.isExpanded()
 
         # Go through the no-layer transition.
-        widget._selected_layer = None
-        widget._refresh_page()
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
 
         layer_b = viewer_model.add_image(np.zeros((4, 3)), name='b')
-        widget._selected_layer = layer_b
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
 
         # Sections must still be collapsed.
         assert widget._file_section is not None

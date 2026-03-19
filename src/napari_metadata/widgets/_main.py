@@ -262,16 +262,12 @@ class MetadataWidget(QWidget):
             return
 
         if self._selected_layer is not None:
-            self._general_metadata_instance.disconnect_layer_events(
-                self._selected_layer
-            )
-            self._axis_metadata_instance.disconnect_layer_events(
-                self._selected_layer
-            )
+            self._general_metadata_instance.unbind_layer()
+            self._axis_metadata_instance.unbind_layer()
 
         if layer is not None:
-            self._general_metadata_instance.connect_layer_events(layer)
-            self._axis_metadata_instance.connect_layer_events(layer)
+            self._general_metadata_instance.bind_layer(layer)
+            self._axis_metadata_instance.bind_layer(layer)
 
         self._selected_layer = layer
         self._refresh_page()

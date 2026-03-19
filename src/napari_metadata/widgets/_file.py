@@ -32,13 +32,17 @@ from napari_metadata.layer_utils import (
     get_layer_data_dtype,
     get_layer_data_shape,
 )
-from napari_metadata.widgets._base import FileComponentBase
+from napari_metadata.widgets._base import (
+    BoundFileComponentBase,
+    BoundLayerCoordinator,
+    FileComponentBase,
+)
 
 if TYPE_CHECKING:
     from napari.layers import Layer
 
 
-class LayerName(FileComponentBase):
+class LayerName(BoundFileComponentBase):
     """Editable layer name using ``QLineEdit``.
 
     The only file component that writes back to the layer: editing the
@@ -48,11 +52,6 @@ class LayerName(FileComponentBase):
     _label_text = 'Layer Name:'
     _under_label_in_vertical = True
 
-    #: The layer currently loaded. Cleared on ``clear()`` so a late
-    #: ``editingFinished`` cannot write back to a stale layer after the widget
-    #: has transitioned to the no-layer state.
-    _selected_layer: Layer | None
-
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
         self._line_edit = QLineEdit(parent=parent_widget)
@@ -61,20 +60,21 @@ class LayerName(FileComponentBase):
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
             )
         )
+
+    def _connect_bound_layer_signals(self) -> None:
         self._line_edit.editingFinished.connect(self._on_name_changed)
+
+    def _disconnect_bound_layer_signals(self) -> None:
+        with suppress(TypeError, RuntimeError):
+            self._line_edit.editingFinished.disconnect(self._on_name_changed)
+
+    def _clear_bound_display(self) -> None:
+        with QSignalBlocker(self._line_edit):
+            self._line_edit.setText('')
 
     @property
     def value_widget(self) -> QWidget:
         return self._line_edit
-
-    def load_entries(self, layer: Layer) -> None:
-        self._selected_layer = layer
-        super().load_entries(layer)
-
-    def clear(self) -> None:
-        self._selected_layer = None
-        with QSignalBlocker(self._line_edit):
-            self._line_edit.setText('')
 
     def _get_display_text(self, layer: Layer) -> str:
         return layer.name
@@ -84,12 +84,11 @@ class LayerName(FileComponentBase):
 
     def _on_name_changed(self) -> None:
         """Write the edited name back to the active layer."""
-        if self._selected_layer is None:
-            return
         text = self._line_edit.text()
-        if text == self._selected_layer.name:
+        layer = self._require_selected_layer()
+        if text == layer.name:
             return
-        self._selected_layer.name = text
+        layer.name = text
 
 
 class LayerShape(FileComponentBase):
@@ -215,7 +214,7 @@ class SourceParent(_SourceAttributeComponent):
     _source_attr = 'parent'
 
 
-class FileGeneralMetadata:
+class FileGeneralMetadata(BoundLayerCoordinator):
     """Coordinator that owns all file metadata component instances.
 
     Mirrors the ``AxisMetadata`` coordinator pattern — provides a
@@ -227,12 +226,8 @@ class FileGeneralMetadata:
     ``layer.source`` attribute is ``None``.
     """
 
-    #: The layer whose events are currently connected.  Set by
-    #: ``connect_layer_events``; valid whenever any handler runs.
-    #: **Do not access before the first** ``connect_layer_events`` **call.**
-    _selected_layer: Layer
-
     def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__()
         self._layer_name = LayerName(parent_widget)
         self._layer_shape = LayerShape(parent_widget)
         self._layer_dtype = LayerDataType(parent_widget)
@@ -255,30 +250,31 @@ class FileGeneralMetadata:
             self._source_parent,
         ]
 
-    def connect_layer_events(self, layer: Layer) -> None:
-        """Subscribe to *layer* events that require widget refresh."""
-        self._selected_layer = layer
+    def _connect_bound_layer_events(self, layer: Layer) -> None:
+        """Connect model events for the bound *layer*."""
         layer.events.name.connect(self._on_name_changed)
         layer.events.data.connect(self._on_data_changed)
 
-    def disconnect_layer_events(self, layer: Layer) -> None:
-        """Unsubscribe from *layer* events."""
+    def _disconnect_bound_layer_events(self, layer: Layer) -> None:
+        """Disconnect model events for the previously bound *layer*."""
         with suppress(TypeError, ValueError, RuntimeError):
             layer.events.name.disconnect(self._on_name_changed)
         with suppress(TypeError, ValueError, RuntimeError):
             layer.events.data.disconnect(self._on_data_changed)
 
     def _on_name_changed(self) -> None:
+        layer = self._require_selected_layer()
         for component in self._components:
-            component.load_entries(self._selected_layer)
+            component.load_entries(layer)
 
     def _on_data_changed(self) -> None:
+        layer = self._require_selected_layer()
         for component in (
             self._layer_shape,
             self._layer_dtype,
             self._file_size,
         ):
-            component.load_entries(self._selected_layer)
+            component.load_entries(layer)
 
     @property
     def components(self) -> list[FileComponentBase]:

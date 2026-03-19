@@ -33,6 +33,7 @@ from superqt import QEnumComboBox
 from napari_metadata.units import AxisUnitEnum
 from napari_metadata.widgets._base import (
     AxisComponentBase,
+    BoundLayerCoordinator,
     LayoutEntry,
     _ClearableWidgetCollection,
 )
@@ -83,7 +84,6 @@ class AxisLabels(AxisComponentBase):
             self._line_edits.append(line_edit)
 
         self._create_inherit_checkboxes(layer)
-        self._selected_layer = layer
 
     def _refresh_values(self, layer: Layer) -> None:
         labels = layer.axis_labels
@@ -121,7 +121,7 @@ class AxisLabels(AxisComponentBase):
     def _on_editing_finished(self) -> None:
         """Handle editingFinished from any label QLineEdit."""
         labels = self.get_line_edit_values()
-        self._selected_layer.axis_labels = labels
+        self._require_selected_layer().axis_labels = labels
         if self._on_labels_changed is not None:
             self._on_labels_changed()
 
@@ -151,7 +151,6 @@ class AxisTranslations(AxisComponentBase):
             self._spinboxes.append(sb)
 
         self._create_inherit_checkboxes(layer)
-        self._selected_layer = layer
 
     def _refresh_values(self, layer: Layer) -> None:
         translations = layer.translate
@@ -171,7 +170,7 @@ class AxisTranslations(AxisComponentBase):
 
     def _on_value_changed(self) -> None:
         values = tuple(sb.value() for sb in self._spinboxes)
-        self._selected_layer.translate = values
+        self._require_selected_layer().translate = values
 
 
 class AxisScales(AxisComponentBase):
@@ -209,7 +208,6 @@ class AxisScales(AxisComponentBase):
             self._spinboxes.append(sb)
 
         self._create_inherit_checkboxes(layer)
-        self._selected_layer = layer
 
     def _refresh_values(self, layer: Layer) -> None:
         scales = layer.scale
@@ -231,11 +229,11 @@ class AxisScales(AxisComponentBase):
 
     def _on_value_changed(self) -> None:
         values = np.array(tuple(sb.value() for sb in self._spinboxes))
-        self._selected_layer.scale = values
+        self._require_selected_layer().scale = values
 
     def _on_editing_finished(self) -> None:
         """Sync displayed values to the layer values after edit commit."""
-        scales = self._selected_layer.scale
+        scales = self._require_selected_layer().scale
         for i, value in enumerate(scales):
             if i < len(self._spinboxes):
                 with QSignalBlocker(self._spinboxes[i]):
@@ -299,7 +297,6 @@ class AxisUnits(AxisComponentBase):
             self._unit_line_edits.append(line_edit)
 
         self._create_inherit_checkboxes(layer)
-        self._selected_layer = layer
 
         # Connect signals *after* all widgets exist to avoid partial updates.
         for type_cb in self._type_comboboxes:
@@ -379,7 +376,7 @@ class AxisUnits(AxisComponentBase):
 
     def _sync_line_edit_texts(self) -> None:
         """Update free-form line-edit texts from layer units."""
-        current_units = self._selected_layer.units
+        current_units = self._require_selected_layer().units
         for i in range(min(len(self._unit_line_edits), len(current_units))):
             with QSignalBlocker(self._unit_line_edits[i]):
                 self._unit_line_edits[i].setText(str(current_units[i]))
@@ -396,6 +393,7 @@ class AxisUnits(AxisComponentBase):
 
     def _write_units_to_layer(self) -> None:
         """Collect current unit selections and apply to the layer."""
+        layer = self._require_selected_layer()
         units: list[str] = []
         for i in range(len(self._type_comboboxes)):
             axis_type = self._type_comboboxes[i].currentEnum()
@@ -412,16 +410,18 @@ class AxisUnits(AxisComponentBase):
                     )
                 )
         try:
-            self._selected_layer.units = tuple(units)
+            layer.units = tuple(units)
         except (AttributeError, ValueError) as e:
             show_warning(str(e))
         self._sync_line_edit_texts()
 
     def _on_type_changed(self) -> None:
         """Repopulate unit comboboxes when a type combobox changes."""
-        current_units = self._selected_layer.units
+        current_units = self._require_selected_layer().units
         for i in range(len(self._type_comboboxes)):
-            axis_type = self._type_comboboxes[i].currentEnum()
+            axis_type = (
+                self._type_comboboxes[i].currentEnum() or AxisUnitEnum.CUSTOM
+            )
             cfg = axis_type.config
             current_unit_str = (
                 str(current_units[i]) if i < len(current_units) else ''
@@ -444,7 +444,7 @@ class AxisUnits(AxisComponentBase):
         self._sync_visibilities()
 
 
-class AxisMetadata:
+class AxisMetadata(BoundLayerCoordinator):
     """Coordinator that owns all four axis component instances.
 
     Provides aggregate operations consumed by ``MetadataWidget``:
@@ -453,12 +453,11 @@ class AxisMetadata:
     * Toggle inheritance checkboxes globally
     """
 
-    #: The layer whose events are currently connected.  Set by
-    #: ``connect_layer_events``; valid whenever any handler runs.
-    #: **Do not access before the first** ``connect_layer_events`` **call.**
-    _selected_layer: Layer
+    #: The layer currently bound to this coordinator, if any.
+    _selected_layer: Layer | None
 
     def __init__(self, parent_widget: QWidget) -> None:
+        super().__init__()
         self._labels = AxisLabels(
             parent_widget,
             on_labels_changed=self._on_labels_changed,
@@ -481,16 +480,15 @@ class AxisMetadata:
         """All axis components in display order."""
         return list(self._components)
 
-    def connect_layer_events(self, layer: Layer) -> None:
-        """Subscribe to *layer* events that require widget refresh."""
-        self._selected_layer = layer
+    def _connect_bound_layer_events(self, layer: Layer) -> None:
+        """Connect model events for the bound *layer*."""
         layer.events.axis_labels.connect(self._on_labels_changed)
         layer.events.scale.connect(self._on_scale_changed)
         layer.events.translate.connect(self._on_translate_changed)
         layer.events.units.connect(self._on_units_changed)
 
-    def disconnect_layer_events(self, layer: Layer) -> None:
-        """Unsubscribe from *layer* events."""
+    def _disconnect_bound_layer_events(self, layer: Layer) -> None:
+        """Disconnect model events for the previously bound *layer*."""
         with suppress(TypeError, ValueError, RuntimeError):
             layer.events.axis_labels.disconnect(self._on_labels_changed)
         with suppress(TypeError, ValueError, RuntimeError):
@@ -501,13 +499,13 @@ class AxisMetadata:
             layer.events.units.disconnect(self._on_units_changed)
 
     def _on_scale_changed(self) -> None:
-        self._scales._refresh_values(self._selected_layer)
+        self._scales._refresh_values(self._require_selected_layer())
 
     def _on_translate_changed(self) -> None:
-        self._translations._refresh_values(self._selected_layer)
+        self._translations._refresh_values(self._require_selected_layer())
 
     def _on_units_changed(self) -> None:
-        self._units._refresh_values(self._selected_layer)
+        self._units._refresh_values(self._require_selected_layer())
 
     def set_checkboxes_visible(self, visible: bool) -> None:
         """Show or hide inheritance checkboxes on all components."""
@@ -516,5 +514,6 @@ class AxisMetadata:
 
     def _on_labels_changed(self) -> None:
         """Propagate axis-label text changes to all sibling components."""
+        layer = self._require_selected_layer()
         for c in self._components:
-            c.update_axis_name_labels(self._selected_layer)
+            c.update_axis_name_labels(layer)
