@@ -13,10 +13,10 @@ the container widgets and grid layouts are recreated.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from napari.utils.notifications import show_info
-from qtpy.QtCore import QEvent, QObject, Qt
+from qtpy.QtCore import QEvent, QObject, QSignalBlocker, Qt
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QDockWidget,
@@ -32,7 +32,6 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata.layer_utils import resolve_layer
 from napari_metadata.widgets._axis import AxisMetadata
 from napari_metadata.widgets._base import AxisComponentBase
 from napari_metadata.widgets._containers import (
@@ -135,8 +134,7 @@ class MetadataWidget(QWidget):
         self.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        self._viewer = napari_viewer
-        self._napari_viewer = napari_viewer
+        self._layers = napari_viewer.layers
         self._selected_layer: Layer | None = None
         self._current_orientation: Orientation | None = None
         self._widget_parent: QObject | None = self.parent()
@@ -150,12 +148,10 @@ class MetadataWidget(QWidget):
         self._inheritance_section_expanded: bool = False
 
         # ── Persistent component instances ──────────────────────────
-        self._general_metadata_instance = FileGeneralMetadata(
-            napari_viewer, self
-        )
-        self._axis_metadata_instance = AxisMetadata(napari_viewer, self)
+        self._general_metadata_instance = FileGeneralMetadata(self)
+        self._axis_metadata_instance = AxisMetadata(self)
         self._inheritance_instance = InheritanceWidget(
-            napari_viewer,
+            self._layers,
             on_apply_inheritance=self.apply_inheritance_to_current_layer,
             parent=self,
         )
@@ -209,7 +205,7 @@ class MetadataWidget(QWidget):
             return
 
         self._widget_parent = parent_widget
-        self._viewer.layers.selection.events.active.connect(
+        self._layers.selection.events.active.connect(
             self._on_selected_layers_changed
         )
         self._widget_parent.dockLocationChanged.connect(
@@ -261,21 +257,17 @@ class MetadataWidget(QWidget):
 
     def _on_selected_layers_changed(self) -> None:
         """Handle layer selection change — always refresh page."""
-        layer: Layer | None = self._viewer.layers.selection.active
+        layer: Layer | None = self._layers.selection.active
         if layer is self._selected_layer:
             return
 
         if self._selected_layer is not None:
-            self._general_metadata_instance.disconnect_layer_events(
-                self._selected_layer
-            )
-            self._axis_metadata_instance.disconnect_layer_events(
-                self._selected_layer
-            )
+            self._general_metadata_instance.unbind_layer()
+            self._axis_metadata_instance.unbind_layer()
 
         if layer is not None:
-            self._general_metadata_instance.connect_layer_events(layer)
-            self._axis_metadata_instance.connect_layer_events(layer)
+            self._general_metadata_instance.bind_layer(layer)
+            self._axis_metadata_instance.bind_layer(layer)
 
         self._selected_layer = layer
         self._refresh_page()
@@ -289,7 +281,9 @@ class MetadataWidget(QWidget):
         if not isinstance(self._widget_parent, QDockWidget):
             return 'vertical'
         dock = self._widget_parent
-        main_window = cast(QMainWindow, dock.parent())
+        main_window = dock.parent()
+        if not isinstance(main_window, QMainWindow):
+            return 'vertical'
         area = main_window.dockWidgetArea(dock)
         if (
             area == Qt.DockWidgetArea.LeftDockWidgetArea
@@ -521,16 +515,19 @@ class MetadataWidget(QWidget):
         """
         for comp in self._general_metadata_instance.components:
             comp.component_label.setParent(self)
-            comp.value_widget.setParent(self)
+            with QSignalBlocker(comp.value_widget):
+                comp.value_widget.setParent(self)
 
         for comp in self._axis_metadata_instance.components:
             comp.component_label.setParent(self)
             for i in range(comp.num_axes):
                 for entry in comp.get_layout_entries(i):
                     for w in entry.widgets:
-                        w.setParent(self)
+                        with QSignalBlocker(w):
+                            w.setParent(self)
 
-        self._inheritance_instance.setParent(self)
+        with QSignalBlocker(self._inheritance_instance):
+            self._inheritance_instance.setParent(self)
 
     def _on_inheritance_toggled(self, checked: bool) -> None:
         """Handle inheritance section toggle — sync checkboxes and sizes."""
@@ -603,9 +600,13 @@ class MetadataWidget(QWidget):
         """Place file component widgets into *grid* for *orientation*."""
         is_vertical = orientation == 'vertical'
         row = 0
+        layer = self._selected_layer
 
         for component in self._general_metadata_instance.components:
-            component.load_entries()
+            if layer is not None:
+                component.load_entries(layer)
+            else:
+                component.clear()
 
             if is_vertical and component._under_label_in_vertical:
                 grid.addWidget(component.component_label, row, 0, 1, 1)
@@ -653,11 +654,16 @@ class MetadataWidget(QWidget):
         self, grid: QGridLayout, orientation: Orientation
     ) -> None:
         """Dispatch to orientation-specific axis grid builder."""
+        layer = self._selected_layer
         components = self._axis_metadata_instance.components
-        if orientation == 'vertical':
-            _populate_axis_grid_vertical(grid, components)
+        if layer is not None:
+            if orientation == 'vertical':
+                _populate_axis_grid_vertical(grid, components, layer)
+            else:
+                _populate_axis_grid_horizontal(grid, components, layer)
         else:
-            _populate_axis_grid_horizontal(grid, components)
+            for c in components:
+                c.clear()
 
     # ------------------------------------------------------------------
     # Inheritance
@@ -666,7 +672,7 @@ class MetadataWidget(QWidget):
     def apply_inheritance_to_current_layer(
         self, template_layer: Layer
     ) -> None:
-        active_layer = resolve_layer(self._napari_viewer)
+        active_layer = self._layers.selection.active
         if active_layer is None:
             return
 
@@ -678,7 +684,7 @@ class MetadataWidget(QWidget):
             return
 
         for component in self._axis_metadata_instance.components:
-            component.inherit_layer_properties(template_layer)
+            component.inherit_layer_properties(template_layer, active_layer)
 
         # Rebuild to show inherited values
         self._refresh_page()
@@ -701,6 +707,7 @@ class MetadataWidget(QWidget):
 def _populate_axis_grid_vertical(
     grid: QGridLayout,
     components: list[AxisComponentBase],
+    layer: Layer,
 ) -> None:
     """Layout axis components stacked vertically (side dock position).
 
@@ -720,7 +727,7 @@ def _populate_axis_grid_vertical(
         col = 0
         grid.addWidget(component.component_label, row, col, 1, 1)
         col += 1
-        component.load_entries()
+        component.load_entries(layer)
 
         for axis_index in range(component.num_axes):
             setting_col = col
@@ -771,6 +778,7 @@ def _populate_axis_grid_vertical(
 def _populate_axis_grid_horizontal(
     grid: QGridLayout,
     components: list[AxisComponentBase],
+    layer: Layer,
 ) -> None:
     """Layout axis components side by side (top/bottom dock position).
 
@@ -787,7 +795,7 @@ def _populate_axis_grid_horizontal(
     for idx, component in enumerate(components):
         current_col = starting_col
         current_row = 1  # row 0 reserved for the component label
-        component.load_entries()
+        component.load_entries(layer)
 
         max_axis_col_span = 0
         for axis_index in range(component.num_axes):
