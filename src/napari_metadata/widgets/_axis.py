@@ -56,6 +56,12 @@ class AxisLabels(AxisComponentBase):
     """
 
     _label_text = 'Labels:'
+    # The _tooltip_text is used for the main label of the component
+    _tooltip_text = (
+        'Labels for each of the layer dimensions.<br>Value: string.'
+    )
+    # The _line_edit_tooltip_text is used for the line edits of the axis labels
+    _line_edit_tooltip_text = 'Label for the axis with index '
 
     def __init__(
         self,
@@ -95,7 +101,12 @@ class AxisLabels(AxisComponentBase):
     def get_layout_entries(self, axis_index: int) -> list[LayoutEntry]:
         """Skip the empty axis-name column; span the line edit across all value cols."""
         line_edit = self._line_edits[axis_index]
-        line_edit.setToolTip(self._tooltip_text)
+        number_of_axis = len(self._line_edits)
+        negative_index_number = axis_index - number_of_axis
+        setting_tooltip_text = (
+            self._line_edit_tooltip_text + str(negative_index_number) + '.'
+        )
+        line_edit.setToolTip(setting_tooltip_text)
         return [
             LayoutEntry(widgets=[line_edit], col_span=3),
             LayoutEntry(widgets=[self._inherit_checkboxes[axis_index]]),
@@ -130,6 +141,9 @@ class AxisTranslations(AxisComponentBase):
     """Per-axis translation editor using ``QDoubleSpinBox`` widgets."""
 
     _label_text = 'Translate:'
+    _tooltip_text = (
+        'Translation for each of the layer dimensions.<br>Value: float.'
+    )
 
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
@@ -251,7 +265,6 @@ class AxisUnits(AxisComponentBase):
     """
 
     _label_text = 'Units:'
-    _tooltip_text = 'The Pint unit associated with each axis.'
 
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
