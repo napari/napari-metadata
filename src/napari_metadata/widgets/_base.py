@@ -50,12 +50,16 @@ class LayoutEntry:
         Number of grid columns.
     alignment : Qt.AlignmentFlag
         Hint for alignment inside the cell.
+    tooltips : list[str] | None
+        Optional tooltip text per widget in ``widgets``. When omitted,
+        axis components fall back to their component-level tooltip text.
     """
 
     widgets: list[QWidget]
     row_span: int = 1
     col_span: int = 1
     alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignVCenter
+    tooltips: list[str] | None = None
 
 
 class ComponentBase(ABC):
@@ -228,9 +232,7 @@ class AxisComponentBase(BoundLayerOwner, ComponentBase):
             LayoutEntry(widgets=[self._axis_name_labels[axis_index]]),
         ]
         value_entries = self._get_value_entries(axis_index)
-        for entry in value_entries:
-            for widget in entry.widgets:
-                widget.setToolTip(self._tooltip_text)
+        self._apply_value_entry_tooltips(value_entries)
         entries.extend(value_entries)
         entries.append(
             LayoutEntry(widgets=[self._inherit_checkboxes[axis_index]]),
@@ -313,6 +315,29 @@ class AxisComponentBase(BoundLayerOwner, ComponentBase):
         base lists.
         """
         return [self._axis_name_labels, self._inherit_checkboxes]
+
+    def _apply_value_entry_tooltips(
+        self, entries: list[LayoutEntry]
+    ) -> None:
+        """Apply per-widget tooltips to value entries.
+
+        Entries without explicit ``tooltips`` metadata fall back to the
+        component-level tooltip text.
+        """
+        for entry in entries:
+            tooltips = entry.tooltips
+            if tooltips is None:
+                tooltips = [self._tooltip_text] * len(entry.widgets)
+            if len(tooltips) != len(entry.widgets):
+                raise ValueError(
+                    'LayoutEntry.tooltips must match the number of widgets.'
+                )
+            for widget, tooltip in zip(entry.widgets, tooltips, strict=True):
+                widget.setToolTip(tooltip)
+
+    def _get_axis_number(self, axis_index: int) -> int:
+        """Return the negative napari-style index for *axis_index*."""
+        return axis_index - self.num_axes
 
     def _clear_widgets(self) -> None:
         """Block signals and destroy all per-axis widgets.

@@ -117,6 +117,17 @@ class TestAxisLabels:
 
         assert labels.get_line_edit_values() == ('row', 'col')
 
+    def test_get_layout_entries_applies_axis_specific_tooltip(
+        self, parent_widget: QWidget
+    ):
+        layer = _make_layer(axis_labels=('y', 'x'))
+        labels = AxisLabels(parent_widget)
+        labels.load_entries(layer)
+
+        entries = labels.get_layout_entries(0)
+
+        assert entries[0].widgets[0].toolTip() == 'Label for the axis with index -2.'
+
 
 class TestAxisTranslations:
     def test_spinbox_value_change_writes_to_layer(
@@ -140,6 +151,20 @@ class TestAxisTranslations:
 
         assert translations._spinboxes[0].value() == pytest.approx(10.0)
         assert translations._spinboxes[1].value() == pytest.approx(20.0)
+
+    def test_get_layout_entries_applies_axis_specific_tooltip(
+        self, parent_widget: QWidget
+    ):
+        layer = _make_layer(translate=(0.0, 0.0))
+        translations = AxisTranslations(parent_widget)
+        translations.load_entries(layer)
+
+        entries = translations.get_layout_entries(1)
+
+        assert (
+            entries[1].widgets[0].toolTip()
+            == 'Translation for the axis with index -1.<br>Value: float.'
+        )
 
 
 class TestAxisMetadataCoordinator:
@@ -320,6 +345,28 @@ class TestAxisUnits:
 
         assert str(layer.units[0]) == AxisUnitEnum.SPACE.value.default
         assert units_component._unit_comboboxes[0].currentText() == 'pixel'
+
+    def test_get_layout_entries_applies_tooltips_to_all_unit_widgets(
+        self, parent_widget: QWidget
+    ):
+        layer = _make_layer(units=('pixel', 'second'))
+        units_component = AxisUnits(parent_widget)
+        units_component.load_entries(layer)
+
+        entries = units_component.get_layout_entries(0)
+
+        assert (
+            entries[1].widgets[0].toolTip()
+            == 'Unit category for the axis with index -2.'
+        )
+        assert (
+            entries[2].widgets[0].toolTip()
+            == 'Preset unit for the axis with index -2.'
+        )
+        assert (
+            entries[2].widgets[1].toolTip()
+            == 'Custom unit for the axis with index -2.'
+        )
 
 
 class TestAxisEventDriven:
