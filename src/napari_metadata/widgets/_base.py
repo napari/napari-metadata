@@ -316,9 +316,7 @@ class AxisComponentBase(BoundLayerOwner, ComponentBase):
         """
         return [self._axis_name_labels, self._inherit_checkboxes]
 
-    def _apply_value_entry_tooltips(
-        self, entries: list[LayoutEntry]
-    ) -> None:
+    def _apply_value_entry_tooltips(self, entries: list[LayoutEntry]) -> None:
         """Apply per-widget tooltips to value entries.
 
         Entries without explicit ``tooltips`` metadata fall back to the

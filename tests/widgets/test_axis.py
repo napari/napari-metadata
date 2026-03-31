@@ -126,7 +126,10 @@ class TestAxisLabels:
 
         entries = labels.get_layout_entries(0)
 
-        assert entries[0].widgets[0].toolTip() == 'Label for the axis with index -2.'
+        assert (
+            entries[0].widgets[0].toolTip()
+            == 'Label for the axis with index -2.'
+        )
 
 
 class TestAxisTranslations:
