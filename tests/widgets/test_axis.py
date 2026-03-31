@@ -368,7 +368,7 @@ class TestAxisUnits:
         )
         assert (
             entries[2].widgets[1].toolTip()
-            == 'Custom unit for the axis with index -2.'
+            == 'Custom unit for the axis with index -2.<br>The input string must be a valid pint unit.'
         )
 
 
