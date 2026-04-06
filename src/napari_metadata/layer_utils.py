@@ -1,126 +1,22 @@
-from collections.abc import Callable, Sequence
-from contextlib import suppress
-from typing import TYPE_CHECKING, cast
+"""Helpers for reading and writing napari layer metadata.
 
-import numpy as np
-import pint
+Only non-trivial helpers live here — functions that handle
+sequence/array polymorphism.  Trivial property access
+(``layer.axis_labels``, ``layer.scale``, etc.) should be done
+directly at call sites.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from napari.components import ViewerModel
     from napari.layers import Layer
 
 
-def resolve_layer(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> 'Layer | None':
-    """Helper to resolve which layer to use: explicit layer or active layer."""
-    if layer is not None:
-        return layer
-    return viewer.layers.selection.active
-
-
-def get_layers_list(viewer: 'ViewerModel') -> list['Layer']:
-    """Get a list of all layers in the viewer."""
-    layer_name_list: list[Layer] = list(viewer.layers)
-    return layer_name_list
-
-
-def get_axes_labels(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[str, ...]:
-    """Get axis labels from the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    return resolved_layer.axis_labels if resolved_layer is not None else ()
-
-
-def set_axes_labels(
-    viewer: 'ViewerModel',
-    axes_labels: tuple[str, ...],
-    layer: 'Layer | None' = None,
-) -> None:
-    """Set axis labels on the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is not None:
-        resolved_layer.axis_labels = axes_labels
-
-
-def get_axes_units(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[pint.Unit, ...]:
-    """Get axis units from the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    return resolved_layer.units if resolved_layer is not None else ()
-
-
-def set_axes_units(
-    viewer: 'ViewerModel',
-    axes_units: tuple[pint.Unit | str, ...],
-    layer: 'Layer | None' = None,
-) -> None:
-    """Set axis units on the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is not None:
-        resolved_layer.units = axes_units
-
-
-def get_axes_scales(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[float, ...]:
-    """Get axis scales from the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    return (
-        cast(tuple[float, ...], resolved_layer.scale)
-        if resolved_layer is not None
-        else ()
-    )
-
-
-def set_axes_scales(
-    viewer: 'ViewerModel',
-    axes_scales: tuple[float, ...],
-    layer: 'Layer | None' = None,
-) -> None:
-    """Set axis scales on the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is None:
-        return
-
-    for scale in axes_scales:
-        if not isinstance(scale, int | float):
-            return
-
-    clamped = tuple(max(s, 0.001) for s in axes_scales)
-    resolved_layer.scale = np.array(clamped)
-
-
-def get_axes_translations(
-    viewer: 'ViewerModel', layer: 'Layer | None' = None
-) -> tuple[float, ...]:
-    """Get axis translations from the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    return (
-        cast(tuple[float, ...], resolved_layer.translate)
-        if resolved_layer is not None
-        else ()
-    )
-
-
-def set_axes_translations(
-    viewer: 'ViewerModel',
-    axes_translations: tuple[float, ...],
-    layer: 'Layer | None' = None,
-) -> None:
-    """Set axis translations on the specified layer or active layer."""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is not None:
-        resolved_layer.translate = axes_translations
-
-
-def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
+def get_layer_data_shape(layer: Layer) -> tuple[int, ...]:
     """Get the shape of the layer's data."""
-    if layer is None:
-        return ()
-
     if hasattr(layer.data, 'shape'):
         return layer.data.shape
     if isinstance(layer.data, Sequence):
@@ -128,10 +24,8 @@ def get_layer_data_shape(layer: 'Layer | None') -> tuple[int, ...]:
     return ()
 
 
-def get_layer_data_dtype(layer: 'Layer | None') -> str:
+def get_layer_data_dtype(layer: Layer) -> str:
     """Get the dtype of the layer's data as a string."""
-    if layer is None:
-        return ''
     layer_data = layer.data
     if hasattr(layer_data, 'dtype'):
         return layer_data.dtype.name
@@ -142,81 +36,3 @@ def get_layer_data_dtype(layer: 'Layer | None') -> str:
     ):
         return layer_data[0].dtype.name
     return 'Unknown'
-
-
-def get_layer_source_metadata(layer: 'Layer | None') -> dict[str, str]:
-    """Get all non-None source attributes of the layer as string representations.
-
-    Returns a dict mapping attribute name to display string for every
-    ``source`` field that is not ``None``.  Fields: ``path``,
-    ``reader_plugin``, ``sample``, ``widget``, ``parent``.
-    """
-    if layer is None:
-        return {}
-    source = layer.source
-    result: dict[str, str] = {}
-    for field in ('path', 'reader_plugin', 'sample', 'widget', 'parent'):
-        value = getattr(source, field, None)
-        if value is not None:
-            result[field] = str(value)
-    return result
-
-
-def get_layer_dimensions(layer: 'Layer | None') -> int:
-    """Get the number of dimensions in the layer."""
-    return layer.ndim if layer is not None else 0
-
-
-def connect_callback_to_layer_selection_events(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Connect a callback to layer selection change events."""
-    viewer.layers.selection.events.active.connect(cb_function)
-
-
-def disconnect_callback_to_layer_selection_events(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Disconnect a callback from layer selection change events."""
-    with suppress(TypeError, ValueError):
-        viewer.layers.selection.events.active.disconnect(cb_function)
-
-
-def connect_callback_to_list_events(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    """Connect a callback to layer list change events (inserted, removed, changed)."""
-    viewer.layers.events.inserted.connect(cb_function)
-    viewer.layers.events.removed.connect(cb_function)
-    viewer.layers.events.changed.connect(cb_function)
-
-
-def disconnect_callback_to_list_events(
-    viewer: 'ViewerModel', cb_function: Callable
-) -> None:
-    with suppress(TypeError, ValueError):
-        viewer.layers.events.inserted.disconnect(cb_function)
-    with suppress(TypeError, ValueError):
-        viewer.layers.events.removed.disconnect(cb_function)
-    with suppress(TypeError, ValueError):
-        viewer.layers.events.changed.disconnect(cb_function)
-
-
-def connect_callback_to_layer_name_changed(
-    viewer: 'ViewerModel', cb_function: Callable, layer: 'Layer | None' = None
-) -> None:
-    """Connect a callback function to the specified layer or the current layer name event"""
-    resolved_layer = resolve_layer(viewer, layer)
-    if resolved_layer is None:
-        return
-    resolved_layer.events.name.connect(cb_function)
-
-
-def disconnect_callback_to_layer_name_changed(
-    viewer: 'ViewerModel', cb_function: Callable, layer: 'Layer | None'
-) -> None:
-    """Disconnect a callback function from the specified layer name event"""
-    if layer is None:
-        return
-    with suppress(TypeError, ValueError):
-        layer.events.name.disconnect(cb_function)
