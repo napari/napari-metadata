@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from napari_metadata.widgets._dims_and_units import DimsAndUnitsWidget
-
 from qtpy.QtWidgets import QHBoxLayout, QWidget, QSizePolicy
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
-    from napari.layers import Layer
 
 
 class ViewerMetadataWidget(QWidget):
