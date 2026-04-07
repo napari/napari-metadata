@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from qtpy.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from napari_metadata.widgets._dims_and_units import DimsAndUnitsWidget
+from napari_metadata.viewer_widgets._dims_and_units import DimsAndUnitsWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
