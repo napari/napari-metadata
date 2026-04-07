@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from qtpy.QtWidgets import QHBoxLayout, QWidget, QSizePolicy
+from qtpy.QtWidgets import QHBoxLayout, QSizePolicy, QWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
