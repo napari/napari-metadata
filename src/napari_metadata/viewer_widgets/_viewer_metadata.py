@@ -24,7 +24,9 @@ class ViewerMetadataWidget(QWidget):
         self._dims_and_units_expanded: bool = False
 
         # ── Persistent component instances ──────────────────────────
-        self._dims_and_units_instance = DimsAndUnitsWidget(self)
+        self._dims_and_units_instance = DimsAndUnitsWidget(
+            napari_viewer, parent=self
+        )
 
         self._layout: QVBoxLayout = QVBoxLayout()
         self._layout.setContentsMargins(0, 0, 0, 0)
