@@ -12,6 +12,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QLayout,
     QPushButton,
+    QTableWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -86,30 +87,32 @@ class AxisLabelsDisplayWidget(QWidget):
         return
 
     def _populate_labels_grid(self) -> None:
-        clear_layout(self._labels_layout)
+        setting_table = LabelTable(self._napari_viewer, self)
+        self._labels_layout.addWidget(setting_table)
+        # clear_layout(self._labels_layout)
 
-        ndim = self._napari_viewer.dims.ndim
-        layer = self._napari_viewer.layers.selection.active
+        # ndim = self._napari_viewer.dims.ndim
+        # layer = self._napari_viewer.layers.selection.active
 
-        index_list = [str(a - ndim) for a in range(ndim)]
-        index_container = LabelContainer('Index', index_list, self)
+        # index_list = [str(a - ndim) for a in range(ndim)]
+        # index_container = LabelContainer('Index', index_list, self)
 
-        viewer_container = LabelContainer(
-            'Viewer', self._napari_viewer.dims.axis_labels
-        )
+        # viewer_container = LabelContainer(
+        #    'Viewer', self._napari_viewer.dims.axis_labels
+        # )
 
-        layer_labels = self._solve_layer_to_viewer_list(ndim, layer)
-        layer_container = LabelContainer('Layer', layer_labels)
+        # layer_labels = self._solve_layer_to_viewer_list(ndim, layer)
+        # layer_container = LabelContainer('Layer', layer_labels)
 
-        setting_list = self._solve_setting_labels_list(
-            self._napari_viewer.dims.axis_labels, layer_labels
-        )
-        setting_container = LabelContainer('Set', setting_list)
+        # setting_list = self._solve_setting_labels_list(
+        #    self._napari_viewer.dims.axis_labels, layer_labels
+        # )
+        # setting_container = LabelContainer('Set', setting_list)
 
-        self._labels_layout.addWidget(index_container)
-        self._labels_layout.addWidget(viewer_container)
-        self._labels_layout.addWidget(layer_container)
-        self._labels_layout.addWidget(setting_container)
+        # self._labels_layout.addWidget(index_container)
+        # self._labels_layout.addWidget(viewer_container)
+        # self._labels_layout.addWidget(layer_container)
+        # self._labels_layout.addWidget(setting_container)
 
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
@@ -162,6 +165,53 @@ def set_title_label_style(label: QLabel) -> QLabel:
     label.setStyleSheet('font-weight: bold;font-size: 15pt')
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     return label
+
+
+class LabelTable(QTableWidget):
+    """Table widget that holds the labels for the layer and the viewer dims."""
+
+    def __init__(
+        self, napari_viewer: ViewerModel, parent: QWidget | None = None
+    ):
+        super().__init__(parent=parent)
+        self._napari_viewer = napari_viewer
+
+        self._header_labels: list[str] = [
+            'Viewer',
+            'Layer',
+            'Setting',
+        ]
+
+        self._build_table()
+
+    def _build_table(self) -> None:
+        """Build the table by getting the current layer if any is selected."""
+        viewer_ndim: int = self._napari_viewer.dims.ndim
+        viewer_ax_l: Sequence[str] = self._napari_viewer.dims.axis_labels
+        layer_ndim: int
+        layer_ax_l: Sequence[str] = []
+        if self._napari_viewer.layers.selection.active is None:
+            layers_ndim = 0
+        else:
+            layers_ndim = self._napari_viewer.layers.selection.active.ndim
+            layer_ax_l = (
+                self._napari_viewer.layers.selection.active.axis_labels
+            )
+        reversed_index: list[str] = [
+            str(x - viewer_ndim) for x in range(viewer_ndim)
+        ]
+        self.setRowCount(viewer_ndim)
+        self.setColumnCount(len(self._header_labels))
+        self.setHorizontalHeaderLabels(self._header_labels)
+        self.setVerticalHeaderLabels(reversed_index)
+
+    @property
+    def header_labels(self) -> list[str]:
+        return self._header_labels
+
+    @header_labels.setter
+    def header_labels(self, value: list[str]) -> None:
+        self._header_labels = value
 
 
 class LabelContainer(QWidget):
