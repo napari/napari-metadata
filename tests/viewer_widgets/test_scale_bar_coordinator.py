@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from napari_metadata.viewer_widgets._base import ViewerComponentBase
-from napari_metadata.viewer_widgets._scale_bar import ScaleBarMetadata
+from napari_metadata.viewer_widgets._scale_bar import (
+    ScaleBarMetadata,
+    ScaleBarVisible,
+)
 
 
 class _DummyScaleBarComponent(ViewerComponentBase):
@@ -24,6 +27,14 @@ class _DummyScaleBarComponent(ViewerComponentBase):
 
 
 class TestScaleBarMetadata:
+    def test_default_components_contains_visibility_component(
+        self, viewer_model, parent_widget
+    ):
+        coordinator = ScaleBarMetadata(viewer_model, parent_widget)
+
+        assert len(coordinator.components) == 1
+        assert isinstance(coordinator.components[0], ScaleBarVisible)
+
     def test_components_returns_display_order(
         self, viewer_model, parent_widget
     ):
@@ -47,9 +58,31 @@ class TestScaleBarMetadata:
             components=[component_a, component_b],
         )
 
-        coordinator.refresh()
-
         assert component_a.load_calls == 1
         assert component_b.load_calls == 1
         assert component_a.loaded_viewers == [viewer_model]
         assert component_b.loaded_viewers == [viewer_model]
+
+        coordinator.refresh()
+
+        assert component_a.load_calls == 2
+        assert component_b.load_calls == 2
+        assert component_a.loaded_viewers == [viewer_model, viewer_model]
+        assert component_b.loaded_viewers == [viewer_model, viewer_model]
+
+    def test_visible_event_refreshes_visibility_component(
+        self, viewer_model, parent_widget
+    ):
+        coordinator = ScaleBarMetadata(viewer_model, parent_widget)
+        visibility_component = coordinator._scale_bar_visible
+        initial_checked = visibility_component.value_widgets[0].isChecked()
+
+        viewer_model.scale_bar.visible = not viewer_model.scale_bar.visible
+
+        assert (
+            visibility_component.value_widgets[0].isChecked()
+            is not initial_checked
+        )
+        assert visibility_component.value_widgets[0].isChecked() is (
+            viewer_model.scale_bar.visible
+        )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from qtpy.QtCore import QSignalBlocker
@@ -66,6 +67,8 @@ class ScaleBarMetadata:
             if components is not None
             else [self._scale_bar_visible]
         )
+        self._connect_scale_bar_events()
+        self.refresh()
 
     @property
     def components(self) -> list[ViewerComponentBase]:
@@ -76,6 +79,20 @@ class ScaleBarMetadata:
         """Refresh all managed components from the current viewer."""
         for component in self._components:
             component.load_entries(self._napari_viewer)
+
+    def _connect_scale_bar_events(self) -> None:
+        self._napari_viewer.scale_bar.events.visible.connect(
+            self._on_visible_changed
+        )
+
+    def _disconnect_scale_bar_events(self) -> None:
+        with suppress(TypeError, ValueError, RuntimeError):
+            self._napari_viewer.scale_bar.events.visible.disconnect(
+                self._on_visible_changed
+            )
+
+    def _on_visible_changed(self) -> None:
+        self._scale_bar_visible.load_entries(self._napari_viewer)
 
 
 class ScaleBarWidget(QWidget):
