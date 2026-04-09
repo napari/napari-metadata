@@ -10,10 +10,11 @@ from napari.layers import Layer
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLayout,
     QPushButton,
-    QTableWidget,
+    QTableView,
     QVBoxLayout,
     QWidget,
 )
@@ -202,6 +203,7 @@ class AxisLabelsDisplayWidget(QWidget):
         self._labels_container.setLayout(self._labels_layout)
         self._layout.addWidget(self._labels_container)
 
+        self._table_model = AxisLabelTableModel(self._napari_viewer, self)
         self._populate_labels_grid()
 
         self._update_button: QPushButton = QPushButton(
@@ -221,9 +223,10 @@ class AxisLabelsDisplayWidget(QWidget):
         return
 
     def _populate_labels_grid(self) -> None:
-        setting_table = LabelTable(self._napari_viewer, self)
+        clear_layout(self._labels_layout)
+        self._table_model.refresh()
+        setting_table = LabelTable(self._table_model, self)
         self._labels_layout.addWidget(setting_table)
-        # clear_layout(self._labels_layout)
 
         # ndim = self._napari_viewer.dims.ndim
         # layer = self._napari_viewer.layers.selection.active
@@ -286,51 +289,39 @@ def set_title_label_style(label: QLabel) -> QLabel:
     return label
 
 
-class LabelTable(QTableWidget):
-    """Table widget that holds the labels for the layer and the viewer dims."""
+class LabelTable(QTableView):
+    """View for viewer, layer, and derived setting axis labels."""
 
     def __init__(
-        self, napari_viewer: ViewerModel, parent: QWidget | None = None
+        self,
+        model: AxisLabelTableModel,
+        parent: QWidget | None = None,
     ):
         super().__init__(parent=parent)
-        self._napari_viewer = napari_viewer
-
-        self._header_labels: list[str] = [
-            'Viewer',
-            'Layer',
-            'Setting',
-        ]
+        self._table_model = model
 
         self._build_table()
 
     def _build_table(self) -> None:
-        """Build the table by getting the current layer if any is selected."""
-        viewer_ndim: int = self._napari_viewer.dims.ndim
-        viewer_ax_l: Sequence[str] = self._napari_viewer.dims.axis_labels
-        layer_ndim: int
-        layer_ax_l: Sequence[str] = []
-        if self._napari_viewer.layers.selection.active is None:
-            layers_ndim = 0
-        else:
-            layers_ndim = self._napari_viewer.layers.selection.active.ndim
-            layer_ax_l = (
-                self._napari_viewer.layers.selection.active.axis_labels
-            )
-        reversed_index: list[str] = [
-            str(x - viewer_ndim) for x in range(viewer_ndim)
-        ]
-        self.setRowCount(viewer_ndim)
-        self.setColumnCount(len(self._header_labels))
-        self.setHorizontalHeaderLabels(self._header_labels)
-        self.setVerticalHeaderLabels(reversed_index)
+        """Configure the table view."""
+        self.setModel(self._table_model)
+        self.setSelectionMode(QTableView.SelectionMode.NoSelection)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
+        self.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents
+        )
 
     @property
     def header_labels(self) -> list[str]:
-        return self._header_labels
+        return self._table_model.header_labels
 
     @header_labels.setter
     def header_labels(self, value: list[str]) -> None:
-        self._header_labels = value
+        self._table_model._header_labels = value
 
 
 class LabelContainer(QWidget):
