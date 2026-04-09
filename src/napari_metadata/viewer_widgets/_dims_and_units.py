@@ -12,7 +12,6 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLayout,
     QPushButton,
     QTableView,
     QVBoxLayout,
@@ -87,12 +86,16 @@ class AxisLabelTableModel(QAbstractTableModel):
         self._rows = self._build_rows()
         self.endResetModel()
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: QModelIndex | None = None) -> int:
+        if parent is None:
+            parent = QModelIndex()
         if parent.isValid():
             return 0
         return len(self._rows)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: QModelIndex | None = None) -> int:
+        if parent is None:
+            parent = QModelIndex()
         if parent.isValid():
             return 0
         return len(self._header_labels)
@@ -204,12 +207,13 @@ class AxisLabelsDisplayWidget(QWidget):
         self._layout.addWidget(self._labels_container)
 
         self._table_model = AxisLabelTableModel(self._napari_viewer, self)
-        self._populate_labels_grid()
+        self._label_table = LabelTable(self._table_model, self)
+        self._labels_layout.addWidget(self._label_table)
 
         self._update_button: QPushButton = QPushButton(
             'Update labels', parent=self
         )
-        self._update_button.clicked.connect(self._populate_labels_grid)
+        self._update_button.clicked.connect(self._table_model.refresh)
         self._layout.addWidget(self._update_button)
 
         self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
@@ -220,67 +224,13 @@ class AxisLabelsDisplayWidget(QWidget):
         )
         self._layout.addWidget(self._apply_layer_dim_labels_to_viewer_button)
 
-        return
-
-    def _populate_labels_grid(self) -> None:
-        clear_layout(self._labels_layout)
-        self._table_model.refresh()
-        setting_table = LabelTable(self._table_model, self)
-        self._labels_layout.addWidget(setting_table)
-
-        # ndim = self._napari_viewer.dims.ndim
-        # layer = self._napari_viewer.layers.selection.active
-
-        # index_list = [str(a - ndim) for a in range(ndim)]
-        # index_container = LabelContainer('Index', index_list, self)
-
-        # viewer_container = LabelContainer(
-        #    'Viewer', self._napari_viewer.dims.axis_labels
-        # )
-
-        # layer_labels = self._solve_layer_to_viewer_list(ndim, layer)
-        # layer_container = LabelContainer('Layer', layer_labels)
-
-        # setting_list = self._solve_setting_labels_list(
-        #    self._napari_viewer.dims.axis_labels, layer_labels
-        # )
-        # setting_container = LabelContainer('Set', setting_list)
-
-        # self._labels_layout.addWidget(index_container)
-        # self._labels_layout.addWidget(viewer_container)
-        # self._labels_layout.addWidget(layer_container)
-        # self._labels_layout.addWidget(setting_container)
-
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
             return
-        layer_labels = solve_layer_to_viewer_labels(
-            self._napari_viewer.dims.ndim,
-            self._napari_viewer.layers.selection.active,
-        )
+        self._table_model.refresh()
         self._napari_viewer.dims.axis_labels = tuple(
-            solve_setting_labels(
-                self._napari_viewer.dims.axis_labels, layer_labels
-            )
+            row.setting_label for row in self._table_model.rows
         )
-
-    def _solve_layer_to_viewer_list(
-        self, ndim: int, layer: Layer | None
-    ) -> list[str]:
-        return solve_layer_to_viewer_labels(ndim, layer)
-
-    def _solve_setting_labels_list(
-        self, viewer_labels: Sequence[str], layer_labels: Sequence[str]
-    ) -> list[str]:
-        return solve_setting_labels(viewer_labels, layer_labels)
-
-
-def clear_layout(layout: QLayout) -> None:
-    while layout.count():
-        item = layout.takeAt(0)
-        if item is not None and item.widget() is not None:
-            widget = item.widget()
-            widget.deleteLater()  # type: ignore
 
 
 def set_title_label_style(label: QLabel) -> QLabel:
@@ -308,36 +258,14 @@ class LabelTable(QTableView):
         self.setSelectionMode(QTableView.SelectionMode.NoSelection)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
-        self.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self.verticalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.ResizeToContents
-        )
+        horizontal_header = self.horizontalHeader()
+        if horizontal_header is not None:
+            horizontal_header.setSectionResizeMode(
+                QHeaderView.ResizeMode.Stretch
+            )
 
-    @property
-    def header_labels(self) -> list[str]:
-        return self._table_model.header_labels
-
-    @header_labels.setter
-    def header_labels(self, value: list[str]) -> None:
-        self._table_model._header_labels = value
-
-
-class LabelContainer(QWidget):
-    def __init__(
-        self, title: str, labels: Sequence[str], parent: QWidget | None = None
-    ) -> None:
-        super().__init__(parent=parent)
-
-        self._layout = QVBoxLayout(self)
-        self.setLayout(self._layout)
-
-        self._title_label = QLabel(title, parent=self)
-        set_title_label_style(self._title_label)
-        self._layout.addWidget(self._title_label)
-
-        for label_text in labels:
-            label = QLabel(label_text, self)
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._layout.addWidget(label)
+        vertical_header = self.verticalHeader()
+        if vertical_header is not None:
+            vertical_header.setSectionResizeMode(
+                QHeaderView.ResizeMode.ResizeToContents
+            )
