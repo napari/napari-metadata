@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from qtpy.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 from napari_metadata.viewer_widgets._dims_and_units import DimsAndUnitsWidget
+from napari_metadata.viewer_widgets._scale_bar import ScaleBarWidget
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
@@ -27,6 +28,8 @@ class ViewerMetadataWidget(QWidget):
         self._dims_and_units_instance = DimsAndUnitsWidget(
             napari_viewer, parent=self
         )
+
+        self._scale_bar_instance = ScaleBarWidget(napari_viewer, parent=self)
 
         self._layout: QVBoxLayout = QVBoxLayout()
         self._layout.setContentsMargins(0, 0, 0, 0)
