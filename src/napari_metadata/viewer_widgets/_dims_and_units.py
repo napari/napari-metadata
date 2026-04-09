@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -197,6 +198,7 @@ class AxisLabelsDisplayWidget(QWidget):
         super().__init__(parent=parent)
 
         self._napari_viewer = napari_viewer
+        self._event_connected_layer: Layer | None = None
 
         self._layout: QVBoxLayout = QVBoxLayout()
         self.setLayout(self._layout)
@@ -228,6 +230,17 @@ class AxisLabelsDisplayWidget(QWidget):
         )
         self._layout.addWidget(self._apply_layer_dim_labels_to_viewer_button)
 
+        self._napari_viewer.layers.selection.events.active.connect(
+            self._on_layer_selection_changed
+        )
+        self._napari_viewer.dims.events.axis_labels.connect(
+            self._on_viewer_axis_labels_changed
+        )
+        self._napari_viewer.dims.events.ndim.connect(
+            self._on_viewer_ndim_changed
+        )
+        self._on_layer_selection_changed()
+
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
             return
@@ -235,6 +248,58 @@ class AxisLabelsDisplayWidget(QWidget):
         self._napari_viewer.dims.axis_labels = tuple(
             row.setting_label for row in self._table_model.rows
         )
+
+    def _on_layer_selection_changed(self) -> None:
+        current_layer = self._napari_viewer.layers.selection.active
+        if current_layer is self._event_connected_layer:
+            self._table_model.refresh()
+            return
+
+        if self._event_connected_layer is not None:
+            with suppress(TypeError, ValueError, RuntimeError):
+                self._event_connected_layer.events.axis_labels.disconnect(
+                    self._on_layer_axis_labels_changed
+                )
+
+        self._event_connected_layer = current_layer
+
+        if current_layer is not None:
+            current_layer.events.axis_labels.connect(
+                self._on_layer_axis_labels_changed
+            )
+
+        self._table_model.refresh()
+
+    def _on_layer_axis_labels_changed(self) -> None:
+        self._table_model.refresh()
+
+    def _on_viewer_axis_labels_changed(self) -> None:
+        self._table_model.refresh()
+
+    def _on_viewer_ndim_changed(self) -> None:
+        self._table_model.refresh()
+
+    def closeEvent(self, event) -> None:  # type: ignore
+        with suppress(TypeError, ValueError, RuntimeError):
+            self._napari_viewer.layers.selection.events.active.disconnect(
+                self._on_layer_selection_changed
+            )
+        with suppress(TypeError, ValueError, RuntimeError):
+            self._napari_viewer.dims.events.axis_labels.disconnect(
+                self._on_viewer_axis_labels_changed
+            )
+        with suppress(TypeError, ValueError, RuntimeError):
+            self._napari_viewer.dims.events.ndim.disconnect(
+                self._on_viewer_ndim_changed
+            )
+
+        if self._event_connected_layer is not None:
+            with suppress(TypeError, ValueError, RuntimeError):
+                self._event_connected_layer.events.axis_labels.disconnect(
+                    self._on_layer_axis_labels_changed
+                )
+
+        super().closeEvent(event)
 
 
 def set_title_label_style(label: QLabel) -> QLabel:
@@ -259,6 +324,8 @@ class LabelTable(QTableView):
     def _build_table(self) -> None:
         """Configure the table view."""
         self.setModel(self._table_model)
+        self.setCornerButtonEnabled(False)
+        self.setSortingEnabled(False)
         self.setSelectionMode(QTableView.SelectionMode.NoSelection)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
