@@ -102,9 +102,13 @@ class AxisLabelTableModel(QAbstractTableModel):
 
     def data(
         self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole
-    ) -> str | None:
+    ) -> str | int | None:
         if not index.isValid():
             return None
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            return int(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
         if role not in (
             Qt.ItemDataRole.DisplayRole,
             Qt.ItemDataRole.EditRole,
