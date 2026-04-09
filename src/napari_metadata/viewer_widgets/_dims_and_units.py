@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from napari.layers import Layer
-from qtpy.QtCore import Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -19,6 +20,14 @@ from qtpy.QtWidgets import (
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
+
+
+@dataclass(frozen=True)
+class AxisLabelRow:
+    axis_index: int
+    viewer_label: str
+    layer_label: str
+    setting_label: str
 
 
 def solve_layer_to_viewer_labels(
@@ -49,6 +58,101 @@ def solve_setting_labels(
         else:
             return_list.append(layer_labels[i])
     return return_list
+
+
+class AxisLabelTableModel(QAbstractTableModel):
+    """Table model exposing viewer, layer, and derived setting labels."""
+
+    _header_labels = ['Viewer', 'Layer', 'Setting']
+
+    def __init__(
+        self, napari_viewer: ViewerModel, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self._napari_viewer = napari_viewer
+        self._rows: list[AxisLabelRow] = []
+        self.refresh()
+
+    @property
+    def rows(self) -> list[AxisLabelRow]:
+        return list(self._rows)
+
+    @property
+    def header_labels(self) -> list[str]:
+        return list(self._header_labels)
+
+    def refresh(self) -> None:
+        self.beginResetModel()
+        self._rows = self._build_rows()
+        self.endResetModel()
+
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+        if parent.isValid():
+            return 0
+        return len(self._rows)
+
+    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+        if parent.isValid():
+            return 0
+        return len(self._header_labels)
+
+    def data(
+        self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole
+    ) -> str | None:
+        if not index.isValid():
+            return None
+        if role not in (
+            Qt.ItemDataRole.DisplayRole,
+            Qt.ItemDataRole.EditRole,
+        ):
+            return None
+
+        row = self._rows[index.row()]
+        if index.column() == 0:
+            return row.viewer_label
+        if index.column() == 1:
+            return row.layer_label
+        if index.column() == 2:
+            return row.setting_label
+        return None
+
+    def headerData(
+        self,
+        section: int,
+        orientation: Qt.Orientation,
+        role: int = Qt.ItemDataRole.DisplayRole,
+    ) -> str | None:
+        if role != Qt.ItemDataRole.DisplayRole:
+            return None
+
+        if orientation == Qt.Orientation.Horizontal:
+            if 0 <= section < len(self._header_labels):
+                return self._header_labels[section]
+            return None
+
+        if orientation == Qt.Orientation.Vertical:
+            if 0 <= section < len(self._rows):
+                return str(self._rows[section].axis_index)
+            return None
+
+        return None
+
+    def _build_rows(self) -> list[AxisLabelRow]:
+        viewer_ndim = self._napari_viewer.dims.ndim
+        viewer_labels = self._napari_viewer.dims.axis_labels
+        layer = self._napari_viewer.layers.selection.active
+        layer_labels = solve_layer_to_viewer_labels(viewer_ndim, layer)
+        setting_labels = solve_setting_labels(viewer_labels, layer_labels)
+
+        return [
+            AxisLabelRow(
+                axis_index=i - viewer_ndim,
+                viewer_label=viewer_labels[i],
+                layer_label=layer_labels[i],
+                setting_label=setting_labels[i],
+            )
+            for i in range(viewer_ndim)
+        ]
 
 
 class DimsAndUnitsWidget(QWidget):
