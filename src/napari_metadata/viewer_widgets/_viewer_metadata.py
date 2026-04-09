@@ -36,3 +36,5 @@ class ViewerMetadataWidget(QWidget):
         self.setLayout(self._layout)
 
         self._layout.addWidget(self._dims_and_units_instance)
+        self._layout.addWidget(self._scale_bar_instance)
+        self._layout.addStretch()

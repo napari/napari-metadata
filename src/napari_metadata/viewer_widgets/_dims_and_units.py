@@ -420,7 +420,7 @@ class AxisLabelsDisplayWidget(QWidget):
 
 def set_title_label_style(label: QLabel) -> QLabel:
     label.setStyleSheet('font-weight: bold;font-size: 15pt')
-    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    label.setAlignment(Qt.AlignmentFlag.AlignLeft)
     return label
 
 

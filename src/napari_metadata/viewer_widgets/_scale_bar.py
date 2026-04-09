@@ -4,8 +4,8 @@ from collections.abc import Sequence
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from qtpy.QtCore import QSignalBlocker
-from qtpy.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from superqt import QToggleSwitch
 
 from napari_metadata.viewer_widgets._base import ViewerComponentBase
@@ -26,6 +26,7 @@ class ScaleBarVisible(ViewerComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
+        self._syncing_from_viewer = False
         self._toggle_switch = QToggleSwitch(parent=parent_widget)
         self._toggle_switch.toggled.connect(self._on_toggled)
 
@@ -34,19 +35,27 @@ class ScaleBarVisible(ViewerComponentBase):
         return [self._toggle_switch]
 
     def clear(self) -> None:
-        with QSignalBlocker(self._toggle_switch):
+        self._syncing_from_viewer = True
+        try:
             self._toggle_switch.setChecked(False)
+        finally:
+            self._syncing_from_viewer = False
 
     def _update_display(self) -> None:
-        with QSignalBlocker(self._toggle_switch):
+        self._syncing_from_viewer = True
+        try:
             self._toggle_switch.setChecked(
                 self._napari_viewer.scale_bar.visible
             )
+        finally:
+            self._syncing_from_viewer = False
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.visible)
 
     def _on_toggled(self, checked: bool) -> None:
+        if self._syncing_from_viewer:
+            return
         self._napari_viewer.scale_bar.visible = checked
 
 
@@ -68,7 +77,6 @@ class ScaleBarMetadata:
             else [self._scale_bar_visible]
         )
         self._connect_scale_bar_events()
-        self.refresh()
 
     @property
     def components(self) -> list[ViewerComponentBase]:
@@ -113,9 +121,16 @@ class ScaleBarWidget(QWidget):
         self.setLayout(self._layout)
         self._layout.setSpacing(3)
         self._layout.setContentsMargins(10, 10, 10, 10)
+
+        self._title_label = QLabel('Scale bar', parent=self)
+        self._title_label.setStyleSheet('font-weight: bold;font-size: 15pt')
+        self._title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._layout.addWidget(self._title_label)
+
         self._rows_layout = QVBoxLayout()
         self._layout.addLayout(self._rows_layout)
         self._populate_rows()
+        self._metadata.refresh()
         self._layout.addStretch()
 
     def _populate_rows(self) -> None:

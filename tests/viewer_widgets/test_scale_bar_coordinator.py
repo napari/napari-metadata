@@ -58,17 +58,12 @@ class TestScaleBarMetadata:
             components=[component_a, component_b],
         )
 
+        coordinator.refresh()
+
         assert component_a.load_calls == 1
         assert component_b.load_calls == 1
         assert component_a.loaded_viewers == [viewer_model]
         assert component_b.loaded_viewers == [viewer_model]
-
-        coordinator.refresh()
-
-        assert component_a.load_calls == 2
-        assert component_b.load_calls == 2
-        assert component_a.loaded_viewers == [viewer_model, viewer_model]
-        assert component_b.loaded_viewers == [viewer_model, viewer_model]
 
     def test_visible_event_refreshes_visibility_component(
         self, viewer_model, parent_widget
