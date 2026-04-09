@@ -21,6 +21,36 @@ if TYPE_CHECKING:
     from napari.components import ViewerModel
 
 
+def solve_layer_to_viewer_labels(
+    viewer_ndim: int, layer: Layer | None
+) -> list[str]:
+    """Map active-layer axis labels into viewer dimensionality."""
+    if layer is None:
+        return [''] * viewer_ndim
+
+    return_list: list[str] = []
+    dim_diff = viewer_ndim - layer.ndim
+    for i in range(viewer_ndim):
+        if i < dim_diff:
+            return_list.append('')
+        else:
+            return_list.append(layer.axis_labels[i - dim_diff])
+    return return_list
+
+
+def solve_setting_labels(
+    viewer_labels: Sequence[str], layer_labels: Sequence[str]
+) -> list[str]:
+    """Compute the labels that would be written to the viewer."""
+    return_list: list[str] = []
+    for i in range(len(viewer_labels)):
+        if layer_labels[i] == '':
+            return_list.append(str(i - len(viewer_labels)))
+        else:
+            return_list.append(layer_labels[i])
+    return return_list
+
+
 class DimsAndUnitsWidget(QWidget):
     """Dimensions and units section of the viewer metadata widget"""
 
@@ -117,12 +147,12 @@ class AxisLabelsDisplayWidget(QWidget):
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
             return
-        layer_labels = self._solve_layer_to_viewer_list(
+        layer_labels = solve_layer_to_viewer_labels(
             self._napari_viewer.dims.ndim,
             self._napari_viewer.layers.selection.active,
         )
         self._napari_viewer.dims.axis_labels = tuple(
-            self._solve_setting_labels_list(
+            solve_setting_labels(
                 self._napari_viewer.dims.axis_labels, layer_labels
             )
         )
@@ -130,27 +160,12 @@ class AxisLabelsDisplayWidget(QWidget):
     def _solve_layer_to_viewer_list(
         self, ndim: int, layer: Layer | None
     ) -> list[str]:
-        if layer is None:
-            return [''] * ndim
-        return_list: list[str] = []
-        dim_diff = ndim - layer.ndim
-        for i in range(ndim):
-            if i < dim_diff:
-                return_list.append('')
-            else:
-                return_list.append(layer.axis_labels[i - dim_diff])
-        return return_list
+        return solve_layer_to_viewer_labels(ndim, layer)
 
     def _solve_setting_labels_list(
         self, viewer_labels: Sequence[str], layer_labels: Sequence[str]
     ) -> list[str]:
-        return_list: list[str] = []
-        for a in range(len(viewer_labels)):
-            if layer_labels[a] == '':
-                return_list.append(str(a - len(viewer_labels)))
-            else:
-                return_list.append(layer_labels[a])
-        return return_list
+        return solve_setting_labels(viewer_labels, layer_labels)
 
 
 def clear_layout(layout: QLayout) -> None:
