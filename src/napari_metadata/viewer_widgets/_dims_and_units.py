@@ -14,6 +14,7 @@ from qtpy.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -199,6 +200,14 @@ class AxisLabelsDisplayWidget(QWidget):
         set_title_label_style(self._title_label)
         self._layout.addWidget(self._title_label)
 
+        self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
+            QPushButton('Apply labels to viewer', parent=self)
+        )
+        self._apply_layer_dim_labels_to_viewer_button.clicked.connect(
+            self._apply_layer_labels_to_viewer
+        )
+        self._layout.addWidget(self._apply_layer_dim_labels_to_viewer_button)
+
         self._labels_container: QWidget = QWidget(parent=self)
         self._labels_layout: QHBoxLayout = QHBoxLayout(self._labels_container)
         self._labels_container.setLayout(self._labels_layout)
@@ -207,14 +216,7 @@ class AxisLabelsDisplayWidget(QWidget):
         self._table_model = AxisLabelTableModel(self._napari_viewer, self)
         self._label_table = LabelTable(self._table_model, self)
         self._labels_layout.addWidget(self._label_table)
-
-        self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
-            QPushButton('Apply labels to viewer', parent=self)
-        )
-        self._apply_layer_dim_labels_to_viewer_button.clicked.connect(
-            self._apply_layer_labels_to_viewer
-        )
-        self._layout.addWidget(self._apply_layer_dim_labels_to_viewer_button)
+        self._layout.addStretch()
 
         self._napari_viewer.layers.selection.events.active.connect(
             self._on_layer_selection_changed
@@ -313,6 +315,10 @@ class LabelTable(QTableView):
     def _build_table(self) -> None:
         """Configure the table view."""
         self.setModel(self._table_model)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Maximum,
+        )
         self.setCornerButtonEnabled(False)
         self.setSortingEnabled(False)
         self.setSelectionMode(QTableView.SelectionMode.NoSelection)
@@ -329,3 +335,5 @@ class LabelTable(QTableView):
             vertical_header.setSectionResizeMode(
                 QHeaderView.ResizeMode.ResizeToContents
             )
+        self.resizeRowsToContents()
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
