@@ -38,27 +38,19 @@ def solve_layer_to_viewer_labels(
     if layer is None:
         return [''] * viewer_ndim
 
-    return_list: list[str] = []
     dim_diff = viewer_ndim - layer.ndim
-    for i in range(viewer_ndim):
-        if i < dim_diff:
-            return_list.append('')
-        else:
-            return_list.append(layer.axis_labels[i - dim_diff])
-    return return_list
+    return [''] * dim_diff + list(layer.axis_labels)
 
 
 def solve_setting_labels(
     viewer_labels: Sequence[str], layer_labels: Sequence[str]
 ) -> list[str]:
     """Compute the labels that would be written to the viewer."""
-    return_list: list[str] = []
-    for i in range(len(viewer_labels)):
-        if layer_labels[i] == '':
-            return_list.append(str(i - len(viewer_labels)))
-        else:
-            return_list.append(layer_labels[i])
-    return return_list
+    viewer_ndim = len(viewer_labels)
+    return [
+        layer_label if layer_label else str(i - viewer_ndim)
+        for i, layer_label in enumerate(layer_labels)
+    ]
 
 
 class AxisLabelTableModel(QAbstractTableModel):
@@ -238,7 +230,7 @@ class AxisLabelsDisplayWidget(QWidget):
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
             return
-        self._table_model.refresh()
+        self._refresh_table_model()
         self._napari_viewer.dims.axis_labels = tuple(
             row.setting_label for row in self._table_model.rows
         )
@@ -246,7 +238,7 @@ class AxisLabelsDisplayWidget(QWidget):
     def _on_layer_selection_changed(self) -> None:
         current_layer = self._napari_viewer.layers.selection.active
         if current_layer is self._event_connected_layer:
-            self._table_model.refresh()
+            self._refresh_table_model()
             return
 
         if self._event_connected_layer is not None:
@@ -262,15 +254,18 @@ class AxisLabelsDisplayWidget(QWidget):
                 self._on_layer_axis_labels_changed
             )
 
-        self._table_model.refresh()
+        self._refresh_table_model()
 
     def _on_layer_axis_labels_changed(self) -> None:
-        self._table_model.refresh()
+        self._refresh_table_model()
 
     def _on_viewer_axis_labels_changed(self) -> None:
-        self._table_model.refresh()
+        self._refresh_table_model()
 
     def _on_viewer_ndim_changed(self) -> None:
+        self._refresh_table_model()
+
+    def _refresh_table_model(self) -> None:
         self._table_model.refresh()
 
     def closeEvent(self, event) -> None:  # type: ignore
