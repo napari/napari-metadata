@@ -216,12 +216,6 @@ class AxisLabelsDisplayWidget(QWidget):
         self._label_table = LabelTable(self._table_model, self)
         self._labels_layout.addWidget(self._label_table)
 
-        self._update_button: QPushButton = QPushButton(
-            'Update labels', parent=self
-        )
-        self._update_button.clicked.connect(self._table_model.refresh)
-        self._layout.addWidget(self._update_button)
-
         self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
             QPushButton('Apply labels to viewer', parent=self)
         )
