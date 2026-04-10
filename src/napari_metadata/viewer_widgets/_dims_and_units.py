@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from napari.layers import Layer
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
-    QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
@@ -208,14 +207,9 @@ class AxisLabelsDisplayWidget(QWidget):
         )
         self._layout.addWidget(self._apply_layer_dim_labels_to_viewer_button)
 
-        self._labels_container: QWidget = QWidget(parent=self)
-        self._labels_layout: QHBoxLayout = QHBoxLayout(self._labels_container)
-        self._labels_container.setLayout(self._labels_layout)
-        self._layout.addWidget(self._labels_container)
-
         self._table_model = AxisLabelTableModel(self._napari_viewer, self)
         self._label_table = LabelTable(self._table_model, self)
-        self._labels_layout.addWidget(self._label_table)
+        self._layout.addWidget(self._label_table)
         self._layout.addStretch()
 
         self._napari_viewer.layers.selection.events.active.connect(
