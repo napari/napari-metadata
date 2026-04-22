@@ -112,9 +112,9 @@ class AxisLabelTableModel(QAbstractTableModel):
         if index.column() == 0:
             return row.viewer_label
         if index.column() == 1:
-            return row.layer_label
-        if index.column() == 2:
             return row.setting_label
+        if index.column() == 2:
+            return row.layer_label
         return None
 
     def headerData(
