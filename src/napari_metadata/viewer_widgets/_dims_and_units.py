@@ -54,7 +54,11 @@ def solve_setting_labels(
 
 
 class AxisLabelTableModel(QAbstractTableModel):
-    """Table model exposing viewer, layer, and derived setting labels."""
+    """Table model exposing viewer, layer, and derived setting labels.
+
+    Viewer and layer labels can be edited in-place. Setting labels remain
+    derived from the current viewer and layer label state.
+    """
 
     VIEWER_COLUMN = 0
     SETTING_COLUMN = 1
@@ -83,6 +87,7 @@ class AxisLabelTableModel(QAbstractTableModel):
         return self._is_setting_data
 
     def refresh(self) -> None:
+        """Rebuild rows from the current viewer and active-layer state."""
         self.beginResetModel()
         self._rows = self._build_rows()
         self.endResetModel()
@@ -125,6 +130,9 @@ class AxisLabelTableModel(QAbstractTableModel):
             return row.layer_label
         return None
 
+    # I couldn't add a return type hint because I had a problem with
+    # the single flag return and the real return because its supposed to
+    # be ItemFlags, no ItemFlas....
     def flags(self, index: QModelIndex):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
@@ -140,6 +148,7 @@ class AxisLabelTableModel(QAbstractTableModel):
         value,
         role: int = Qt.ItemDataRole.EditRole,
     ) -> bool:
+        """Persist edits to viewer or layer labels for editable columns."""
         if not index.isValid():
             return False
         if role != Qt.ItemDataRole.EditRole:
@@ -233,9 +242,11 @@ class AxisLabelTableModel(QAbstractTableModel):
         return None
 
     def _is_editable_column(self, column: int) -> bool:
+        """Return whether the given column supports in-place editing."""
         return column in (self.VIEWER_COLUMN, self.LAYER_COLUMN)
 
     def _layer_axis_index_for_row(self, row_index: int) -> int | None:
+        """Map a viewer row index to the active-layer axis index, if any."""
         layer = self._napari_viewer.layers.selection.active
         if layer is None:
             return None
