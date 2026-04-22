@@ -66,6 +66,7 @@ class AxisLabelTableModel(QAbstractTableModel):
     ) -> None:
         super().__init__(parent)
         self._napari_viewer = napari_viewer
+        self._is_setting_data = False
         self._rows: list[AxisLabelRow] = []
         self.refresh()
 
@@ -76,6 +77,10 @@ class AxisLabelTableModel(QAbstractTableModel):
     @property
     def header_labels(self) -> list[str]:
         return list(self._header_labels)
+
+    @property
+    def is_setting_data(self) -> bool:
+        return self._is_setting_data
 
     def refresh(self) -> None:
         self.beginResetModel()
@@ -129,6 +134,83 @@ class AxisLabelTableModel(QAbstractTableModel):
             flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
+    def setData(
+        self,
+        index: QModelIndex,
+        value,
+        role: int = Qt.ItemDataRole.EditRole,
+    ) -> bool:
+        if not index.isValid():
+            return False
+        if role != Qt.ItemDataRole.EditRole:
+            return False
+
+        new_value = str(value)
+
+        if index.column() == self.VIEWER_COLUMN:
+            viewer_labels = list(self._napari_viewer.dims.axis_labels)
+            viewer_labels[index.row()] = new_value
+            # This flag is needed to stop the conflict between the refresh and the viewer updating.
+            self._is_setting_data = True
+            try:
+                self._napari_viewer.dims.axis_labels = tuple(viewer_labels)
+            finally:
+                self._is_setting_data = False
+
+            row = self._rows[index.row()]
+            layer_label = row.layer_label
+            setting_label = (
+                layer_label
+                if layer_label
+                else str(index.row() - len(self._rows))
+            )
+            self._rows[index.row()] = AxisLabelRow(
+                axis_index=row.axis_index,
+                viewer_label=new_value,
+                setting_label=setting_label,
+                layer_label=layer_label,
+            )
+            self.dataChanged.emit(
+                self.index(index.row(), self.VIEWER_COLUMN),
+                self.index(index.row(), self.SETTING_COLUMN),
+                [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole],
+            )
+            return True
+
+        if index.column() == self.LAYER_COLUMN:
+            layer = self._napari_viewer.layers.selection.active
+            if layer is None:
+                return False
+
+            layer_axis_index = self._layer_axis_index_for_row(index.row())
+            if layer_axis_index is None:
+                return False
+
+            layer_labels = list(layer.axis_labels)
+            layer_labels[layer_axis_index] = new_value
+            self._is_setting_data = True
+            try:
+                layer.axis_labels = tuple(layer_labels)
+            finally:
+                self._is_setting_data = False
+
+            row = self._rows[index.row()]
+            setting_label = new_value if new_value else str(row.axis_index)
+            self._rows[index.row()] = AxisLabelRow(
+                axis_index=row.axis_index,
+                viewer_label=row.viewer_label,
+                setting_label=setting_label,
+                layer_label=new_value,
+            )
+            self.dataChanged.emit(
+                self.index(index.row(), self.SETTING_COLUMN),
+                self.index(index.row(), self.LAYER_COLUMN),
+                [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole],
+            )
+            return True
+
+        return False
+
     def headerData(
         self,
         section: int,
@@ -152,6 +234,17 @@ class AxisLabelTableModel(QAbstractTableModel):
 
     def _is_editable_column(self, column: int) -> bool:
         return column in (self.VIEWER_COLUMN, self.LAYER_COLUMN)
+
+    def _layer_axis_index_for_row(self, row_index: int) -> int | None:
+        layer = self._napari_viewer.layers.selection.active
+        if layer is None:
+            return None
+
+        viewer_ndim = self._napari_viewer.dims.ndim
+        layer_axis_index = row_index - (viewer_ndim - layer.ndim)
+        if layer_axis_index < 0:
+            return None
+        return layer_axis_index
 
     def _build_rows(self) -> list[AxisLabelRow]:
         viewer_ndim = self._napari_viewer.dims.ndim
@@ -268,9 +361,13 @@ class AxisLabelsDisplayWidget(QWidget):
         self._refresh_table_model()
 
     def _on_layer_axis_labels_changed(self) -> None:
+        if self._table_model.is_setting_data:
+            return
         self._refresh_table_model()
 
     def _on_viewer_axis_labels_changed(self) -> None:
+        if self._table_model.is_setting_data:
+            return
         self._refresh_table_model()
 
     def _on_viewer_ndim_changed(self) -> None:
