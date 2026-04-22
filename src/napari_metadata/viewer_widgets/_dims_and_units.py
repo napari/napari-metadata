@@ -120,6 +120,15 @@ class AxisLabelTableModel(QAbstractTableModel):
             return row.layer_label
         return None
 
+    def flags(self, index: QModelIndex):
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+
+        flags = super().flags(index)
+        if self._is_editable_column(index.column()):
+            flags |= Qt.ItemFlag.ItemIsEditable
+        return flags
+
     def headerData(
         self,
         section: int,
@@ -140,6 +149,9 @@ class AxisLabelTableModel(QAbstractTableModel):
             return None
 
         return None
+
+    def _is_editable_column(self, column: int) -> bool:
+        return column in (self.VIEWER_COLUMN, self.LAYER_COLUMN)
 
     def _build_rows(self) -> list[AxisLabelRow]:
         viewer_ndim = self._napari_viewer.dims.ndim
