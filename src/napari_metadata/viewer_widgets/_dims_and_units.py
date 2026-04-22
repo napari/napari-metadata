@@ -56,6 +56,9 @@ def solve_setting_labels(
 class AxisLabelTableModel(QAbstractTableModel):
     """Table model exposing viewer, layer, and derived setting labels."""
 
+    VIEWER_COLUMN = 0
+    SETTING_COLUMN = 1
+    LAYER_COLUMN = 2
     _header_labels = ['Viewer', 'Setting', 'Layer']
 
     def __init__(
@@ -109,11 +112,11 @@ class AxisLabelTableModel(QAbstractTableModel):
             return None
 
         row = self._rows[index.row()]
-        if index.column() == 0:
+        if index.column() == self.VIEWER_COLUMN:
             return row.viewer_label
-        if index.column() == 1:
+        if index.column() == self.SETTING_COLUMN:
             return row.setting_label
-        if index.column() == 2:
+        if index.column() == self.LAYER_COLUMN:
             return row.layer_label
         return None
 
