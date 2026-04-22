@@ -121,11 +121,19 @@ class TestAxisLabelTableModel:
         )
         assert (
             model.headerData(
-                2,
+                1,
                 Qt.Orientation.Horizontal,
                 Qt.ItemDataRole.DisplayRole,
             )
             == 'Setting'
+        )
+        assert (
+            model.headerData(
+                2,
+                Qt.Orientation.Horizontal,
+                Qt.ItemDataRole.DisplayRole,
+            )
+            == 'Layer'
         )
         assert (
             model.headerData(
@@ -168,17 +176,82 @@ class TestAxisLabelTableModel:
             'new_col',
         ]
 
+    def test_flags_marks_only_viewer_and_layer_columns_editable(
+        self, viewer_model
+    ):
+        viewer_model.add_image(
+            np.zeros((2, 3, 4)),
+            axis_labels=('z', 'y', 'x'),
+            name='viewer_dims_source',
+        )
+        model = AxisLabelTableModel(viewer_model)
+
+        viewer_flags = model.flags(model.index(0, model.VIEWER_COLUMN))
+        setting_flags = model.flags(model.index(0, model.SETTING_COLUMN))
+        layer_flags = model.flags(model.index(0, model.LAYER_COLUMN))
+
+        assert viewer_flags & Qt.ItemFlag.ItemIsEditable
+        assert not (setting_flags & Qt.ItemFlag.ItemIsEditable)
+        assert layer_flags & Qt.ItemFlag.ItemIsEditable
+
+    def test_set_data_updates_editable_columns_and_rejects_invalid_edits(
+        self, viewer_model
+    ):
+        viewer_model.add_image(
+            np.zeros((2, 3, 4, 5)),
+            axis_labels=('time', 'plane', 'row', 'col'),
+            name='viewer_dims_source',
+        )
+        viewer_model.dims.axis_labels = ('time', 'plane', 'row', 'col')
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)),
+            axis_labels=('y', 'x'),
+        )
+        viewer_model.layers.selection.active = layer
+        model = AxisLabelTableModel(viewer_model)
+
+        viewer_result = model.setData(
+            model.index(1, model.VIEWER_COLUMN),
+            'depth',
+        )
+        layer_result = model.setData(
+            model.index(3, model.LAYER_COLUMN),
+            'width',
+        )
+        setting_result = model.setData(
+            model.index(1, model.SETTING_COLUMN),
+            'ignored',
+        )
+        padded_layer_result = model.setData(
+            model.index(0, model.LAYER_COLUMN),
+            'ignored',
+        )
+
+        assert viewer_result is True
+        assert layer_result is True
+        assert setting_result is False
+        assert padded_layer_result is False
+        assert viewer_model.dims.axis_labels == (
+            'time',
+            'depth',
+            'row',
+            'col',
+        )
+        assert layer.axis_labels == ('y', 'width')
+
 
 class TestLabelTable:
-    def test_builds_read_only_table_view(self, viewer_model, parent_widget):
+    def test_builds_editable_table_view(self, viewer_model, parent_widget):
         model = AxisLabelTableModel(viewer_model)
         table = LabelTable(model, parent_widget)
 
         assert table.model() is model
         assert not table.isSortingEnabled()
         assert not table.isCornerButtonEnabled()
-        assert table.selectionMode() == LabelTable.SelectionMode.NoSelection
-        assert table.editTriggers() == LabelTable.EditTrigger.NoEditTriggers
+        assert (
+            table.selectionMode() == LabelTable.SelectionMode.SingleSelection
+        )
+        assert table.editTriggers() == LabelTable.EditTrigger.DoubleClicked
 
 
 class TestAxisLabelsDisplayWidget:
