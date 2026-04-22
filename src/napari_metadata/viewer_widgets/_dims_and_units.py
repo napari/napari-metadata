@@ -56,7 +56,7 @@ def solve_setting_labels(
 class AxisLabelTableModel(QAbstractTableModel):
     """Table model exposing viewer, layer, and derived setting labels."""
 
-    _header_labels = ['Viewer', 'Layer', 'Setting']
+    _header_labels = ['Viewer', 'Setting', 'Layer']
 
     def __init__(
         self, napari_viewer: ViewerModel, parent: QWidget | None = None
@@ -149,8 +149,8 @@ class AxisLabelTableModel(QAbstractTableModel):
             AxisLabelRow(
                 axis_index=i - viewer_ndim,
                 viewer_label=viewer_labels[i],
-                layer_label=layer_labels[i],
                 setting_label=setting_labels[i],
+                layer_label=layer_labels[i],
             )
             for i in range(viewer_ndim)
         ]
