@@ -138,7 +138,7 @@ class AxisLabelTableModel(QAbstractTableModel):
             return Qt.ItemFlag.NoItemFlags
 
         flags = super().flags(index)
-        if self._is_editable_column(index.column()):
+        if self._is_editable_index(index):
             flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
@@ -244,6 +244,14 @@ class AxisLabelTableModel(QAbstractTableModel):
     def _is_editable_column(self, column: int) -> bool:
         """Return whether the given column supports in-place editing."""
         return column in (self.VIEWER_COLUMN, self.LAYER_COLUMN)
+
+    def _is_editable_index(self, index: QModelIndex) -> bool:
+        """Return whether the given index supports in-place editing."""
+        if not self._is_editable_column(index.column()):
+            return False
+        if index.column() != self.LAYER_COLUMN:
+            return True
+        return self._layer_axis_index_for_row(index.row()) is not None
 
     def _layer_axis_index_for_row(self, row_index: int) -> int | None:
         """Map a viewer row index to the active-layer axis index, if any."""
