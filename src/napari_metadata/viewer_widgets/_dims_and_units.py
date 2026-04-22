@@ -315,9 +315,9 @@ class LabelTable(QTableView):
         )
         self.setCornerButtonEnabled(False)
         self.setSortingEnabled(False)
-        self.setSelectionMode(QTableView.SelectionMode.NoSelection)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
+        self.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setEditTriggers(QTableView.EditTrigger.DoubleClicked)
         horizontal_header = self.horizontalHeader()
         if horizontal_header is not None:
             horizontal_header.setSectionResizeMode(
