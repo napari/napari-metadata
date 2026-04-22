@@ -180,18 +180,25 @@ class TestAxisLabelTableModel:
         self, viewer_model
     ):
         viewer_model.add_image(
-            np.zeros((2, 3, 4)),
-            axis_labels=('z', 'y', 'x'),
+            np.zeros((2, 3, 4, 5)),
+            axis_labels=('time', 'plane', 'row', 'col'),
             name='viewer_dims_source',
         )
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)),
+            axis_labels=('y', 'x'),
+        )
+        viewer_model.layers.selection.active = layer
         model = AxisLabelTableModel(viewer_model)
 
         viewer_flags = model.flags(model.index(0, model.VIEWER_COLUMN))
         setting_flags = model.flags(model.index(0, model.SETTING_COLUMN))
-        layer_flags = model.flags(model.index(0, model.LAYER_COLUMN))
+        padded_layer_flags = model.flags(model.index(0, model.LAYER_COLUMN))
+        layer_flags = model.flags(model.index(3, model.LAYER_COLUMN))
 
         assert viewer_flags & Qt.ItemFlag.ItemIsEditable
         assert not (setting_flags & Qt.ItemFlag.ItemIsEditable)
+        assert not (padded_layer_flags & Qt.ItemFlag.ItemIsEditable)
         assert layer_flags & Qt.ItemFlag.ItemIsEditable
 
     def test_set_data_updates_editable_columns_and_rejects_invalid_edits(
@@ -238,6 +245,52 @@ class TestAxisLabelTableModel:
             'col',
         )
         assert layer.axis_labels == ('y', 'width')
+
+    def test_set_data_recomputes_setting_label_after_viewer_edit(
+        self, viewer_model
+    ):
+        viewer_model.add_image(
+            np.zeros((2, 3, 4)),
+            axis_labels=('z', 'y', 'x'),
+            name='viewer_dims_source',
+        )
+        viewer_model.dims.axis_labels = ('z', 'y', 'x')
+        viewer_model.layers.selection.active = None
+        model = AxisLabelTableModel(viewer_model)
+
+        result = model.setData(
+            model.index(1, model.VIEWER_COLUMN),
+            'height',
+        )
+
+        assert result is True
+        assert model.rows[1].viewer_label == 'height'
+        assert model.rows[1].setting_label == '-2'
+
+    def test_set_data_recomputes_setting_label_after_layer_edit(
+        self, viewer_model
+    ):
+        viewer_model.add_image(
+            np.zeros((2, 3, 4)),
+            axis_labels=('z', 'y', 'x'),
+            name='viewer_dims_source',
+        )
+        viewer_model.dims.axis_labels = ('z', 'y', 'x')
+        layer = viewer_model.add_image(
+            np.zeros((4, 3)),
+            axis_labels=('row', 'col'),
+        )
+        viewer_model.layers.selection.active = layer
+        model = AxisLabelTableModel(viewer_model)
+
+        result = model.setData(
+            model.index(2, model.LAYER_COLUMN),
+            'width',
+        )
+
+        assert result is True
+        assert model.rows[2].layer_label == 'width'
+        assert model.rows[2].setting_label == 'width'
 
 
 class TestLabelTable:
