@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from napari._qt.widgets.qt_color_swatch import QColorSwatchEdit
 from qtpy.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
     QHBoxLayout,
     QVBoxLayout,
     QWidget,
@@ -100,6 +101,45 @@ class ScaleBarUnits(ViewerComponentBase):
     def _on_unit_changed(self) -> None:
         print('Unit changed')
         return
+
+
+class ScaleBarFixedLength(ViewerComponentBase):
+    """Scale bar component to set a fixed length to the scale bar."""
+
+    _label_text = 'Fixed length:'
+    _tooltip_text = 'Sets a fixed length to the scale bar. It the button is off, the scale bar length is determined by the zoom level'
+
+    def __init__(
+        self, napari_viewer: ViewerModel, parent_widget: QWidget
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._toggle_switch = QToggleSwitch(parent=parent_widget)
+        self._toggle_switch.toggled.connect(self._solve_fixed_length)
+        self._length_spinbox = QDoubleSpinBox(parent=parent_widget)
+        self._length_spinbox.setRange(0, 1000)
+        self._length_spinbox.editingFinished.connect(self._solve_fixed_length)
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._toggle_switch, self._length_spinbox]
+
+    def clear(self) -> None:
+        self._toggle_switch.setChecked(False)
+        self._length_spinbox.setValue(0)
+
+    def _update_display(self) -> None:
+        return
+
+    def _get_display_text(self) -> str:
+        return str(self._napari_viewer.scale_bar.length)
+
+    def _solve_fixed_length(self) -> None:
+        self._set_fixed_length(
+            self._length_spinbox.value()
+        ) if self._toggle_switch.isChecked() else self._set_fixed_length(None)
+
+    def _set_fixed_length(self, value: float | None) -> None:
+        self._napari_viewer.scale_bar.length = value
 
 
 class ScaleBarColor(ViewerComponentBase):
@@ -228,6 +268,9 @@ class ScaleBarMetadata:
         self._parent_widget = parent_widget
         self._scale_bar_visible = ScaleBarVisible(napari_viewer, parent_widget)
         self._scale_bar_units = ScaleBarUnits(napari_viewer, parent_widget)
+        self._scale_bar_fixed_length = ScaleBarFixedLength(
+            napari_viewer, parent_widget
+        )
         self._scale_bar_color = ScaleBarColor(napari_viewer, parent_widget)
         self._scale_bar_ticks = ScaleBarTicks(napari_viewer, parent_widget)
         self._scale_bar_box = ScaleBarBox(napari_viewer, parent_widget)
@@ -240,6 +283,7 @@ class ScaleBarMetadata:
                 self._scale_bar_color,
                 self._scale_bar_ticks,
                 self._scale_bar_box,
+                self._scale_bar_fixed_length,
             ]
         )
         self._connect_scale_bar_events()
@@ -302,3 +346,8 @@ class ScaleBarWidget(QWidget):
                 row_layout.addWidget(widget)
             row_layout.addStretch()
             self._rows_layout.addLayout(row_layout)
+
+
+# TODO:
+# We need to connect everything, specially the scale bar colors and the scale bar box colors.
+# There is an issue when setting the scale bar length. When it is set, the canvas won't update. This is a scale_bar.events.length issue, not a widget issue. We need to call refresh on something or, preferably, change the behavior on napari.
