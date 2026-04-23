@@ -307,8 +307,6 @@ class DimsWidget(QWidget):
 
         self._layout.addWidget(self._axis_display_widget)
 
-        self._layout.addStretch()
-
 
 class AxisLabelsDisplayWidget(QWidget):
     def __init__(
@@ -333,7 +331,6 @@ class AxisLabelsDisplayWidget(QWidget):
         self._table_model = AxisLabelTableModel(self._napari_viewer, self)
         self._label_table = LabelTable(self._table_model, self)
         self._layout.addWidget(self._label_table)
-        self._layout.addStretch()
 
         self._napari_viewer.layers.selection.events.active.connect(
             self._on_layer_selection_changed
@@ -458,3 +455,40 @@ class LabelTable(QTableView):
             )
         self.resizeRowsToContents()
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._table_model.modelReset.connect(self._on_model_reset)
+
+    def _content_height(self) -> int:
+        self.resizeRowsToContents()
+
+        height = 2 * self.frameWidth()
+        horizontal_header = self.horizontalHeader()
+        if horizontal_header is not None and not horizontal_header.isHidden():
+            height += horizontal_header.height()
+
+        vertical_header = self.verticalHeader()
+        if vertical_header is not None:
+            height += vertical_header.length()
+
+        horizontal_scrollbar = self.horizontalScrollBar()
+        if (
+            horizontal_scrollbar is not None
+            and horizontal_scrollbar.isVisible()
+        ):
+            height += horizontal_scrollbar.height()
+
+        height += 2
+        return height
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        hint.setHeight(self._content_height())
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setHeight(self._content_height())
+        return hint
+
+    def _on_model_reset(self) -> None:
+        self.resizeRowsToContents()
+        self.updateGeometry()
