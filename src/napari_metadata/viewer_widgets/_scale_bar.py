@@ -136,7 +136,10 @@ class ScaleBarFontSize(ViewerComponentBase):
         self._font_size_spinbox.setValue(10)
 
     def _update_display(self) -> None:
-        return
+        with QSignalBlocker(self._font_size_spinbox):
+            self._font_size_spinbox.setValue(
+                self._napari_viewer.scale_bar.font_size
+            )
 
     def _get_display_text(self) -> str:
         return str(self._font_size_spinbox.value())
@@ -385,7 +388,13 @@ class ScaleBarOpacity(ViewerComponentBase):
         self._spin_box.setValue(1)
 
     def _update_display(self) -> None:
-        return
+        value = self._napari_viewer.scale_bar.opacity
+        if self._slider.value() != value:
+            with QSignalBlocker(self._slider):
+                self._slider.setValue(value)
+        if self._spin_box.value() != value:
+            with QSignalBlocker(self._spin_box):
+                self._spin_box.setValue(value)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.opacity)
@@ -504,10 +513,10 @@ class ScaleBarMetadata:
             if components is not None
             else [
                 self._scale_bar_visible,
+                self._scale_bar_ticks,
                 self._scale_bar_units,
                 self._scale_bar_font_size,
                 self._scale_bar_color,
-                self._scale_bar_ticks,
                 self._scale_bar_box,
                 self._scale_bar_fixed_length,
                 self._scale_bar_opacity,
@@ -601,7 +610,11 @@ class ScaleBarWidget(QWidget):
             ),
         )
 
+    def closeEvent(self, event) -> None:  # type: ignore
+        self._metadata._disconnect_scale_bar_events()
+        super().closeEvent(event)
+
 
 # TODO:
-# We need to connect everything, specially the scale bar colors and the scale bar box colors.
 # There is an issue when setting the scale bar length. When it is set, the canvas won't update. This is a scale_bar.events.length issue, not a widget issue. We need to call refresh on something or, preferably, change the behavior on napari. That is strange because the font size does refresh the canvas
+# There's a little pattern I don't like about the scale bar box. It is set to True by default but it doesn't appear because the color is None. This creates a problem that you need to select a color and apply it instead of just toggling the button. I believe this is a napari missbehavior. I'll address in communty meeting (Carlos)
