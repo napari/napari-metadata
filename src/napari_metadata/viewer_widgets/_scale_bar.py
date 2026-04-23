@@ -11,6 +11,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QHBoxLayout,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -381,6 +382,38 @@ class ScaleBarPosition(ViewerComponentBase):
         )
 
 
+class ScaleBarOrder(ViewerComponentBase):
+    """Component that controls the scale bar rendering order."""
+
+    _label_text = 'Order:'
+    _tooltip_text = 'Rendering order of the scale bar overlay.'
+
+    def __init__(
+        self, napari_viewer: ViewerModel, parent_widget: QWidget
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._order_spinbox = QSpinBox(parent=parent_widget)
+        self._order_spinbox.setRange(0, 10**9)
+        self._order_spinbox.valueChanged.connect(self._on_order_changed)
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._order_spinbox]
+
+    def clear(self) -> None:
+        self._order_spinbox.setValue(10**6)
+
+    def _update_display(self) -> None:
+        with QSignalBlocker(self._order_spinbox):
+            self._order_spinbox.setValue(self._napari_viewer.scale_bar.order)
+
+    def _get_display_text(self) -> str:
+        return str(self._napari_viewer.scale_bar.order)
+
+    def _on_order_changed(self) -> None:
+        self._napari_viewer.scale_bar.order = self._order_spinbox.value()
+
+
 class ScaleBarMetadata:
     """Coordinator that owns the scale bar viewer components."""
 
@@ -407,6 +440,7 @@ class ScaleBarMetadata:
         self._scale_bar_position = ScaleBarPosition(
             napari_viewer, parent_widget
         )
+        self._scale_bar_order = ScaleBarOrder(napari_viewer, parent_widget)
         self._components = (
             list(components)
             if components is not None
@@ -420,6 +454,7 @@ class ScaleBarMetadata:
                 self._scale_bar_fixed_length,
                 self._scale_bar_opacity,
                 self._scale_bar_position,
+                self._scale_bar_order,
             ]
         )
         self._connect_scale_bar_events()
