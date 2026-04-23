@@ -10,6 +10,7 @@ from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
+    QGridLayout,
     QHBoxLayout,
     QSpinBox,
     QVBoxLayout,
@@ -156,10 +157,12 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self, napari_viewer: ViewerModel, parent_widget: QWidget
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
+        self._syncing_from_viewer = False
         self._toggle_switch = QToggleSwitch(parent=parent_widget)
         self._toggle_switch.toggled.connect(self._solve_fixed_length)
         self._length_spinbox = QDoubleSpinBox(parent=parent_widget)
         self._length_spinbox.setRange(0, 1000)
+        self._length_spinbox.setValue(50)
         self._length_spinbox.valueChanged.connect(self._solve_fixed_length)
 
     @property
@@ -167,16 +170,29 @@ class ScaleBarFixedLength(ViewerComponentBase):
         return [self._toggle_switch, self._length_spinbox]
 
     def clear(self) -> None:
-        self._toggle_switch.setChecked(False)
-        self._length_spinbox.setValue(0)
+        self._syncing_from_viewer = True
+        try:
+            self._toggle_switch.setChecked(False)
+        finally:
+            self._syncing_from_viewer = False
+        self._length_spinbox.setValue(50)
 
     def _update_display(self) -> None:
-        return
+        length = self._napari_viewer.scale_bar.length
+        self._syncing_from_viewer = True
+        try:
+            self._toggle_switch.setChecked(length is not None)
+        finally:
+            self._syncing_from_viewer = False
+        with QSignalBlocker(self._length_spinbox):
+            self._length_spinbox.setValue(50 if length is None else length)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.length)
 
     def _solve_fixed_length(self) -> None:
+        if self._syncing_from_viewer:
+            return
         self._set_fixed_length(
             self._length_spinbox.value()
         ) if self._toggle_switch.isChecked() else self._set_fixed_length(None)
@@ -545,20 +561,45 @@ class ScaleBarWidget(QWidget):
         self._layout.setSpacing(3)
         self._layout.setContentsMargins(10, 10, 10, 10)
 
-        self._rows_layout = QVBoxLayout()
+        self._rows_layout = QGridLayout()
+        self._rows_layout.setContentsMargins(0, 0, 0, 0)
+        self._rows_layout.setVerticalSpacing(8)
+        self._rows_layout.setColumnStretch(0, 0)
+        self._rows_layout.setColumnStretch(1, 1)
         self._layout.addLayout(self._rows_layout)
         self._populate_rows()
         self._metadata.refresh()
         self._layout.addStretch()
 
     def _populate_rows(self) -> None:
-        for component in self._metadata.components:
-            row_layout = QHBoxLayout()
-            row_layout.addWidget(component.component_label)
+        for row, component in enumerate(self._metadata.components):
+            self._rows_layout.addWidget(component.component_label, row, 0)
+
+            value_container = QWidget(self)
+            value_layout = QHBoxLayout(value_container)
+            value_layout.setContentsMargins(0, 0, 0, 0)
+            value_layout.setSpacing(6)
+
             for widget in component.value_widgets:
-                row_layout.addWidget(widget)
-            row_layout.addStretch()
-            self._rows_layout.addLayout(row_layout)
+                value_layout.addWidget(widget)
+                if self._widget_should_expand(widget):
+                    value_layout.setStretchFactor(widget, 1)
+
+            value_layout.addStretch()
+            self._rows_layout.addWidget(value_container, row, 1)
+
+    def _widget_should_expand(self, widget: QWidget) -> bool:
+        return isinstance(
+            widget,
+            (
+                QComboBox,
+                QEnumComboBox,
+                QColorSwatchEdit,
+                QDoubleSlider,
+                QDoubleSpinBox,
+                QSpinBox,
+            ),
+        )
 
 
 # TODO:
