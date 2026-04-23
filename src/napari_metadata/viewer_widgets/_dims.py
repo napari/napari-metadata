@@ -283,8 +283,8 @@ class AxisLabelTableModel(QAbstractTableModel):
         ]
 
 
-class DimsAndUnitsWidget(QWidget):
-    """Dimensions and units section of the viewer metadata widget"""
+class DimsWidget(QWidget):
+    """Dimensions section of the viewer metadata widget."""
 
     def __init__(
         self,

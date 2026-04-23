@@ -4,7 +4,7 @@ import numpy as np
 from napari.layers import Image
 from qtpy.QtCore import Qt
 
-from napari_metadata.viewer_widgets._dims_and_units import (
+from napari_metadata.viewer_widgets._dims import (
     AxisLabelsDisplayWidget,
     AxisLabelTableModel,
     LabelTable,
