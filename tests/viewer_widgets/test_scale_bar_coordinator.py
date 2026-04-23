@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from napari_metadata.viewer_widgets._base import ViewerComponentBase
 from napari_metadata.viewer_widgets._scale_bar import (
+    ScaleBarBox,
+    ScaleBarColor,
+    ScaleBarFixedLength,
+    ScaleBarFontSize,
     ScaleBarMetadata,
+    ScaleBarOpacity,
+    ScaleBarOrder,
+    ScaleBarPosition,
+    ScaleBarTicks,
+    ScaleBarUnits,
     ScaleBarVisible,
 )
 
@@ -32,8 +41,19 @@ class TestScaleBarMetadata:
     ):
         coordinator = ScaleBarMetadata(viewer_model, parent_widget)
 
-        assert len(coordinator.components) == 1
-        assert isinstance(coordinator.components[0], ScaleBarVisible)
+        components = coordinator.components
+        assert [type(component) for component in components] == [
+            ScaleBarVisible,
+            ScaleBarTicks,
+            ScaleBarUnits,
+            ScaleBarFontSize,
+            ScaleBarColor,
+            ScaleBarBox,
+            ScaleBarFixedLength,
+            ScaleBarOpacity,
+            ScaleBarPosition,
+            ScaleBarOrder,
+        ]
 
     def test_components_returns_display_order(
         self, viewer_model, parent_widget
