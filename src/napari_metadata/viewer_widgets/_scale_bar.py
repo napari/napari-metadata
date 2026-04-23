@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
+from napari._qt.widgets.qt_color_swatch import QColorSwatchEdit
 from qtpy.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -101,6 +102,84 @@ class ScaleBarUnits(ViewerComponentBase):
         return
 
 
+class ScaleBarColor(ViewerComponentBase):
+    """Scale bar component to toggle color mode and pick the color"""
+
+    _label_text = 'Custom color:'
+    _tooltip_text = 'Color of the scale bar.'
+
+    def __init__(
+        self,
+        napari_viewer: ViewerModel,
+        parent_widget: QWidget,
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._toggle_switch = QToggleSwitch(parent=parent_widget)
+        self._color_swatch = QColorSwatchEdit(
+            parent=parent_widget, initial_color='white'
+        )
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._toggle_switch, self._color_swatch]
+
+    def clear(self) -> None:
+        self._toggle_switch.setChecked(False)
+        self._color_swatch.setColor('white')
+
+    def _update_display(self) -> None:
+        return
+
+    def _get_display_text(self) -> str:
+        return str(self._napari_viewer.scale_bar.color)
+
+    def _on_toggled(self, checked: bool) -> None:
+        self._napari_viewer.scale_bar.colored = checked
+
+
+class ScaleBarTicks(ViewerComponentBase):
+    """Toggle component controlling scale bar ticks visibility."""
+
+    _label_text = 'Ticks:'
+    _tooltip_text = 'Show or hide the ticks at the ends of the scale bar.'
+
+    def __init__(
+        self,
+        napari_viewer: ViewerModel,
+        parent_widget: QWidget,
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._syncing_from_viewer = False
+        self._toggle_switch = QToggleSwitch(parent=parent_widget)
+        self._toggle_switch.toggled.connect(self._on_toggled)
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._toggle_switch]
+
+    def clear(self) -> None:
+        self._syncing_from_viewer = True
+        try:
+            self._toggle_switch.setChecked(False)
+        finally:
+            self._syncing_from_viewer = False
+
+    def _update_display(self) -> None:
+        self._syncing_from_viewer = True
+        try:
+            self._toggle_switch.setChecked(self._napari_viewer.scale_bar.ticks)
+        finally:
+            self._syncing_from_viewer = False
+
+    def _get_display_text(self) -> str:
+        return str(self._napari_viewer.scale_bar.ticks)
+
+    def _on_toggled(self, checked: bool) -> None:
+        if self._syncing_from_viewer:
+            return
+        self._napari_viewer.scale_bar.ticks = checked
+
+
 class ScaleBarMetadata:
     """Coordinator that owns the scale bar viewer components."""
 
@@ -114,10 +193,17 @@ class ScaleBarMetadata:
         self._parent_widget = parent_widget
         self._scale_bar_visible = ScaleBarVisible(napari_viewer, parent_widget)
         self._scale_bar_units = ScaleBarUnits(napari_viewer, parent_widget)
+        self._scale_bar_color = ScaleBarColor(napari_viewer, parent_widget)
+        self._scale_bar_ticks = ScaleBarTicks(napari_viewer, parent_widget)
         self._components = (
             list(components)
             if components is not None
-            else [self._scale_bar_visible, self._scale_bar_units]
+            else [
+                self._scale_bar_visible,
+                self._scale_bar_units,
+                self._scale_bar_color,
+                self._scale_bar_ticks,
+            ]
         )
         self._connect_scale_bar_events()
 
