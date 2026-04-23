@@ -322,10 +322,6 @@ class AxisLabelsDisplayWidget(QWidget):
         self._layout: QVBoxLayout = QVBoxLayout()
         self.setLayout(self._layout)
 
-        self._title_label: QLabel = QLabel('Dims labels')
-        set_title_label_style(self._title_label)
-        self._layout.addWidget(self._title_label)
-
         self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
             QPushButton('Apply labels to viewer', parent=self)
         )

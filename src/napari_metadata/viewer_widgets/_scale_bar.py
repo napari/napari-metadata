@@ -4,11 +4,9 @@ from collections.abc import Sequence
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
     QHBoxLayout,
-    QLabel,
     QVBoxLayout,
     QWidget,
 )
@@ -166,11 +164,6 @@ class ScaleBarWidget(QWidget):
         self.setLayout(self._layout)
         self._layout.setSpacing(3)
         self._layout.setContentsMargins(10, 10, 10, 10)
-
-        self._title_label = QLabel('Scale bar', parent=self)
-        self._title_label.setStyleSheet('font-weight: bold;font-size: 15pt')
-        self._title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layout.addWidget(self._title_label)
 
         self._rows_layout = QVBoxLayout()
         self._layout.addLayout(self._rows_layout)
