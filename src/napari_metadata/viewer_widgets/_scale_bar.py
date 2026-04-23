@@ -5,6 +5,7 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from napari._qt.widgets.qt_color_swatch import QColorSwatchEdit
+from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -12,7 +13,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from superqt import QToggleSwitch
+from superqt import QDoubleSlider, QToggleSwitch
 
 from napari_metadata.units import AxisUnitEnum
 from napari_metadata.viewer_widgets._base import ViewerComponentBase
@@ -293,6 +294,52 @@ class ScaleBarTicks(ViewerComponentBase):
         self._napari_viewer.scale_bar.ticks = checked
 
 
+class ScaleBarOpacity(ViewerComponentBase):
+    _label_text = 'Opacity:'
+    _tooltip_text = 'Set the opacity of the scale bar.'
+
+    def __init__(
+        self,
+        napari_viewer: ViewerModel,
+        parent_widget: QWidget,
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._slider = QDoubleSlider(parent=parent_widget)
+        self._slider.setOrientation(Qt.Orientation.Horizontal)
+        self._slider.setRange(0, 1)
+        self._slider.setValue(1.0)
+        self._slider.setSingleStep(0.01)
+        self._slider.valueChanged.connect(self._opacity_changed)
+        self._spin_box = QDoubleSpinBox(parent=parent_widget)
+        self._spin_box.setRange(0, 1)
+        self._spin_box.setValue(1.0)
+        self._spin_box.setSingleStep(0.01)
+        self._spin_box.valueChanged.connect(self._opacity_changed)
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._slider, self._spin_box]
+
+    def clear(self) -> None:
+        self._slider.setValue(1)
+        self._spin_box.setValue(1)
+
+    def _update_display(self) -> None:
+        return
+
+    def _get_display_text(self) -> str:
+        return str(self._napari_viewer.scale_bar.opacity)
+
+    def _opacity_changed(self, value: float) -> None:
+        if self._slider.value() != value:
+            with QSignalBlocker(self._slider):
+                self._slider.setValue(value)
+        if self._spin_box.value() != value:
+            with QSignalBlocker(self._spin_box):
+                self._spin_box.setValue(value)
+        self._napari_viewer.scale_bar.opacity = value
+
+
 class ScaleBarMetadata:
     """Coordinator that owns the scale bar viewer components."""
 
@@ -315,6 +362,7 @@ class ScaleBarMetadata:
         self._scale_bar_color = ScaleBarColor(napari_viewer, parent_widget)
         self._scale_bar_ticks = ScaleBarTicks(napari_viewer, parent_widget)
         self._scale_bar_box = ScaleBarBox(napari_viewer, parent_widget)
+        self._scale_bar_opacity = ScaleBarOpacity(napari_viewer, parent_widget)
         self._components = (
             list(components)
             if components is not None
@@ -326,6 +374,7 @@ class ScaleBarMetadata:
                 self._scale_bar_ticks,
                 self._scale_bar_box,
                 self._scale_bar_fixed_length,
+                self._scale_bar_opacity,
             ]
         )
         self._connect_scale_bar_events()
