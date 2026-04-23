@@ -31,6 +31,7 @@ class ViewerComponentBase(ABC):
         self._component_qlabel.setToolTip(self._tooltip_text)
         self._display_label = QLabel('', parent=parent_widget)
         self._display_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._display_label.hide()
 
     @property
     def component_label(self) -> QLabel:
@@ -40,6 +41,7 @@ class ViewerComponentBase(ABC):
     @property
     def value_widgets(self) -> list[QWidget]:
         """Widgets displayed to the right of the bold label."""
+        self._display_label.show()
         return [self._display_label]
 
     def load_entries(self, viewer: ViewerModel | None = None) -> None:

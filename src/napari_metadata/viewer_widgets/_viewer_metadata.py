@@ -314,9 +314,9 @@ class ViewerMetadataWidget(QWidget):
         if self._scale_bar_section is not None:
             self._scale_bar_expanded = self._scale_bar_section.isExpanded()
 
-        self._remove_scroll_area()
         self._dims_instance.setParent(self)
         self._scale_bar_instance.setParent(self)
+        self._remove_scroll_area()
 
         self._content_widget = None
         self._content_layout = None
