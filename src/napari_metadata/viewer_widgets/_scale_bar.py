@@ -103,6 +103,44 @@ class ScaleBarUnits(ViewerComponentBase):
         return
 
 
+class ScaleBarFontSize(ViewerComponentBase):
+    """Scale bar component to set the font size of the units"""
+
+    _label_text = 'Font size:'
+    _tooltip_text = 'Font size of the units text displayed on the scale bar.'
+
+    def __init__(
+        self,
+        napari_viewer: ViewerModel,
+        parent_widget: QWidget,
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._font_size_spinbox = QDoubleSpinBox(parent=parent_widget)
+        self._font_size_spinbox.setRange(0.0000001, 100)
+        self._font_size_spinbox.setSingleStep(1)
+        self._font_size_spinbox.setDecimals(0)
+        self._font_size_spinbox.setValue(10)
+        self._font_size_spinbox.valueChanged.connect(self._on_value_changed)
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._font_size_spinbox]
+
+    def clear(self) -> None:
+        self._font_size_spinbox.setValue(10)
+
+    def _update_display(self) -> None:
+        return
+
+    def _get_display_text(self) -> str:
+        return str(self._font_size_spinbox.value())
+
+    def _on_value_changed(self) -> None:
+        self._napari_viewer.scale_bar.font_size = (
+            self._font_size_spinbox.value()
+        )
+
+
 class ScaleBarFixedLength(ViewerComponentBase):
     """Scale bar component to set a fixed length to the scale bar."""
 
@@ -117,7 +155,7 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self._toggle_switch.toggled.connect(self._solve_fixed_length)
         self._length_spinbox = QDoubleSpinBox(parent=parent_widget)
         self._length_spinbox.setRange(0, 1000)
-        self._length_spinbox.editingFinished.connect(self._solve_fixed_length)
+        self._length_spinbox.valueChanged.connect(self._solve_fixed_length)
 
     @property
     def value_widgets(self) -> list[QWidget]:
@@ -268,6 +306,9 @@ class ScaleBarMetadata:
         self._parent_widget = parent_widget
         self._scale_bar_visible = ScaleBarVisible(napari_viewer, parent_widget)
         self._scale_bar_units = ScaleBarUnits(napari_viewer, parent_widget)
+        self._scale_bar_font_size = ScaleBarFontSize(
+            napari_viewer, parent_widget
+        )
         self._scale_bar_fixed_length = ScaleBarFixedLength(
             napari_viewer, parent_widget
         )
@@ -280,6 +321,7 @@ class ScaleBarMetadata:
             else [
                 self._scale_bar_visible,
                 self._scale_bar_units,
+                self._scale_bar_font_size,
                 self._scale_bar_color,
                 self._scale_bar_ticks,
                 self._scale_bar_box,
@@ -350,4 +392,4 @@ class ScaleBarWidget(QWidget):
 
 # TODO:
 # We need to connect everything, specially the scale bar colors and the scale bar box colors.
-# There is an issue when setting the scale bar length. When it is set, the canvas won't update. This is a scale_bar.events.length issue, not a widget issue. We need to call refresh on something or, preferably, change the behavior on napari.
+# There is an issue when setting the scale bar length. When it is set, the canvas won't update. This is a scale_bar.events.length issue, not a widget issue. We need to call refresh on something or, preferably, change the behavior on napari. That is strange because the font size does refresh the canvas
