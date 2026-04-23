@@ -5,6 +5,7 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from napari._qt.widgets.qt_color_swatch import QColorSwatchEdit
+from napari.components._viewer_constants import CanvasPosition
 from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QComboBox,
@@ -13,7 +14,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from superqt import QDoubleSlider, QToggleSwitch
+from superqt import QDoubleSlider, QEnumComboBox, QToggleSwitch
 
 from napari_metadata.units import AxisUnitEnum
 from napari_metadata.viewer_widgets._base import ViewerComponentBase
@@ -340,6 +341,46 @@ class ScaleBarOpacity(ViewerComponentBase):
         self._napari_viewer.scale_bar.opacity = value
 
 
+class ScaleBarPosition(ViewerComponentBase):
+    """Component that controls the scale bar position."""
+
+    _label_text = 'Position:'
+    _tooltip_text = 'Set the position of the scale bar.'
+
+    def __init__(
+        self, napari_viewer: ViewerModel, parent_widget: QWidget
+    ) -> None:
+        super().__init__(napari_viewer, parent_widget)
+        self._position_combobox = QEnumComboBox(
+            parent=parent_widget,
+            enum_class=CanvasPosition,
+        )
+        self._position_combobox.currentIndexChanged.connect(
+            self._on_position_changed
+        )
+
+    @property
+    def value_widgets(self) -> list[QWidget]:
+        return [self._position_combobox]
+
+    def clear(self) -> None:
+        self._position_combobox.setCurrentEnum(CanvasPosition.BOTTOM_RIGHT)
+
+    def _update_display(self) -> None:
+        with QSignalBlocker(self._position_combobox):
+            self._position_combobox.setCurrentEnum(
+                self._napari_viewer.scale_bar.position
+            )
+
+    def _get_display_text(self) -> str:
+        return str(self._napari_viewer.scale_bar.position)
+
+    def _on_position_changed(self) -> None:
+        self._napari_viewer.scale_bar.position = (
+            self._position_combobox.currentEnum()
+        )
+
+
 class ScaleBarMetadata:
     """Coordinator that owns the scale bar viewer components."""
 
@@ -363,6 +404,9 @@ class ScaleBarMetadata:
         self._scale_bar_ticks = ScaleBarTicks(napari_viewer, parent_widget)
         self._scale_bar_box = ScaleBarBox(napari_viewer, parent_widget)
         self._scale_bar_opacity = ScaleBarOpacity(napari_viewer, parent_widget)
+        self._scale_bar_position = ScaleBarPosition(
+            napari_viewer, parent_widget
+        )
         self._components = (
             list(components)
             if components is not None
@@ -375,6 +419,7 @@ class ScaleBarMetadata:
                 self._scale_bar_box,
                 self._scale_bar_fixed_length,
                 self._scale_bar_opacity,
+                self._scale_bar_position,
             ]
         )
         self._connect_scale_bar_events()
