@@ -2,9 +2,14 @@ name: napari-metadata
 display_name: Layer metadata
 contributions:
   commands:
-    - id: napari-metadata.make_metadata_qwidget
+    - id: napari-metadata.make_layer_metadata_qwidget
       python_name: napari_metadata.widgets:MetadataWidget
-      title: Make metadata widget
+      title: Make layer metadata widget
+    - id: napari-metadata.make_viewer_metadata_qwidget
+      python_name: napari_metadata.viewer_widgets:ViewerMetadataWidget
+      title: Make viewer metadata widget
   widgets:
-    - command: napari-metadata.make_metadata_qwidget
+    - command: napari-metadata.make_layer_metadata_qwidget
       display_name: Layer metadata
+    - command: napari-metadata.make_viewer_metadata_qwidget
+      display_name: Viewer metadata
