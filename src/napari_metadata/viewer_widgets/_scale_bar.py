@@ -282,10 +282,12 @@ class ScaleBarBox(ViewerComponentBase):
             parent=parent_widget, initial_color='green'
         )
         self._color_swatch.color_changed.connect(self._on_color_changed)
+        self._auto_cb = QCheckBox('auto', parent=parent_widget)
+        self._auto_cb.toggled.connect(self._on_auto_toggled)
 
     @property
     def value_widgets(self) -> list[QWidget]:
-        return [self._toggle_switch, self._color_swatch]
+        return [self._toggle_switch, self._color_swatch, self._auto_cb]
 
     def clear(self) -> None:
         self._syncing_from_viewer = True
@@ -304,6 +306,11 @@ class ScaleBarBox(ViewerComponentBase):
             self._color_swatch.setColor(
                 self._napari_viewer.scale_bar.box_color
             )
+            self._color_swatch.setEnabled(True)
+            self._auto_cb.setChecked(False)
+        else:
+            self._color_swatch.setEnabled(False)
+            self._auto_cb.setChecked(True)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.box)
@@ -312,11 +319,17 @@ class ScaleBarBox(ViewerComponentBase):
         if self._syncing_from_viewer:
             return
         self._napari_viewer.scale_bar.box = checked
-        if checked and self._napari_viewer.scale_bar.box_color is None:
-            self._napari_viewer.scale_bar.box_color = self._color_swatch.color
 
     def _on_color_changed(self, color) -> None:
         self._napari_viewer.scale_bar.box_color = color
+
+    def _on_auto_toggled(self, checked: bool) -> None:
+        if self._syncing_from_viewer:
+            return
+        self._napari_viewer.scale_bar.box_color = (
+            None if checked else self._color_swatch.color
+        )
+        self._color_swatch.setEnabled(not checked)
 
 
 class ScaleBarTicks(ViewerComponentBase):
