@@ -8,6 +8,7 @@ from napari._qt.widgets.qt_color_swatch import QColorSwatchEdit
 from napari.components._viewer_constants import CanvasPosition
 from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QGridLayout,
@@ -218,8 +219,9 @@ class ScaleBarColor(ViewerComponentBase):
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
         self._syncing_from_viewer = False
-        self._toggle_switch = QToggleSwitch(parent=parent_widget)
-        self._toggle_switch.toggled.connect(self._on_toggled)
+        self._auto_cb = QCheckBox(parent=parent_widget)
+        self._auto_cb.setText('auto')
+        self._auto_cb.toggled.connect(self._on_toggled)
         self._color_swatch = QColorSwatchEdit(
             parent=parent_widget, initial_color='magenta'
         )
@@ -227,12 +229,12 @@ class ScaleBarColor(ViewerComponentBase):
 
     @property
     def value_widgets(self) -> list[QWidget]:
-        return [self._toggle_switch, self._color_swatch]
+        return [self._color_swatch, self._auto_cb]
 
     def clear(self) -> None:
         self._syncing_from_viewer = True
         try:
-            self._toggle_switch.setChecked(False)
+            self._auto_cb.setChecked(False)
         finally:
             self._syncing_from_viewer = False
         self._color_swatch.setColor('magenta')
@@ -240,7 +242,8 @@ class ScaleBarColor(ViewerComponentBase):
     def _update_display(self) -> None:
         self._syncing_from_viewer = True
         try:
-            self._toggle_switch.setChecked(
+            self._auto_cb.setChecked(not self._napari_viewer.scale_bar.colored)
+            self._color_swatch.setEnabled(
                 self._napari_viewer.scale_bar.colored
             )
         finally:
@@ -253,7 +256,8 @@ class ScaleBarColor(ViewerComponentBase):
     def _on_toggled(self, checked: bool) -> None:
         if self._syncing_from_viewer:
             return
-        self._napari_viewer.scale_bar.colored = checked
+        self._napari_viewer.scale_bar.colored = not checked
+        self._color_swatch.setEnabled(not checked)
 
     def _on_color_changed(self, color) -> None:
         self._napari_viewer.scale_bar.color = color
