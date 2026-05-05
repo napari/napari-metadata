@@ -163,21 +163,21 @@ class ScaleBarFixedLength(ViewerComponentBase):
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
         self._syncing_from_viewer = False
-        self._toggle_switch = QToggleSwitch(parent=parent_widget)
-        self._toggle_switch.toggled.connect(self._solve_fixed_length)
         self._length_spinbox = QDoubleSpinBox(parent=parent_widget)
         self._length_spinbox.setRange(0, 1000)
         self._length_spinbox.setValue(50)
         self._length_spinbox.valueChanged.connect(self._solve_fixed_length)
+        self._auto_cb = QCheckBox('auto', parent=parent_widget)
+        self._auto_cb.toggled.connect(self._solve_fixed_length)
 
     @property
     def value_widgets(self) -> list[QWidget]:
-        return [self._toggle_switch, self._length_spinbox]
+        return [self._length_spinbox, self._auto_cb]
 
     def clear(self) -> None:
         self._syncing_from_viewer = True
         try:
-            self._toggle_switch.setChecked(False)
+            self._auto_cb.setChecked(False)
         finally:
             self._syncing_from_viewer = False
         self._length_spinbox.setValue(50)
@@ -186,11 +186,12 @@ class ScaleBarFixedLength(ViewerComponentBase):
         length = self._napari_viewer.scale_bar.length
         self._syncing_from_viewer = True
         try:
-            self._toggle_switch.setChecked(length is not None)
+            self._auto_cb.setChecked(length is None)
         finally:
             self._syncing_from_viewer = False
         with QSignalBlocker(self._length_spinbox):
-            self._length_spinbox.setValue(50 if length is None else length)
+            if length is not None:
+                self._length_spinbox.setValue(length)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.length)
@@ -200,7 +201,7 @@ class ScaleBarFixedLength(ViewerComponentBase):
             return
         self._set_fixed_length(
             self._length_spinbox.value()
-        ) if self._toggle_switch.isChecked() else self._set_fixed_length(None)
+        ) if not self._auto_cb.isChecked() else self._set_fixed_length(None)
 
     def _set_fixed_length(self, value: float | None) -> None:
         self._napari_viewer.scale_bar.length = value
