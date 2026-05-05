@@ -192,6 +192,7 @@ class ScaleBarFixedLength(ViewerComponentBase):
         with QSignalBlocker(self._length_spinbox):
             if length is not None:
                 self._length_spinbox.setValue(length)
+        self._length_spinbox.setEnabled(not self._auto_cb.isChecked())
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.length)
@@ -202,6 +203,7 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self._set_fixed_length(
             self._length_spinbox.value()
         ) if not self._auto_cb.isChecked() else self._set_fixed_length(None)
+        self._length_spinbox.setEnabled(not self._auto_cb.isChecked())
 
     def _set_fixed_length(self, value: float | None) -> None:
         self._napari_viewer.scale_bar.length = value
