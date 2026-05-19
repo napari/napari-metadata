@@ -38,7 +38,6 @@ class ScaleBarVisible(ViewerComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
-        self._syncing_from_viewer = False
         self._toggle_switch = QToggleSwitch(parent=parent_widget)
         self._toggle_switch.toggled.connect(self._on_toggled)
 
@@ -47,27 +46,19 @@ class ScaleBarVisible(ViewerComponentBase):
         return [self._toggle_switch]
 
     def clear(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(False)
-        finally:
-            self._syncing_from_viewer = False
 
     def _update_display(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(
                 self._napari_viewer.scale_bar.visible
             )
-        finally:
-            self._syncing_from_viewer = False
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.visible)
 
     def _on_toggled(self, checked: bool) -> None:
-        if self._syncing_from_viewer:
-            return
         self._napari_viewer.scale_bar.visible = checked
 
 
@@ -162,7 +153,6 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self, napari_viewer: ViewerModel, parent_widget: QWidget
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
-        self._syncing_from_viewer = False
         self._length_spinbox = QDoubleSpinBox(parent=parent_widget)
         self._length_spinbox.setRange(0, 1000)
         self._length_spinbox.setValue(50)
@@ -175,20 +165,14 @@ class ScaleBarFixedLength(ViewerComponentBase):
         return [self._length_spinbox, self._auto_cb]
 
     def clear(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._auto_cb):
             self._auto_cb.setChecked(False)
-        finally:
-            self._syncing_from_viewer = False
         self._length_spinbox.setValue(50)
 
     def _update_display(self) -> None:
         length = self._napari_viewer.scale_bar.length
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._auto_cb):
             self._auto_cb.setChecked(length is None)
-        finally:
-            self._syncing_from_viewer = False
         with QSignalBlocker(self._length_spinbox):
             if length is not None:
                 self._length_spinbox.setValue(length)
@@ -198,8 +182,6 @@ class ScaleBarFixedLength(ViewerComponentBase):
         return str(self._napari_viewer.scale_bar.length)
 
     def _solve_fixed_length(self) -> None:
-        if self._syncing_from_viewer:
-            return
         self._set_fixed_length(
             self._length_spinbox.value()
         ) if not self._auto_cb.isChecked() else self._set_fixed_length(None)
@@ -221,7 +203,6 @@ class ScaleBarColor(ViewerComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
-        self._syncing_from_viewer = False
         self._auto_cb = QCheckBox(parent=parent_widget)
         self._auto_cb.setText('auto')
         self._auto_cb.toggled.connect(self._on_toggled)
@@ -235,30 +216,20 @@ class ScaleBarColor(ViewerComponentBase):
         return [self._color_swatch, self._auto_cb]
 
     def clear(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._auto_cb):
             self._auto_cb.setChecked(False)
-        finally:
-            self._syncing_from_viewer = False
         self._color_swatch.setColor('magenta')
 
     def _update_display(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._auto_cb):
             self._auto_cb.setChecked(not self._napari_viewer.scale_bar.colored)
-            self._color_swatch.setEnabled(
-                self._napari_viewer.scale_bar.colored
-            )
-        finally:
-            self._syncing_from_viewer = False
+        self._color_swatch.setEnabled(self._napari_viewer.scale_bar.colored)
         self._color_swatch.setColor(self._napari_viewer.scale_bar.color)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.color)
 
     def _on_toggled(self, checked: bool) -> None:
-        if self._syncing_from_viewer:
-            return
         self._napari_viewer.scale_bar.colored = not checked
         self._color_swatch.setEnabled(not checked)
 
@@ -278,7 +249,6 @@ class ScaleBarBox(ViewerComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
-        self._syncing_from_viewer = False
         self._toggle_switch = QToggleSwitch(parent=parent_widget)
         self._toggle_switch.toggled.connect(self._on_toggled)
         self._color_swatch = QColorSwatchEdit(
@@ -293,42 +263,34 @@ class ScaleBarBox(ViewerComponentBase):
         return [self._toggle_switch, self._color_swatch, self._auto_cb]
 
     def clear(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(False)
-        finally:
-            self._syncing_from_viewer = False
 
     def _update_display(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(self._napari_viewer.scale_bar.box)
-        finally:
-            self._syncing_from_viewer = False
         if self._napari_viewer.scale_bar.box_color is not None:
             self._color_swatch.setColor(
                 self._napari_viewer.scale_bar.box_color
             )
             self._color_swatch.setEnabled(True)
-            self._auto_cb.setChecked(False)
+            with QSignalBlocker(self._auto_cb):
+                self._auto_cb.setChecked(False)
         else:
             self._color_swatch.setEnabled(False)
-            self._auto_cb.setChecked(True)
+            with QSignalBlocker(self._auto_cb):
+                self._auto_cb.setChecked(True)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.box)
 
     def _on_toggled(self, checked: bool) -> None:
-        if self._syncing_from_viewer:
-            return
         self._napari_viewer.scale_bar.box = checked
 
     def _on_color_changed(self, color) -> None:
         self._napari_viewer.scale_bar.box_color = color
 
     def _on_auto_toggled(self, checked: bool) -> None:
-        if self._syncing_from_viewer:
-            return
         self._napari_viewer.scale_bar.box_color = (
             None if checked else self._color_swatch.color
         )
@@ -347,7 +309,6 @@ class ScaleBarTicks(ViewerComponentBase):
         parent_widget: QWidget,
     ) -> None:
         super().__init__(napari_viewer, parent_widget)
-        self._syncing_from_viewer = False
         self._toggle_switch = QToggleSwitch(parent=parent_widget)
         self._toggle_switch.toggled.connect(self._on_toggled)
 
@@ -356,25 +317,17 @@ class ScaleBarTicks(ViewerComponentBase):
         return [self._toggle_switch]
 
     def clear(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(False)
-        finally:
-            self._syncing_from_viewer = False
 
     def _update_display(self) -> None:
-        self._syncing_from_viewer = True
-        try:
+        with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(self._napari_viewer.scale_bar.ticks)
-        finally:
-            self._syncing_from_viewer = False
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.ticks)
 
     def _on_toggled(self, checked: bool) -> None:
-        if self._syncing_from_viewer:
-            return
         self._napari_viewer.scale_bar.ticks = checked
 
 

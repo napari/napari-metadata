@@ -8,7 +8,6 @@ from napari_metadata.viewer_widgets._scale_bar import (
     ScaleBarFontSize,
     ScaleBarMetadata,
     ScaleBarOpacity,
-    ScaleBarOrder,
     ScaleBarPosition,
     ScaleBarTicks,
     ScaleBarUnits,
@@ -52,7 +51,6 @@ class TestScaleBarMetadata:
             ScaleBarFixedLength,
             ScaleBarOpacity,
             ScaleBarPosition,
-            ScaleBarOrder,
         ]
 
     def test_components_returns_display_order(
