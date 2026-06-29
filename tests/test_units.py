@@ -40,17 +40,17 @@ class TestAxisType:
         names = AxisUnitEnum.names()
         assert 'space' in names
         assert 'time' in names
-        assert 'string' in names
+        assert 'custom' in names
 
     def test_str(self):
         assert str(AxisUnitEnum.SPACE) == 'space'
         assert str(AxisUnitEnum.TIME) == 'time'
-        assert str(AxisUnitEnum.STRING) == 'string'
+        assert str(AxisUnitEnum.CUSTOM) == 'custom'
 
     def test_from_name_valid(self):
         assert AxisUnitEnum.from_name('space') is AxisUnitEnum.SPACE
         assert AxisUnitEnum.from_name('time') is AxisUnitEnum.TIME
-        assert AxisUnitEnum.from_name('string') is AxisUnitEnum.STRING
+        assert AxisUnitEnum.from_name('custom') is AxisUnitEnum.CUSTOM
 
     def test_from_name_invalid(self):
         assert AxisUnitEnum.from_name('nonexistent') is None
@@ -64,8 +64,8 @@ class TestAxisType:
     def test_time_has_unit_config(self):
         assert isinstance(AxisUnitEnum.TIME.value, _UnitConfig)
 
-    def test_string_has_no_config(self):
-        assert AxisUnitEnum.STRING.value is None
+    def test_custom_has_no_config(self):
+        assert AxisUnitEnum.CUSTOM.value is None
 
     def test_space_units_contain_expected(self):
         units = AxisUnitEnum.SPACE.value.units

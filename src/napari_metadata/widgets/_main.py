@@ -13,10 +13,10 @@ the container widgets and grid layouts are recreated.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from napari.utils.notifications import show_info
-from qtpy.QtCore import QObject, Qt
+from qtpy.QtCore import QEvent, QObject, QSignalBlocker, Qt
 from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QDockWidget,
@@ -32,7 +32,6 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari_metadata.layer_utils import resolve_layer
 from napari_metadata.widgets._axis import AxisMetadata
 from napari_metadata.widgets._base import AxisComponentBase
 from napari_metadata.widgets._containers import (
@@ -49,6 +48,71 @@ if TYPE_CHECKING:
 
 _CONTENT_PAGE = 0
 _NO_LAYER_PAGE = 1
+
+#: Spacing (px) between collapsible sections inside the outer scroll area.
+#: Used both in the sections QLayout and in the manual size allocator.
+_SECTIONS_SPACING = 3
+
+
+def _allocate_section_extents(
+    *,
+    expanded: list[bool],
+    collapsed_extents: list[int],
+    preferred_extents: list[int],
+    available: int,
+    spacing: int,
+) -> list[int]:
+    """Distribute available pixels across collapsed and expanded sections.
+
+    Collapsed sections always keep their collapsed extent. Expanded sections
+    share the remaining pixels with a water-filling strategy so smaller
+    preferred extents are satisfied first.
+    """
+    extents = collapsed_extents.copy()
+    expanded_indices = [
+        index for index, is_expanded in enumerate(expanded) if is_expanded
+    ]
+    if not expanded_indices:
+        return extents
+
+    collapsed_total = sum(
+        extent
+        for extent, is_expanded in zip(
+            collapsed_extents, expanded, strict=True
+        )
+        if not is_expanded
+    )
+    usable = max(available - spacing - collapsed_total, 0)
+
+    preferred_by_index = {
+        index: max(preferred_extents[index], collapsed_extents[index])
+        for index in expanded_indices
+    }
+    minimum_total = sum(collapsed_extents[index] for index in expanded_indices)
+    if usable <= minimum_total:
+        return extents
+
+    preferred_total = sum(
+        preferred_by_index[index] for index in expanded_indices
+    )
+    if usable >= preferred_total:
+        for index in expanded_indices:
+            extents[index] = preferred_by_index[index]
+        return extents
+
+    remaining = usable
+    for offset, index in enumerate(
+        sorted(expanded_indices, key=lambda item: preferred_by_index[item])
+    ):
+        share = remaining // (len(expanded_indices) - offset)
+        extent = max(
+            collapsed_extents[index],
+            min(preferred_by_index[index], share),
+        )
+        extents[index] = extent
+        remaining -= extent
+
+    return extents
 
 
 class MetadataWidget(QWidget):
@@ -67,21 +131,27 @@ class MetadataWidget(QWidget):
 
     def __init__(self, napari_viewer: ViewerModel) -> None:
         super().__init__()
-        self._viewer = napari_viewer
-        self._napari_viewer = napari_viewer
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        self._layers = napari_viewer.layers
         self._selected_layer: Layer | None = None
         self._current_orientation: Orientation | None = None
         self._widget_parent: QObject | None = self.parent()
         self._already_shown: bool = False
         self._rebuilding: bool = False
 
+        # Expanded states for each section — persisted across teardown/rebuild
+        # cycles so that adding or removing layers does not collapse sections.
+        self._file_section_expanded: bool = False
+        self._axis_section_expanded: bool = False
+        self._inheritance_section_expanded: bool = False
+
         # ── Persistent component instances ──────────────────────────
-        self._general_metadata_instance = FileGeneralMetadata(
-            napari_viewer, self
-        )
-        self._axis_metadata_instance = AxisMetadata(napari_viewer, self)
+        self._general_metadata_instance = FileGeneralMetadata(self)
+        self._axis_metadata_instance = AxisMetadata(self)
         self._inheritance_instance = InheritanceWidget(
-            napari_viewer,
+            self._layers,
             on_apply_inheritance=self.apply_inheritance_to_current_layer,
             parent=self,
         )
@@ -93,6 +163,9 @@ class MetadataWidget(QWidget):
 
         # Content page wrapper — holds the orientation-specific scroll area
         self._content_page = QWidget(self)
+        self._content_page.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self._content_page_layout = QVBoxLayout(self._content_page)
         self._content_page_layout.setContentsMargins(0, 0, 0, 0)
         self._stacked_layout.addWidget(self._content_page)  # index 0
@@ -132,7 +205,7 @@ class MetadataWidget(QWidget):
             return
 
         self._widget_parent = parent_widget
-        self._viewer.layers.selection.events.active.connect(
+        self._layers.selection.events.active.connect(
             self._on_selected_layers_changed
         )
         self._widget_parent.dockLocationChanged.connect(
@@ -140,6 +213,39 @@ class MetadataWidget(QWidget):
         )
         self._on_selected_layers_changed()
         self._already_shown = True
+
+    def resizeEvent(self, a0) -> None:
+        super().resizeEvent(a0)
+        self._update_section_sizes()
+
+    def eventFilter(self, a0, a1) -> bool:
+        viewport = (
+            self._scroll_area.viewport()
+            if self._scroll_area is not None
+            else None
+        )
+        if (
+            a0 is viewport
+            and a1 is not None
+            and a1.type()
+            in (
+                QEvent.Type.Resize,
+                QEvent.Type.Show,
+                QEvent.Type.LayoutRequest,
+            )
+        ):
+            self._update_section_sizes()
+        return super().eventFilter(a0, a1)
+
+    def sizeHint(self):
+        if self._stacked_layout.currentIndex() == _CONTENT_PAGE:
+            return self._content_page.sizeHint()
+        return super().sizeHint()
+
+    def minimumSizeHint(self):
+        if self._stacked_layout.currentIndex() == _CONTENT_PAGE:
+            return self._content_page.minimumSizeHint()
+        return super().minimumSizeHint()
 
     def _on_dock_location_changed(self) -> None:
         """Handle dock widget location change — rebuild if orientation changed."""
@@ -151,27 +257,20 @@ class MetadataWidget(QWidget):
 
     def _on_selected_layers_changed(self) -> None:
         """Handle layer selection change — always refresh page."""
-        layer: Layer | None = self._viewer.layers.selection.active
+        layer: Layer | None = self._layers.selection.active
         if layer is self._selected_layer:
             return
 
         if self._selected_layer is not None:
-            self._selected_layer.events.name.disconnect(
-                self._on_selected_layer_name_changed
-            )
+            self._general_metadata_instance.unbind_layer()
+            self._axis_metadata_instance.unbind_layer()
 
         if layer is not None:
-            layer.events.name.connect(self._on_selected_layer_name_changed)
+            self._general_metadata_instance.bind_layer(layer)
+            self._axis_metadata_instance.bind_layer(layer)
 
         self._selected_layer = layer
         self._refresh_page()
-
-    def _on_selected_layer_name_changed(self) -> None:
-        """Refresh file metadata when the active layer's name changes."""
-        if self._selected_layer is None:
-            return
-        for component in self._general_metadata_instance.components:
-            component.load_entries()
 
     # ------------------------------------------------------------------
     # Orientation detection
@@ -182,7 +281,9 @@ class MetadataWidget(QWidget):
         if not isinstance(self._widget_parent, QDockWidget):
             return 'vertical'
         dock = self._widget_parent
-        main_window = cast(QMainWindow, dock.parent())
+        main_window = dock.parent()
+        if not isinstance(main_window, QMainWindow):
+            return 'vertical'
         area = main_window.dockWidgetArea(dock)
         if (
             area == Qt.DockWidgetArea.LeftDockWidgetArea
@@ -199,6 +300,7 @@ class MetadataWidget(QWidget):
     def _refresh_page(self) -> None:
         """Show the correct page and rebuild content if a layer is active."""
         if self._selected_layer is None:
+            self._teardown_content()
             self._stacked_layout.setCurrentIndex(_NO_LAYER_PAGE)
             self._current_orientation = None
             return
@@ -220,32 +322,9 @@ class MetadataWidget(QWidget):
     def _do_rebuild_content(self, orientation: Orientation) -> None:
         is_vertical = orientation == 'vertical'
 
-        # Capture expanded states before destroying the old sections so they
-        # can be restored after the rebuild (layer change or orientation switch).
-        file_expanded = (
-            self._file_section.isExpanded()
-            if self._file_section is not None
-            else False
-        )
-        axis_expanded = (
-            self._axis_section.isExpanded()
-            if self._axis_section is not None
-            else False
-        )
-        inheritance_expanded = (
-            self._inheritance_section.isExpanded()
-            if self._inheritance_section is not None
-            else False
-        )
-
-        # Detach persistent widgets so they survive container deletion
-        self._detach_component_widgets()
-
-        # Remove old scroll area
-        if self._scroll_area is not None:
-            self._content_page_layout.removeWidget(self._scroll_area)
-            self._scroll_area.deleteLater()
-            self._scroll_area = None
+        # _teardown_content saves expanded states to instance variables before
+        # destroying the old sections, so they survive layer add/remove cycles.
+        self._teardown_content()
 
         # Create orientation-appropriate scroll area
         if is_vertical:
@@ -253,6 +332,7 @@ class MetadataWidget(QWidget):
             scroll.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff
             )
+            scroll.setWidgetResizable(True)
         else:
             scroll = HorizontalOnlyOuterScrollArea(self._content_page)
             scroll.setVerticalScrollBarPolicy(
@@ -261,15 +341,26 @@ class MetadataWidget(QWidget):
             scroll.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded
             )
-        scroll.setWidgetResizable(True)
+            scroll.setWidgetResizable(True)
         self._scroll_area = scroll
+        viewport = scroll.viewport()
+        if viewport is not None:
+            viewport.installEventFilter(self)
 
         # Content inside the scroll area
         scroll_content = QWidget(scroll)
+        if is_vertical:
+            scroll_content.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+            )
+        else:
+            scroll_content.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            )
         layout_class = QVBoxLayout if is_vertical else QHBoxLayout
         sections_layout = layout_class(scroll_content)
         sections_layout.setContentsMargins(0, 0, 0, 0)
-        sections_layout.setSpacing(3)
+        sections_layout.setSpacing(_SECTIONS_SPACING)
 
         # Build three collapsible sections
         self._file_section = self._build_file_section(orientation)
@@ -284,10 +375,13 @@ class MetadataWidget(QWidget):
         sections_layout.addStretch(1)
 
         # Restore expanded states carried over from the previous build so that
-        # sections stay open across layer changes and orientation switches.
-        self._file_section.setExpanded(file_expanded)
-        self._axis_section.setExpanded(axis_expanded)
-        self._inheritance_section.setExpanded(inheritance_expanded)
+        # sections stay open across layer changes, orientation switches, and
+        # layer add/remove cycles (including any transient no-layer state).
+        self._file_section.setExpanded(self._file_section_expanded)
+        self._axis_section.setExpanded(self._axis_section_expanded)
+        self._inheritance_section.setExpanded(
+            self._inheritance_section_expanded
+        )
 
         # Keep axis inheritance checkboxes in sync with the rebuilt section's
         # expanded state.
@@ -299,7 +393,119 @@ class MetadataWidget(QWidget):
         self._content_page_layout.addWidget(scroll)
 
         self._current_orientation = orientation
-        self.setMinimumSize(50, 50)
+        self._update_section_sizes()
+        self.updateGeometry()
+        parent = self.parentWidget()
+        if parent is not None:
+            parent.updateGeometry()
+
+    def _update_section_sizes(self) -> None:
+        if self._current_orientation is None:
+            return
+        self._update_section_extents(self._current_orientation)
+
+    def _update_horizontal_section_widths(self) -> None:
+        self._update_section_extents('horizontal')
+
+    def _update_vertical_section_heights(self) -> None:
+        self._update_section_extents('vertical')
+
+    def _update_section_extents(self, orientation: Orientation) -> None:
+        if (
+            self._current_orientation != orientation
+            or self._scroll_area is None
+        ):
+            return
+
+        sections = self._get_sections()
+        if sections is None:
+            return
+
+        viewport = self._scroll_area.viewport()
+        if viewport is None:
+            return
+
+        if orientation == 'horizontal':
+            available = viewport.width()
+            collapsed_extents = [
+                section.collapsed_width_hint() for section in sections
+            ]
+            preferred_extents = [
+                section.sizeHint().width() for section in sections
+            ]
+        else:
+            available = viewport.height()
+            collapsed_extents = [
+                section.collapsed_height_hint() for section in sections
+            ]
+            preferred_extents = [
+                section.sizeHint().height() for section in sections
+            ]
+
+        if available <= 0:
+            return
+
+        extents = _allocate_section_extents(
+            expanded=[section.isExpanded() for section in sections],
+            collapsed_extents=collapsed_extents,
+            preferred_extents=preferred_extents,
+            available=available,
+            spacing=_SECTIONS_SPACING * max(len(sections) - 1, 0),
+        )
+        for section, extent in zip(sections, extents, strict=True):
+            if orientation == 'horizontal':
+                section.set_horizontal_section_width(extent)
+            else:
+                section.set_vertical_section_height(extent)
+
+    def _get_sections(
+        self,
+    ) -> (
+        tuple[
+            CollapsibleSectionContainer,
+            CollapsibleSectionContainer,
+            CollapsibleSectionContainer,
+        ]
+        | None
+    ):
+        if (
+            self._file_section is None
+            or self._axis_section is None
+            or self._inheritance_section is None
+        ):
+            return None
+        return (
+            self._file_section,
+            self._axis_section,
+            self._inheritance_section,
+        )
+
+    def _teardown_content(self) -> None:
+        # Save expanded states before nullifying sections so they survive the
+        # transition through a no-layer page (e.g. during layer add/remove).
+        if self._file_section is not None:
+            self._file_section_expanded = self._file_section.isExpanded()
+        if self._axis_section is not None:
+            self._axis_section_expanded = self._axis_section.isExpanded()
+        if self._inheritance_section is not None:
+            self._inheritance_section_expanded = (
+                self._inheritance_section.isExpanded()
+            )
+        self._detach_component_widgets()
+        self._remove_scroll_area()
+        self._file_section = None
+        self._axis_section = None
+        self._inheritance_section = None
+
+    def _remove_scroll_area(self) -> None:
+        if self._scroll_area is None:
+            return
+        viewport = self._scroll_area.viewport()
+        if viewport is not None:
+            viewport.removeEventFilter(self)
+        self._content_page_layout.removeWidget(self._scroll_area)
+        self._scroll_area.deleteLater()
+        self._scroll_area = None
 
     def _detach_component_widgets(self) -> None:
         """Reparent all persistent component widgets back to *self*.
@@ -309,16 +515,28 @@ class MetadataWidget(QWidget):
         """
         for comp in self._general_metadata_instance.components:
             comp.component_label.setParent(self)
-            comp.value_widget.setParent(self)
+            with QSignalBlocker(comp.value_widget):
+                comp.value_widget.setParent(self)
 
         for comp in self._axis_metadata_instance.components:
             comp.component_label.setParent(self)
             for i in range(comp.num_axes):
                 for entry in comp.get_layout_entries(i):
                     for w in entry.widgets:
-                        w.setParent(self)
+                        with QSignalBlocker(w):
+                            w.setParent(self)
 
-        self._inheritance_instance.setParent(self)
+        with QSignalBlocker(self._inheritance_instance):
+            self._inheritance_instance.setParent(self)
+
+    def _on_inheritance_toggled(self, checked: bool) -> None:
+        """Handle inheritance section toggle — sync checkboxes and sizes."""
+        self._axis_metadata_instance.set_checkboxes_visible(checked)
+        self._update_section_sizes()
+
+    def _on_section_toggled(self, _checked: bool) -> None:
+        """Recompute section sizes after any section expands or collapses."""
+        self._update_section_sizes()
 
     # ------------------------------------------------------------------
     # Section builders
@@ -332,6 +550,7 @@ class MetadataWidget(QWidget):
             self,
             'File metadata',
             orientation=orientation,
+            on_toggle=self._on_section_toggled,
         )
         container = QWidget(self)
         grid = QGridLayout(container)
@@ -347,6 +566,7 @@ class MetadataWidget(QWidget):
             self,
             'Axes metadata',
             orientation=orientation,
+            on_toggle=self._on_section_toggled,
         )
         container = QWidget(self)
         grid = QGridLayout(container)
@@ -360,11 +580,9 @@ class MetadataWidget(QWidget):
         """Build the axes inheritance collapsible section."""
         section = CollapsibleSectionContainer(
             self,
-            'Axes inheritance',
+            'Copy metadata',
             orientation=orientation,
-            on_toggle=lambda checked: (
-                self._axis_metadata_instance.set_checkboxes_visible(checked)
-            ),
+            on_toggle=self._on_inheritance_toggled,
         )
         container = QWidget(self)
         layout = QGridLayout(container)
@@ -382,9 +600,13 @@ class MetadataWidget(QWidget):
         """Place file component widgets into *grid* for *orientation*."""
         is_vertical = orientation == 'vertical'
         row = 0
+        layer = self._selected_layer
 
         for component in self._general_metadata_instance.components:
-            component.load_entries()
+            if layer is not None:
+                component.load_entries(layer)
+            else:
+                component.clear()
 
             if is_vertical and component._under_label_in_vertical:
                 grid.addWidget(component.component_label, row, 0, 1, 1)
@@ -432,11 +654,16 @@ class MetadataWidget(QWidget):
         self, grid: QGridLayout, orientation: Orientation
     ) -> None:
         """Dispatch to orientation-specific axis grid builder."""
+        layer = self._selected_layer
         components = self._axis_metadata_instance.components
-        if orientation == 'vertical':
-            _populate_axis_grid_vertical(grid, components)
+        if layer is not None:
+            if orientation == 'vertical':
+                _populate_axis_grid_vertical(grid, components, layer)
+            else:
+                _populate_axis_grid_horizontal(grid, components, layer)
         else:
-            _populate_axis_grid_horizontal(grid, components)
+            for c in components:
+                c.clear()
 
     # ------------------------------------------------------------------
     # Inheritance
@@ -445,7 +672,7 @@ class MetadataWidget(QWidget):
     def apply_inheritance_to_current_layer(
         self, template_layer: Layer
     ) -> None:
-        active_layer = resolve_layer(self._napari_viewer)
+        active_layer = self._layers.selection.active
         if active_layer is None:
             return
 
@@ -457,7 +684,7 @@ class MetadataWidget(QWidget):
             return
 
         for component in self._axis_metadata_instance.components:
-            component.inherit_layer_properties(template_layer)
+            component.inherit_layer_properties(template_layer, active_layer)
 
         # Rebuild to show inherited values
         self._refresh_page()
@@ -480,6 +707,7 @@ class MetadataWidget(QWidget):
 def _populate_axis_grid_vertical(
     grid: QGridLayout,
     components: list[AxisComponentBase],
+    layer: Layer,
 ) -> None:
     """Layout axis components stacked vertically (side dock position).
 
@@ -499,7 +727,7 @@ def _populate_axis_grid_vertical(
         col = 0
         grid.addWidget(component.component_label, row, col, 1, 1)
         col += 1
-        component.load_entries()
+        component.load_entries(layer)
 
         for axis_index in range(component.num_axes):
             setting_col = col
@@ -508,10 +736,6 @@ def _populate_axis_grid_vertical(
 
             for entry in component.get_layout_entries(axis_index):
                 for widget in entry.widgets:
-                    widget.setSizePolicy(
-                        QSizePolicy.Policy.Expanding,
-                        QSizePolicy.Policy.Expanding,
-                    )
                     grid.addWidget(
                         widget,
                         row,
@@ -546,12 +770,15 @@ def _populate_axis_grid_vertical(
             grid.setColumnMinimumWidth(c, 0)
         grid.setColumnStretch(c, 0)
     grid.setColumnStretch(max_cols, 1)
-    grid.parentWidget().updateGeometry()
+    parent = grid.parentWidget()
+    if parent is not None:
+        parent.updateGeometry()
 
 
 def _populate_axis_grid_horizontal(
     grid: QGridLayout,
     components: list[AxisComponentBase],
+    layer: Layer,
 ) -> None:
     """Layout axis components side by side (top/bottom dock position).
 
@@ -568,7 +795,7 @@ def _populate_axis_grid_horizontal(
     for idx, component in enumerate(components):
         current_col = starting_col
         current_row = 1  # row 0 reserved for the component label
-        component.load_entries()
+        component.load_entries(layer)
 
         max_axis_col_span = 0
         for axis_index in range(component.num_axes):
@@ -578,10 +805,6 @@ def _populate_axis_grid_horizontal(
 
             for entry in component.get_layout_entries(axis_index):
                 for widget in entry.widgets:
-                    widget.setSizePolicy(
-                        QSizePolicy.Policy.Expanding,
-                        QSizePolicy.Policy.Expanding,
-                    )
                     grid.addWidget(
                         widget,
                         current_row,
@@ -622,7 +845,9 @@ def _populate_axis_grid_horizontal(
             grid.setColumnMinimumWidth(c, 0)
         grid.setColumnStretch(c, 0)
     grid.setColumnStretch(starting_col - 2, 1)
-    grid.parentWidget().updateGeometry()
+    parent = grid.parentWidget()
+    if parent is not None:
+        parent.updateGeometry()
 
 
 def _add_horizontal_separator(

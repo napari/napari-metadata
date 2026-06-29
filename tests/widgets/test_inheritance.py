@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 def inheritance_widget(
     viewer_model: ViewerModel, parent_widget: QWidget, qtbot
 ) -> InheritanceWidget:
-    widget = InheritanceWidget(viewer_model, parent=parent_widget)
+    widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
     qtbot.addWidget(widget)
     return widget
 
@@ -50,10 +50,10 @@ class TestInheritanceWidgetInit:
     ) -> None:
         assert not inheritance_widget._apply_button.isEnabled()
 
-    def test_selected_layer_is_none_at_init(
+    def test_event_connected_layer_is_none_at_init(
         self, inheritance_widget: InheritanceWidget
     ) -> None:
-        assert inheritance_widget._selected_layer is None
+        assert inheritance_widget._event_connected_layer is None
 
 
 class TestComboboxPopulation:
@@ -86,7 +86,7 @@ class TestComboboxPopulation:
         qtbot,
     ) -> None:
         """Renaming the active layer should update the combobox items."""
-        widget = InheritanceWidget(viewer_model, parent=parent_widget)
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
         layer = viewer_model.add_image(np.zeros((4, 4)), name='original')
         layer.name = 'renamed'
@@ -98,6 +98,101 @@ class TestComboboxPopulation:
         assert 'original' not in items
 
 
+class TestApplyButton:
+    def test_enabled_when_template_and_inheriting_differ_same_ndim(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ) -> None:
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
+        qtbot.addWidget(widget)
+        viewer_model.add_image(np.zeros((4, 4)), name='template')
+        viewer_model.add_image(np.zeros((4, 4)), name='inheriting')
+        # Select 'template' in combobox (index 0='None', 1='template', 2='inheriting')
+        widget._template_combobox.setCurrentIndex(1)
+        # Active layer is 'inheriting' (last added)
+        assert widget._apply_button.isEnabled()
+        assert widget._different_dims_label.isHidden()
+
+    def test_disabled_when_template_is_none(
+        self,
+        viewer_model: ViewerModel,
+        inheritance_widget: InheritanceWidget,
+    ) -> None:
+        viewer_model.add_image(np.zeros((4, 4)), name='layer')
+        # Combobox defaults to 'None' placeholder
+        inheritance_widget._template_combobox.setCurrentIndex(0)
+        assert not inheritance_widget._apply_button.isEnabled()
+
+    def test_disabled_when_same_layer_selected(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ) -> None:
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
+        qtbot.addWidget(widget)
+        viewer_model.add_image(np.zeros((4, 4)), name='only-layer')
+        # Select the same layer as template
+        widget._template_combobox.setCurrentIndex(1)
+        # Active is also 'only-layer' → same object
+        assert not widget._apply_button.isEnabled()
+
+    def test_disabled_with_dim_mismatch_and_warning_visible(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ) -> None:
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
+        qtbot.addWidget(widget)
+        viewer_model.add_image(np.zeros((4, 4)), name='2d-layer')
+        viewer_model.add_image(np.zeros((3, 4, 4)), name='3d-layer')
+        # Template = '2d-layer', inheriting (active) = '3d-layer'
+        widget._template_combobox.setCurrentIndex(1)
+        assert not widget._apply_button.isEnabled()
+        assert not widget._different_dims_label.isHidden()
+
+    def test_apply_invokes_callback_with_template_layer(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ) -> None:
+        received = []
+        widget = InheritanceWidget(
+            viewer_model.layers,
+            on_apply_inheritance=received.append,
+            parent=parent_widget,
+        )
+        qtbot.addWidget(widget)
+        template = viewer_model.add_image(np.zeros((4, 4)), name='template')
+        viewer_model.add_image(np.zeros((4, 4)), name='inheriting')
+        widget._template_combobox.setCurrentIndex(1)
+        widget._apply_button.click()
+        assert received == [template]
+
+    def test_apply_noop_when_dims_mismatch(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ) -> None:
+        received = []
+        widget = InheritanceWidget(
+            viewer_model.layers,
+            on_apply_inheritance=received.append,
+            parent=parent_widget,
+        )
+        qtbot.addWidget(widget)
+        viewer_model.add_image(np.zeros((4, 4)), name='2d')
+        viewer_model.add_image(np.zeros((3, 4, 4)), name='3d')
+        widget._template_combobox.setCurrentIndex(1)
+        widget._apply_button.click()
+        assert received == []
+
+
 class TestCloseDisconnectsListEvents:
     def test_combobox_not_updated_after_close(
         self,
@@ -107,7 +202,7 @@ class TestCloseDisconnectsListEvents:
     ) -> None:
         """After close(), adding a layer must NOT update the combobox."""
         viewer_model.add_image(np.zeros((4, 4)), name='existing')
-        widget = InheritanceWidget(viewer_model, parent=parent_widget)
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
         assert widget._template_combobox.count() == 2  # None + existing
 
@@ -126,7 +221,7 @@ class TestCloseDisconnectsListEvents:
     ) -> None:
         """After close(), removing a layer must NOT update the combobox."""
         layer = viewer_model.add_image(np.zeros((4, 4)), name='to-remove')
-        widget = InheritanceWidget(viewer_model, parent=parent_widget)
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
         count_at_close = widget._template_combobox.count()
 
@@ -146,7 +241,7 @@ class TestCloseDisconnectsSelectionEvents:
         """After close(), changing the active layer must NOT update the label."""
         layer1 = viewer_model.add_image(np.zeros((4, 4)), name='layer1')
         layer2 = viewer_model.add_image(np.zeros((4, 4)), name='layer2')
-        widget = InheritanceWidget(viewer_model, parent=parent_widget)
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
 
         # Make layer1 active so the label reflects it before close
@@ -169,12 +264,12 @@ class TestCloseDisconnectsLayerNameCallback:
         qtbot,
     ) -> None:
         """After close(), renaming the selected layer must NOT update the combobox."""
-        widget = InheritanceWidget(viewer_model, parent=parent_widget)
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
 
         # Adding a layer auto-selects it, which wires the name-changed callback
         layer = viewer_model.add_image(np.zeros((4, 4)), name='before-close')
-        assert widget._selected_layer is layer
+        assert widget._event_connected_layer is layer
 
         widget.close()
 
@@ -186,15 +281,15 @@ class TestCloseDisconnectsLayerNameCallback:
         ]
         assert 'after-close' not in items
 
-    def test_close_safe_when_no_selected_layer(
+    def test_close_safe_when_no_event_connected_layer(
         self,
         viewer_model: ViewerModel,
         parent_widget: QWidget,
         qtbot,
     ) -> None:
-        """close() must not raise when _selected_layer is None."""
-        widget = InheritanceWidget(viewer_model, parent=parent_widget)
+        """close() must not raise when _event_connected_layer is None."""
+        widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
-        assert widget._selected_layer is None
+        assert widget._event_connected_layer is None
         # Should complete without error
         widget.close()

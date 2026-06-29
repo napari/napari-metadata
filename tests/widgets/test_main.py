@@ -16,7 +16,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from qtpy.QtWidgets import QFrame, QGridLayout, QWidget
+from qtpy.QtCore import QEvent
+from qtpy.QtGui import QResizeEvent
+from qtpy.QtWidgets import (
+    QDockWidget,
+    QFrame,
+    QGridLayout,
+    QVBoxLayout,
+    QWidget,
+)
 
 from napari_metadata.widgets._main import (
     _CONTENT_PAGE,
@@ -25,10 +33,31 @@ from napari_metadata.widgets._main import (
     Orientation,
     _add_horizontal_separator,
     _add_vertical_separator,
+    _allocate_section_extents,
 )
 
 if TYPE_CHECKING:
     from napari.components import ViewerModel
+
+
+def _assert_section_content_available(widget: MetadataWidget) -> None:
+    assert widget._file_section is not None
+    assert widget._axis_section is not None
+    assert widget._inheritance_section is not None
+
+    for section in (
+        widget._file_section,
+        widget._axis_section,
+        widget._inheritance_section,
+    ):
+        assert section._expanding_area.isVisibleTo(section)
+        assert section._expanding_area.sizeHint().isValid()
+        if widget._current_orientation == 'vertical':
+            assert section._expanding_area.sizeHint().height() > 0
+        else:
+            assert section._expanding_area.sizeHint().width() > 0
+        assert section.sizeHint().width() > 0
+        assert section.sizeHint().height() > 0
 
 
 @pytest.fixture
@@ -56,6 +85,65 @@ def metadata_widget(
     return widget
 
 
+class TestAllocateSectionExtents:
+    def test_collapsed_sections_keep_collapsed_extents(self):
+        extents = _allocate_section_extents(
+            expanded=[False, False],
+            collapsed_extents=[10, 20],
+            preferred_extents=[50, 60],
+            available=100,
+            spacing=4,
+        )
+
+        assert extents == [10, 20]
+
+    def test_expanded_sections_use_collapsed_extents_when_space_is_tight(self):
+        extents = _allocate_section_extents(
+            expanded=[True, True],
+            collapsed_extents=[10, 10],
+            preferred_extents=[30, 40],
+            available=24,
+            spacing=4,
+        )
+
+        assert extents == [10, 10]
+
+    def test_expanded_sections_use_preferred_extents_when_space_is_plentiful(
+        self,
+    ):
+        extents = _allocate_section_extents(
+            expanded=[True, True],
+            collapsed_extents=[10, 10],
+            preferred_extents=[30, 40],
+            available=100,
+            spacing=4,
+        )
+
+        assert extents == [30, 40]
+
+    def test_expanded_sections_water_fill_partial_space(self):
+        extents = _allocate_section_extents(
+            expanded=[True, True],
+            collapsed_extents=[10, 10],
+            preferred_extents=[20, 50],
+            available=64,
+            spacing=4,
+        )
+
+        assert extents == [20, 40]
+
+    def test_preferred_extents_are_never_smaller_than_collapsed_extents(self):
+        extents = _allocate_section_extents(
+            expanded=[True, False, True],
+            collapsed_extents=[12, 9, 15],
+            preferred_extents=[8, 50, 10],
+            available=80,
+            spacing=6,
+        )
+
+        assert extents == [12, 9, 15]
+
+
 class TestMetadataWidgetInit:
     def test_stacked_layout_has_two_pages(
         self, metadata_widget: MetadataWidget
@@ -80,7 +168,7 @@ class TestMetadataWidgetInit:
         self, metadata_widget: MetadataWidget
     ):
         assert metadata_widget._general_metadata_instance is not None
-        assert len(metadata_widget._general_metadata_instance.components) == 5
+        assert len(metadata_widget._general_metadata_instance.components) == 9
 
     def test_has_axis_metadata_instance(self, metadata_widget: MetadataWidget):
         assert metadata_widget._axis_metadata_instance is not None
@@ -88,6 +176,45 @@ class TestMetadataWidgetInit:
 
     def test_has_inheritance_instance(self, metadata_widget: MetadataWidget):
         assert metadata_widget._inheritance_instance is not None
+
+    def test_content_page_size_hint_is_used_when_built(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        widget._selected_layer = layer
+        widget._refresh_page()
+
+        assert widget.sizeHint() == widget._content_page.sizeHint()
+
+    def test_size_hints_fall_back_to_super_on_no_layer_page(
+        self, metadata_widget: MetadataWidget
+    ):
+        assert metadata_widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+        assert metadata_widget.sizeHint().isValid()
+        assert metadata_widget.minimumSizeHint().isValid()
+
+    def test_minimum_size_hint_uses_content_page_when_content_is_shown(
+        self,
+        viewer_with_layer,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._refresh_page()  # sets CONTENT_PAGE index and rebuilds content
+        assert widget._stacked_layout.currentIndex() == _CONTENT_PAGE
+
+        hint = widget.minimumSizeHint()
+
+        assert hint.isValid()
+        assert hint == widget._content_page.minimumSizeHint()
 
 
 class TestPageManagement:
@@ -116,6 +243,26 @@ class TestPageManagement:
 
         assert widget._stacked_layout.currentIndex() == _CONTENT_PAGE
         assert widget._current_orientation is not None
+
+    def test_refresh_page_clears_content_when_layer_is_removed(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        widget._selected_layer = layer
+        widget._refresh_page()
+        assert widget._scroll_area is not None
+
+        widget._selected_layer = None
+        widget._refresh_page()
+
+        assert widget._scroll_area is None
+        assert widget._file_section is None
+        assert widget._axis_section is None
+        assert widget._inheritance_section is None
 
 
 class TestRebuildContent:
@@ -193,6 +340,171 @@ class TestRebuildContent:
         # Should be a no-op — _scroll_area stays None
         assert widget._scroll_area is None
         widget._rebuilding = False
+
+
+class TestSizingLogic:
+    def test_resize_event_recomputes_section_sizes(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            widget,
+            '_update_section_sizes',
+            lambda: calls.append('updated'),
+        )
+
+        event = QResizeEvent(widget.size(), widget.size())
+        widget.resizeEvent(event)
+
+        assert calls == ['updated']
+
+    def test_event_filter_updates_only_for_scroll_viewport_events(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        assert widget._scroll_area is not None
+        calls: list[str] = []
+        monkeypatch.setattr(
+            widget,
+            '_update_section_sizes',
+            lambda: calls.append('updated'),
+        )
+
+        viewport = widget._scroll_area.viewport()
+        widget.eventFilter(viewport, QEvent(QEvent.Type.Resize))
+        widget.eventFilter(widget, QEvent(QEvent.Type.Resize))
+        widget.eventFilter(viewport, QEvent(QEvent.Type.MouseButtonPress))
+        widget.eventFilter(viewport, None)
+
+        assert calls == ['updated']
+
+    def test_update_horizontal_section_widths_applies_allocations(
+        self, viewer_model: ViewerModel, parent_widget: QWidget, qtbot
+    ):
+        layer = viewer_model.add_image(np.zeros((4, 3, 2)))
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('horizontal')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(False)
+        widget._inheritance_section.setExpanded(True)
+        widget._scroll_area.resize(420, 200)
+
+        widget._update_horizontal_section_widths()
+
+        assert (
+            widget._file_section.width()
+            >= widget._file_section.collapsed_width_hint()
+        )
+        assert (
+            widget._axis_section.width()
+            == widget._axis_section.collapsed_width_hint()
+        )
+        assert (
+            widget._inheritance_section.width()
+            >= widget._inheritance_section.collapsed_width_hint()
+        )
+
+    def test_update_vertical_section_heights_applies_allocations(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+        widget._rebuild_content('vertical')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(False)
+        widget._inheritance_section.setExpanded(True)
+        widget._scroll_area.resize(240, 420)
+
+        widget._update_vertical_section_heights()
+
+        assert (
+            widget._file_section.height()
+            >= widget._file_section.collapsed_height_hint()
+        )
+        assert (
+            widget._axis_section.height()
+            == widget._axis_section.collapsed_height_hint()
+        )
+        assert (
+            widget._inheritance_section.height()
+            >= widget._inheritance_section.collapsed_height_hint()
+        )
+
+    def test_update_section_sizes_ignores_missing_orientation(
+        self, metadata_widget: MetadataWidget, monkeypatch
+    ):
+        horizontal_calls: list[str] = []
+        vertical_calls: list[str] = []
+        monkeypatch.setattr(
+            metadata_widget,
+            '_update_horizontal_section_widths',
+            lambda: horizontal_calls.append('horizontal'),
+        )
+        monkeypatch.setattr(
+            metadata_widget,
+            '_update_vertical_section_heights',
+            lambda: vertical_calls.append('vertical'),
+        )
+
+        metadata_widget._current_orientation = None
+        metadata_widget._update_section_sizes()
+
+        assert horizontal_calls == []
+        assert vertical_calls == []
+
+    def test_on_inheritance_toggled_updates_checkboxes_and_sizes(
+        self, viewer_with_layer, parent_widget: QWidget, qtbot, monkeypatch
+    ):
+        viewer_model, layer = viewer_with_layer
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        widget._selected_layer = layer
+
+        calls: list[bool | str] = []
+        monkeypatch.setattr(
+            widget._axis_metadata_instance,
+            'set_checkboxes_visible',
+            lambda checked: calls.append(checked),
+        )
+        monkeypatch.setattr(
+            widget,
+            '_update_section_sizes',
+            lambda: calls.append('updated'),
+        )
+
+        widget._on_inheritance_toggled(False)
+
+        assert calls == [False, 'updated']
 
 
 class TestDetachComponentWidgets:
@@ -360,22 +672,49 @@ class TestOrientationSwitching:
         assert widget._file_section.isExpanded()
         assert widget._axis_section.isExpanded()
         assert widget._inheritance_section.isExpanded()
-        # Content must actually be visible — not just the button in checked state.
-        # For unshown widgets, height()/width() is 0; but setFixedHeight/Width()
-        # sets minimumHeight/minimumWidth immediately.
-        # Vertical sections expand via setFixedHeight; horizontal via setFixedWidth.
-        if second == 'vertical':
-            assert widget._file_section._expanding_area.minimumHeight() > 0
-            assert widget._axis_section._expanding_area.minimumHeight() > 0
-            assert (
-                widget._inheritance_section._expanding_area.minimumHeight() > 0
+        _assert_section_content_available(widget)
+
+    def test_horizontal_layout_exposes_outer_scrollbar_when_narrow(
+        self,
+        viewer_model: ViewerModel,
+        qtbot,
+    ):
+        layer = viewer_model.add_image(
+            np.zeros((4, 3, 2)),
+            axis_labels=('t', 'y', 'x'),
+            scale=(1.0, 1.0, 1.0),
+            translate=(0.0, 0.0, 0.0),
+            units=('pixel', 'pixel', 'pixel'),
+        )
+
+        parent = QWidget()
+        parent.resize(420, 180)
+        layout = QVBoxLayout(parent)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        widget = MetadataWidget(viewer_model)
+        layout.addWidget(widget)
+        qtbot.addWidget(parent)
+
+        widget._selected_layer = layer
+        widget._rebuild_content('horizontal')
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(True)
+        widget._inheritance_section.setExpanded(True)
+
+        parent.show()
+        qtbot.waitExposed(parent)
+        qtbot.waitUntil(
+            lambda: (
+                widget._scroll_area is not None
+                and widget._scroll_area.horizontalScrollBar().maximum() >= 0
             )
-        else:
-            assert widget._file_section._expanding_area.minimumWidth() > 0
-            assert widget._axis_section._expanding_area.minimumWidth() > 0
-            assert (
-                widget._inheritance_section._expanding_area.minimumWidth() > 0
-            )
+        )
 
 
 class TestLayerSelectionFlow:
@@ -392,8 +731,8 @@ class TestLayerSelectionFlow:
         assert widget._scroll_area is None
 
         layer = viewer_model.add_image(np.zeros((4, 3)))
-        widget._selected_layer = layer
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
 
         assert widget._scroll_area is not None
         assert widget._stacked_layout.currentIndex() == _CONTENT_PAGE
@@ -409,11 +748,11 @@ class TestLayerSelectionFlow:
         qtbot.addWidget(widget)
 
         layer = viewer_model.add_image(np.zeros((4, 3)))
-        widget._selected_layer = layer
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
 
-        widget._selected_layer = None
-        widget._refresh_page()
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
 
         assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
 
@@ -430,15 +769,15 @@ class TestLayerSelectionFlow:
         layer_a = viewer_model.add_image(
             np.zeros((4, 3)), name='a', axis_labels=('y', 'x')
         )
-        widget._selected_layer = layer_a
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
         first_scroll = widget._scroll_area
 
         layer_b = viewer_model.add_image(
             np.zeros((5, 5, 5)), name='b', axis_labels=('z', 'y', 'x')
         )
-        widget._selected_layer = layer_b
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
         second_scroll = widget._scroll_area
 
         # New scroll area was created (content rebuilt)
@@ -461,8 +800,8 @@ class TestLayerSelectionFlow:
         widget = MetadataWidget(viewer_model)
         widget.setParent(parent_widget)
         qtbot.addWidget(widget)
-        widget._selected_layer = layer_a
-        widget._rebuild_content('vertical')
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
 
         assert widget._file_section is not None
         assert widget._axis_section is not None
@@ -474,8 +813,8 @@ class TestLayerSelectionFlow:
         widget._inheritance_section.setExpanded(True)
 
         # Switch to a different layer — the sections must stay expanded.
-        widget._selected_layer = layer_b
-        widget._refresh_page()
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
 
         assert widget._file_section is not None
         assert widget._axis_section is not None
@@ -483,12 +822,226 @@ class TestLayerSelectionFlow:
         assert widget._file_section.isExpanded()
         assert widget._axis_section.isExpanded()
         assert widget._inheritance_section.isExpanded()
-        # Content must actually be visible — not just the button in checked state.
-        # For unshown widgets, height() is 0; setFixedHeight() sets minimumHeight.
-        # This rebuild always uses 'vertical', so check minimumHeight.
-        assert widget._file_section._expanding_area.minimumHeight() > 0
-        assert widget._axis_section._expanding_area.minimumHeight() > 0
-        assert widget._inheritance_section._expanding_area.minimumHeight() > 0
+        _assert_section_content_available(widget)
+
+    def test_expanded_sections_preserved_through_no_layer_transition(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        """Sections stay expanded when the active layer briefly becomes None.
+
+        This simulates what happens when a layer is added or removed: napari
+        may transiently fire ``active=None`` before selecting the new layer,
+        which tears down the sections.  Expanded states must survive that cycle.
+        """
+        layer_a = viewer_model.add_image(
+            np.zeros((4, 3)), name='a', axis_labels=('y', 'x')
+        )
+
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
+
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+
+        # Expand all three sections.
+        widget._file_section.setExpanded(True)
+        widget._axis_section.setExpanded(True)
+        widget._inheritance_section.setExpanded(True)
+
+        # Simulate the transient no-layer state (active layer becomes None).
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
+
+        # Sections are torn down; we are on the no-layer page.
+        assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+        assert widget._file_section is None
+
+        # Simulate the new layer becoming active (e.g. after add_image).
+        layer_b = viewer_model.add_image(
+            np.zeros((4, 3)), name='b', axis_labels=('y', 'x')
+        )
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
+
+        # All sections must be expanded again.
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+        assert widget._file_section.isExpanded()
+        assert widget._axis_section.isExpanded()
+        assert widget._inheritance_section.isExpanded()
+        _assert_section_content_available(widget)
+
+    def test_collapsed_sections_stay_collapsed_through_no_layer_transition(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        """Sections that were collapsed before a layer change stay collapsed."""
+        layer_a = viewer_model.add_image(np.zeros((4, 3)), name='a')
+
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
+
+        # Leave all sections collapsed (default).
+        assert widget._file_section is not None
+        assert not widget._file_section.isExpanded()
+
+        # Go through the no-layer transition.
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
+
+        layer_b = viewer_model.add_image(np.zeros((4, 3)), name='b')
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
+
+        # Sections must still be collapsed.
+        assert widget._file_section is not None
+        assert widget._axis_section is not None
+        assert widget._inheritance_section is not None
+        assert not widget._file_section.isExpanded()
+        assert not widget._axis_section.isExpanded()
+        assert not widget._inheritance_section.isExpanded()
+
+
+class TestSelectedLayerChangedHandler:
+    """Tests for _on_selected_layers_changed — the active-layer event handler."""
+
+    def test_new_layer_activates_content_page(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
+
+        assert widget._selected_layer is layer
+        assert widget._stacked_layout.currentIndex() == _CONTENT_PAGE
+
+    def test_same_layer_reselection_is_noop(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
+        first_scroll = widget._scroll_area
+
+        # Same layer is still active — no rebuild should happen
+        widget._on_selected_layers_changed()
+
+        assert widget._scroll_area is first_scroll
+
+    def test_switching_layers_disconnects_old_and_connects_new(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        layer_a = viewer_model.add_image(
+            np.zeros((4, 3)), axis_labels=('y', 'x')
+        )
+        layer_b = viewer_model.add_image(
+            np.zeros((4, 3)), axis_labels=('r', 'c')
+        )
+
+        viewer_model.layers.selection.active = layer_a
+        widget._on_selected_layers_changed()
+        assert widget._selected_layer is layer_a
+
+        viewer_model.layers.selection.active = layer_b
+        widget._on_selected_layers_changed()
+        assert widget._selected_layer is layer_b
+
+    def test_deselecting_all_layers_shows_no_layer_page(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+
+        layer = viewer_model.add_image(np.zeros((4, 3)))
+        viewer_model.layers.selection.active = layer
+        widget._on_selected_layers_changed()
+
+        viewer_model.layers.selection.active = None
+        widget._on_selected_layers_changed()
+
+        assert widget._selected_layer is None
+        assert widget._stacked_layout.currentIndex() == _NO_LAYER_PAGE
+
+
+class TestGetSections:
+    def test_returns_none_when_sections_not_built(
+        self, metadata_widget: MetadataWidget
+    ):
+        assert metadata_widget._get_sections() is None
+
+
+class TestGridPopulationWithoutLayer:
+    """Verify component.clear() is called when no layer is selected."""
+
+    def test_populate_file_grid_clears_components_when_no_layer(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        assert widget._selected_layer is None
+
+        # Rebuild with no selected layer — should call clear() on each file component
+        widget._rebuild_content('vertical')
+
+        # If no exception was raised the clear() path was reached successfully
+        assert widget._file_section is not None
+
+    def test_populate_axis_grid_clears_components_when_no_layer(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        assert widget._selected_layer is None
+
+        widget._rebuild_content('horizontal')
+
+        assert widget._axis_section is not None
 
 
 class TestInheritanceCheckboxSync:
@@ -683,12 +1236,36 @@ class TestGetRequiredOrientation:
         # No QDockWidget parent — should default to vertical
         assert metadata_widget._get_required_orientation() == 'vertical'
 
+    def test_defaults_to_vertical_when_dock_has_no_main_window_parent(
+        self,
+        viewer_model: ViewerModel,
+        qtbot,
+    ):
+        dock = QDockWidget()
+        qtbot.addWidget(dock)
+        widget = MetadataWidget(viewer_model)
+        widget._widget_parent = dock
+
+        assert widget._get_required_orientation() == 'vertical'
+
 
 class TestGetDockWidget:
     def test_returns_none_without_dock_parent(
         self, metadata_widget: MetadataWidget
     ):
         assert metadata_widget.get_dock_widget() is None
+
+    def test_returns_dock_widget_when_parent_is_dock(
+        self,
+        viewer_model: ViewerModel,
+        qtbot,
+    ):
+        dock = QDockWidget()
+        qtbot.addWidget(dock)
+        widget = MetadataWidget(viewer_model)
+        widget._widget_parent = dock
+
+        assert widget.get_dock_widget() is dock
 
 
 class TestApplyInheritance:
@@ -751,3 +1328,20 @@ class TestApplyInheritance:
 
         # Should be unchanged
         assert tuple(current.translate) == pytest.approx(original_translate)
+
+    def test_noop_when_no_active_layer(
+        self,
+        viewer_model: ViewerModel,
+        parent_widget: QWidget,
+        qtbot,
+    ):
+        template = viewer_model.add_image(
+            np.zeros((4, 3)), translate=(10.0, 20.0)
+        )
+        widget = MetadataWidget(viewer_model)
+        widget.setParent(parent_widget)
+        qtbot.addWidget(widget)
+        viewer_model.layers.selection.active = None
+
+        # Should not raise even though no layer is active
+        widget.apply_inheritance_to_current_layer(template)

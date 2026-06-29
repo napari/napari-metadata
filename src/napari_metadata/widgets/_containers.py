@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from qtpy.QtCore import QEvent, QObject, Qt
+from qtpy.QtCore import QEvent, QObject, QSize, Qt
 from qtpy.QtGui import QWheelEvent
 from qtpy.QtWidgets import (
     QHBoxLayout,
@@ -42,6 +42,46 @@ if TYPE_CHECKING:
 #: ``'vertical'`` sections expand downward; ``'horizontal'`` sections expand
 #: rightward.  This alias is the single source of truth for both modules.
 Orientation = Literal['vertical', 'horizontal']
+
+
+class _ContentScrollArea(QScrollArea):
+    """Scroll area whose size hint tracks its content widget.
+
+    This lets the parent layout size the expanded section from the content's
+    natural size without manually pinning fixed dimensions.
+    """
+
+    def __init__(
+        self, orientation: Orientation, parent: QWidget | None = None
+    ):
+        super().__init__(parent)
+        self._orientation = orientation
+
+    def sizeHint(self) -> QSize:
+        widget = self.widget()
+        if widget is None:
+            return super().sizeHint()
+
+        hint = widget.sizeHint()
+        frame = 2 * self.frameWidth()
+        if self._orientation == 'vertical':
+            # Minimum width (parent stretches horizontally) but preferred
+            # height (avoid inner scrolling when possible).
+            min_hint = widget.minimumSizeHint()
+            return QSize(min_hint.width() + frame, hint.height() + frame)
+        # Horizontal: preferred width; zero height (parent controls it).
+        return QSize(hint.width() + frame, 0)
+
+    def minimumSizeHint(self) -> QSize:
+        widget = self.widget()
+        if widget is None:
+            return super().minimumSizeHint()
+
+        hint = widget.minimumSizeHint()
+        frame = 2 * self.frameWidth()
+        if self._orientation == 'vertical':
+            return QSize(0, hint.height() + frame)
+        return QSize(0, 0)
 
 
 class CollapsibleSectionContainer(QWidget):
@@ -76,6 +116,12 @@ class CollapsibleSectionContainer(QWidget):
         self._on_toggle_callback = on_toggle
         self._orientation = orientation
         self._title = title
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Maximum
+            if orientation == 'vertical'
+            else QSizePolicy.Policy.Expanding,
+        )
 
         # Outer layout — vertical stacks button above content;
         # horizontal places button beside content.
@@ -91,6 +137,10 @@ class CollapsibleSectionContainer(QWidget):
             QPushButton if orientation == 'vertical' else RotatedButton
         )
         self._button: QPushButton = button_class('')
+        if orientation == 'vertical':
+            self._button.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+            )
         font = self._button.font()
         font.setBold(True)
         self._button.setFont(font)
@@ -99,12 +149,12 @@ class CollapsibleSectionContainer(QWidget):
         self._layout.addWidget(self._button, 0)
 
         # Expanding content area
-        self._expanding_area = QScrollArea(self)
-        self._expanding_area.setWidgetResizable(True)
+        self._expanding_area = _ContentScrollArea(orientation, self)
 
         if orientation == 'vertical':
+            self._expanding_area.setWidgetResizable(True)
             self._expanding_area.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded
             )
             self._expanding_area.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded
@@ -116,19 +166,19 @@ class CollapsibleSectionContainer(QWidget):
             if h_scrollbar is not None:
                 h_scrollbar.installEventFilter(self._wheel_filter)
             self._expanding_area.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
             )
         else:  # horizontal
+            self._expanding_area.setWidgetResizable(True)
             self._expanding_area.setVerticalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded
             )
             self._expanding_area.setHorizontalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded
             )
             self._expanding_area.setSizePolicy(
-                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
             )
-            self._expanding_area.setFixedWidth(0)
 
         self._expanding_area.setVisible(False)
         # Stretch factor 1 for horizontal so the content area fills available space
@@ -156,18 +206,19 @@ class CollapsibleSectionContainer(QWidget):
 
         if self._orientation == 'vertical':
             widget.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
             )
             self._expanding_area.setWidget(widget)
         else:  # horizontal — wrap to keep content top-aligned
             wrapper = QWidget(self._expanding_area)
+            wrapper.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            )
             wrapper_layout = QVBoxLayout(wrapper)
             wrapper_layout.setContentsMargins(0, 0, 0, 0)
             wrapper_layout.addWidget(widget)
             wrapper_layout.addStretch(1)
             self._expanding_area.setWidget(wrapper)
-
-        self._sync_size()
 
     def isExpanded(self) -> bool:
         """Return ``True`` if the section is currently expanded."""
@@ -181,74 +232,89 @@ class CollapsibleSectionContainer(QWidget):
         """
         self._button.setChecked(checked)
 
+    def sizeHint(self) -> QSize:
+        return self._section_size_hint(minimum=False)
+
+    def minimumSizeHint(self) -> QSize:
+        return self._section_size_hint(minimum=True)
+
+    def set_horizontal_section_width(self, width: int) -> None:
+        """Apply a computed total width for horizontal layout.
+
+        The width is dynamic and derived from the available viewport width,
+        not a hardcoded constant.
+        """
+        if self._orientation != 'horizontal':
+            return
+        collapsed_width = self.collapsed_width_hint()
+        self.setFixedWidth(max(collapsed_width, width))
+
+    def set_vertical_section_height(self, height: int) -> None:
+        """Apply a computed total height for vertical layout."""
+        if self._orientation != 'vertical':
+            return
+        collapsed_height = self.collapsed_height_hint()
+        self.setFixedHeight(max(collapsed_height, height))
+
+    def collapsed_width_hint(self) -> int:
+        margins = self._layout.contentsMargins()
+        return (
+            margins.left() + margins.right() + self._button.sizeHint().width()
+        )
+
+    def collapsed_height_hint(self) -> int:
+        margins = self._layout.contentsMargins()
+        return (
+            margins.top() + margins.bottom() + self._button.sizeHint().height()
+        )
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _section_size_hint(self, *, minimum: bool) -> QSize:
+        button_hint = (
+            self._button.minimumSizeHint()
+            if minimum
+            else self._button.sizeHint()
+        )
+        if not self._button.isChecked():
+            content_hint = QSize(0, 0)
+        else:
+            content_hint = (
+                self._expanding_area.minimumSizeHint()
+                if minimum
+                else self._expanding_area.sizeHint()
+            )
+
+        margins = self._layout.contentsMargins()
+        width = margins.left() + margins.right()
+        height = margins.top() + margins.bottom()
+        spacing = self._layout.spacing() if self._button.isChecked() else 0
+
+        if self._orientation == 'vertical':
+            width += max(button_hint.width(), content_hint.width())
+            height += button_hint.height() + spacing + content_hint.height()
+        else:
+            width += button_hint.width() + spacing + content_hint.width()
+            height += max(button_hint.height(), content_hint.height())
+
+        return QSize(width, height)
+
     def _on_button_toggled(self, checked: bool) -> None:
         """Respond to the toggle button state change."""
         self._expanding_area.setVisible(checked)
-        self._sync_size()
 
         if self._on_toggle_callback is not None:
             self._on_toggle_callback(checked)
 
         indicator = '\u25bc' if checked else '\u25b6'
         self._button.setText(f'{indicator} {self._title}')
-
         self._expanding_area.updateGeometry()
         self.updateGeometry()
-
-    def _sync_size(self) -> None:
-        """Fix the expanding area's size to match its content hint."""
-        current_widget = self._expanding_area.widget()
-
-        # Use the button's checked state as the authoritative "is expanded"
-        # guard.  isVisible() would return False whenever an ancestor widget
-        # is hidden (e.g. during programmatic rebuild before the dock is
-        # shown), causing the size to be wrongly zeroed out.
-        if not self._button.isChecked() or current_widget is None:
-            if self._orientation == 'vertical':
-                self._expanding_area.setFixedHeight(0)
-            else:
-                self._expanding_area.setFixedWidth(0)
-            return
-
-        if self._orientation == 'vertical':
-            h_scrollbar = self._expanding_area.horizontalScrollBar()
-            scrollbar_h = (
-                h_scrollbar.sizeHint().height()
-                if h_scrollbar is not None
-                else 0
-            )
-            frame = 2 * self._expanding_area.frameWidth()
-            # Activate the layout before reading sizeHint so the value is valid
-            # even when the widget hasn't had a paint pass yet (e.g. during a
-            # programmatic expand called from _do_rebuild_content).
-            layout = current_widget.layout()
-            if layout is not None:
-                layout.activate()
-            self._expanding_area.setFixedHeight(
-                current_widget.sizeHint().height() + scrollbar_h + frame
-            )
-        else:  # horizontal
-            v_scrollbar = self._expanding_area.verticalScrollBar()
-            scrollbar_w = (
-                v_scrollbar.sizeHint().width()
-                if v_scrollbar is not None
-                else 0
-            )
-            frame = 2 * self._expanding_area.frameWidth()
-            layout = current_widget.layout()
-            if layout is not None:
-                layout.activate()
-            self._expanding_area.setFixedWidth(
-                current_widget.sizeHint().width() + scrollbar_w + frame
-            )
-
-        current_widget.updateGeometry()
-        self._expanding_area.updateGeometry()
-        self.updateGeometry()
+        parent = self.parentWidget()
+        if parent is not None:
+            parent.updateGeometry()
 
 
 class RotatedButton(QPushButton):
