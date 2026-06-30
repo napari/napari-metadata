@@ -1,10 +1,15 @@
 name: napari-metadata
-display_name: Layer metadata
+display_name: napari-metadata
 contributions:
   commands:
     - id: napari-metadata.make_metadata_qwidget
       python_name: napari_metadata.widgets:MetadataWidget
       title: Make metadata widget
+
   widgets:
     - command: napari-metadata.make_metadata_qwidget
-      display_name: Layer metadata
+      display_name: layer metadata
+
+  menus:
+    napari/layers/metadata:
+      - command: napari-metadata.make_metadata_qwidget
