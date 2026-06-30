@@ -1,5 +1,5 @@
 name: napari-metadata
-display_name: layer metadata
+display_name: napari-metadata
 contributions:
   commands:
     - id: napari-metadata.make_metadata_qwidget
@@ -8,15 +8,8 @@ contributions:
 
   widgets:
     - command: napari-metadata.make_metadata_qwidget
-      display_name: Layer metadata
+      display_name: layer metadata
 
   menus:
-    napari/layers:
-      - submenu: metadata
-
-    metadata:
+    napari/layers/metadata:
       - command: napari-metadata.make_metadata_qwidget
-
-  submenus:
-    - id: metadata
-      label: Metadata
