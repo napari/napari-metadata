@@ -19,7 +19,6 @@ from qtpy.QtWidgets import (
 )
 from superqt import QDoubleSlider, QEnumComboBox, QToggleSwitch
 
-from napari_metadata.units import AxisUnitEnum
 from napari_metadata.viewer_widgets._base import ViewerComponentBase
 
 if TYPE_CHECKING:
@@ -60,46 +59,6 @@ class ScaleBarVisible(ViewerComponentBase):
 
     def _on_toggled(self, checked: bool) -> None:
         self._napari_viewer.scale_bar.visible = checked
-
-
-class ScaleBarUnits(ViewerComponentBase):
-    """Scale bar component to set the units displayed text on the ScaleBarOverlay."""
-
-    _label_text = 'Units: '
-    _tooltip_text = 'Units text displayed on the scale bar.'
-
-    def __init__(
-        self,
-        napari_viewer: ViewerModel,
-        parent_widget: QWidget,
-    ) -> None:
-        super().__init__(napari_viewer, parent_widget)
-        self._unit_combobox = QComboBox(parent=parent_widget)
-        config = AxisUnitEnum.SPACE.config
-        if config is not None:
-            self._unit_combobox.addItem('none', None)
-            for unit in config.units:
-                self._unit_combobox.addItem(unit, unit)
-        self._unit_combobox.currentIndexChanged.connect(self._on_unit_changed)
-
-    @property
-    def value_widgets(self) -> list[QWidget]:
-        return [self._unit_combobox]
-
-    def clear(self) -> None:
-        self._unit_combobox.setCurrentIndex(0)
-
-    def _update_display(self) -> None:
-        unit = self._napari_viewer.scale_bar.unit
-        index = self._unit_combobox.findData(unit)
-        with QSignalBlocker(self._unit_combobox):
-            self._unit_combobox.setCurrentIndex(index if index >= 0 else 0)
-
-    def _get_display_text(self) -> str:
-        return self._unit_combobox.currentText()
-
-    def _on_unit_changed(self) -> None:
-        self._napari_viewer.scale_bar.unit = self._unit_combobox.currentData()
 
 
 class ScaleBarFontSize(ViewerComponentBase):
@@ -435,7 +394,6 @@ class ScaleBarMetadata:
         self._napari_viewer = napari_viewer
         self._parent_widget = parent_widget
         self._scale_bar_visible = ScaleBarVisible(napari_viewer, parent_widget)
-        self._scale_bar_units = ScaleBarUnits(napari_viewer, parent_widget)
         self._scale_bar_font_size = ScaleBarFontSize(
             napari_viewer, parent_widget
         )
@@ -455,7 +413,6 @@ class ScaleBarMetadata:
             else [
                 self._scale_bar_visible,
                 self._scale_bar_ticks,
-                self._scale_bar_units,
                 self._scale_bar_font_size,
                 self._scale_bar_color,
                 self._scale_bar_box,
