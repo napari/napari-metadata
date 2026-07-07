@@ -10,7 +10,6 @@ from napari_metadata.viewer_widgets._scale_bar import (
     ScaleBarOpacity,
     ScaleBarPosition,
     ScaleBarTicks,
-    ScaleBarUnits,
     ScaleBarVisible,
 )
 
@@ -44,7 +43,6 @@ class TestScaleBarMetadata:
         assert [type(component) for component in components] == [
             ScaleBarVisible,
             ScaleBarTicks,
-            ScaleBarUnits,
             ScaleBarFontSize,
             ScaleBarColor,
             ScaleBarBox,
