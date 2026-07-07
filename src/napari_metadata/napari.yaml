@@ -13,7 +13,7 @@ contributions:
       display_name: Layer metadata
     - command: napari-metadata.make_viewer_metadata_qwidget
       display_name: Viewer metadata
-   
+
   menus:
     napari/layers/metadata:
       - command: napari-metadata.make_layer_metadata_qwidget
