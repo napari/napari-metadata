@@ -33,7 +33,7 @@ dependencies = [
     "numpy",
     "qtpy",
     "pint",
-    "superqt",
+    "superqt>=0.8.2",
     "typing_extensions",  # only needed for python 3.10 import of Self
 ]
 dynamic = ["version"]
