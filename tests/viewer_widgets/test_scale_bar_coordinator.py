@@ -42,13 +42,13 @@ class TestScaleBarMetadata:
         components = coordinator.components
         assert [type(component) for component in components] == [
             ScaleBarVisible,
+            ScaleBarFixedLength,
+            ScaleBarPosition,
             ScaleBarTicks,
             ScaleBarFontSize,
             ScaleBarColor,
             ScaleBarBox,
-            ScaleBarFixedLength,
             ScaleBarOpacity,
-            ScaleBarPosition,
         ]
 
     def test_components_returns_display_order(
