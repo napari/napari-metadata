@@ -138,6 +138,10 @@ class AxisLabelTableModel(QAbstractTableModel):
             return Qt.ItemFlag.NoItemFlags
 
         flags = super().flags(index)
+        if index.column() == 1:
+            flags &= ~Qt.ItemFlag.ItemIsEnabled
+            return flags
+
         if self._is_editable_index(index):
             flags |= Qt.ItemFlag.ItemIsEditable
         return flags
@@ -321,7 +325,7 @@ class AxisLabelsDisplayWidget(QWidget):
         self.setLayout(self._layout)
 
         self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
-            QPushButton('Apply labels to viewer', parent=self)
+            QPushButton('Apply layer labels to viewer', parent=self)
         )
         self._apply_layer_dim_labels_to_viewer_button.clicked.connect(
             self._apply_layer_labels_to_viewer

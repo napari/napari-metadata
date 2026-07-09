@@ -394,31 +394,32 @@ class ScaleBarMetadata:
         self._napari_viewer = napari_viewer
         self._parent_widget = parent_widget
         self._scale_bar_visible = ScaleBarVisible(napari_viewer, parent_widget)
-        self._scale_bar_font_size = ScaleBarFontSize(
+        self._scale_bar_fixed_length = ScaleBarFixedLength(
             napari_viewer, parent_widget
         )
-        self._scale_bar_fixed_length = ScaleBarFixedLength(
+        self._scale_bar_position = ScaleBarPosition(
+            napari_viewer, parent_widget
+        )
+        self._scale_bar_font_size = ScaleBarFontSize(
             napari_viewer, parent_widget
         )
         self._scale_bar_color = ScaleBarColor(napari_viewer, parent_widget)
         self._scale_bar_ticks = ScaleBarTicks(napari_viewer, parent_widget)
         self._scale_bar_box = ScaleBarBox(napari_viewer, parent_widget)
         self._scale_bar_opacity = ScaleBarOpacity(napari_viewer, parent_widget)
-        self._scale_bar_position = ScaleBarPosition(
-            napari_viewer, parent_widget
-        )
+
         self._components = (
             list(components)
             if components is not None
             else [
                 self._scale_bar_visible,
+                self._scale_bar_fixed_length,
+                self._scale_bar_position,
                 self._scale_bar_ticks,
                 self._scale_bar_font_size,
                 self._scale_bar_color,
                 self._scale_bar_box,
-                self._scale_bar_fixed_length,
                 self._scale_bar_opacity,
-                self._scale_bar_position,
             ]
         )
         self._connect_scale_bar_events()
