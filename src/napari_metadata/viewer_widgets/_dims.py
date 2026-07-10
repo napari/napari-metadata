@@ -11,7 +11,6 @@ from napari.layers import Layer
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
     QHeaderView,
-    QLabel,
     QPushButton,
     QSizePolicy,
     QTableView,
@@ -413,12 +412,6 @@ class AxisLabelsDisplayWidget(QWidget):
                 )
 
         super().closeEvent(event)
-
-
-def set_title_label_style(label: QLabel) -> QLabel:
-    label.setStyleSheet('font-weight: bold;font-size: 15pt')
-    label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-    return label
 
 
 class LabelTable(QTableView):
