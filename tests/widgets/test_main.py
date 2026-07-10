@@ -26,6 +26,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from napari_metadata._layout_utils import _allocate_section_extents
 from napari_metadata.widgets._main import (
     _CONTENT_PAGE,
     _NO_LAYER_PAGE,
@@ -33,7 +34,6 @@ from napari_metadata.widgets._main import (
     Orientation,
     _add_horizontal_separator,
     _add_vertical_separator,
-    _allocate_section_extents,
 )
 
 if TYPE_CHECKING:

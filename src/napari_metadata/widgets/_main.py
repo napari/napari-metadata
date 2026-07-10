@@ -32,6 +32,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from napari_metadata._layout_utils import _allocate_section_extents
 from napari_metadata.widgets._axis import AxisMetadata
 from napari_metadata.widgets._base import AxisComponentBase
 from napari_metadata.widgets._containers import (
@@ -52,67 +53,6 @@ _NO_LAYER_PAGE = 1
 #: Spacing (px) between collapsible sections inside the outer scroll area.
 #: Used both in the sections QLayout and in the manual size allocator.
 _SECTIONS_SPACING = 3
-
-
-def _allocate_section_extents(
-    *,
-    expanded: list[bool],
-    collapsed_extents: list[int],
-    preferred_extents: list[int],
-    available: int,
-    spacing: int,
-) -> list[int]:
-    """Distribute available pixels across collapsed and expanded sections.
-
-    Collapsed sections always keep their collapsed extent. Expanded sections
-    share the remaining pixels with a water-filling strategy so smaller
-    preferred extents are satisfied first.
-    """
-    extents = collapsed_extents.copy()
-    expanded_indices = [
-        index for index, is_expanded in enumerate(expanded) if is_expanded
-    ]
-    if not expanded_indices:
-        return extents
-
-    collapsed_total = sum(
-        extent
-        for extent, is_expanded in zip(
-            collapsed_extents, expanded, strict=True
-        )
-        if not is_expanded
-    )
-    usable = max(available - spacing - collapsed_total, 0)
-
-    preferred_by_index = {
-        index: max(preferred_extents[index], collapsed_extents[index])
-        for index in expanded_indices
-    }
-    minimum_total = sum(collapsed_extents[index] for index in expanded_indices)
-    if usable <= minimum_total:
-        return extents
-
-    preferred_total = sum(
-        preferred_by_index[index] for index in expanded_indices
-    )
-    if usable >= preferred_total:
-        for index in expanded_indices:
-            extents[index] = preferred_by_index[index]
-        return extents
-
-    remaining = usable
-    for offset, index in enumerate(
-        sorted(expanded_indices, key=lambda item: preferred_by_index[item])
-    ):
-        share = remaining // (len(expanded_indices) - offset)
-        extent = max(
-            collapsed_extents[index],
-            min(preferred_by_index[index], share),
-        )
-        extents[index] = extent
-        remaining -= extent
-
-    return extents
 
 
 class MetadataWidget(QWidget):
