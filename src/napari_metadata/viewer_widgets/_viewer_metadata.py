@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from qtpy.QtCore import QEvent, Qt
+from qtpy.QtGui import QShowEvent
 from qtpy.QtWidgets import (
     QDockWidget,
     QHBoxLayout,
@@ -62,7 +63,7 @@ class ViewerMetadataWidget(QWidget):
 
         self._rebuild_content(self._get_required_orientation())
 
-    def showEvent(self, event) -> None:
+    def showEvent(self, event: QShowEvent | None) -> None:
         if self._already_shown:
             return
 

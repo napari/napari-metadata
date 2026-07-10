@@ -85,7 +85,8 @@ class ScaleBarFontSize(ViewerComponentBase):
         return [self._font_size_spinbox]
 
     def clear(self) -> None:
-        self._font_size_spinbox.setValue(10)
+        with QSignalBlocker(self._font_size_spinbox):
+            self._font_size_spinbox.setValue(10)
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._font_size_spinbox):
@@ -141,9 +142,10 @@ class ScaleBarFixedLength(ViewerComponentBase):
         return str(self._napari_viewer.scale_bar.length)
 
     def _solve_fixed_length(self) -> None:
-        self._set_fixed_length(
-            self._length_spinbox.value()
-        ) if not self._auto_cb.isChecked() else self._set_fixed_length(None)
+        if not self._auto_cb.isChecked():
+            self._set_fixed_length(self._length_spinbox.value())
+        else:
+            self._set_fixed_length(None)
         self._length_spinbox.setEnabled(not self._auto_cb.isChecked())
 
     def _set_fixed_length(self, value: float | None) -> None:
@@ -197,7 +199,7 @@ class ScaleBarColor(ViewerComponentBase):
 
 
 class ScaleBarBox(ViewerComponentBase):
-    """Scale bar bomponent to toggle the box of the scale bar and adjust its color"""
+    """Scale bar component to toggle the box of the scale bar and adjust its color"""
 
     _label_text = 'Box:'
     _tooltip_text = 'Toggle the box of the scale bar.'
@@ -365,7 +367,8 @@ class ScaleBarPosition(ViewerComponentBase):
         return [self._position_combobox]
 
     def clear(self) -> None:
-        self._position_combobox.setCurrentEnum(CanvasPosition.BOTTOM_RIGHT)
+        with QSignalBlocker(self._position_combobox):
+            self._position_combobox.setCurrentEnum(CanvasPosition.BOTTOM_RIGHT)
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._position_combobox):
