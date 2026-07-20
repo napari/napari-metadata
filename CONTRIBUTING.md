@@ -158,6 +158,45 @@ You can preview with a live-reloading server that opens automatically:
 pixi run docs-live
 ```
 
+## Making a release
+
+napari-metadata uses [GitHub Releases](https://github.com/napari/napari-metadata/releases)
+for distribution. Releases are published from the `main` branch.
+
+### Versioning
+
+We follow [EffVer](https://jacobtomlinson.dev/effver/) (Effective Versioning)
+to determine the version number.
+
+The actual version number is derived from git tags via
+[setuptools_scm](https://github.com/pypa/setuptools_scm/). The tag determines
+the version that gets published to PyPI.
+
+### Release process
+
+1. **Ensure `main` is ready** — all desired PRs are merged and CI is green.
+2. **Create a GitHub Release** with a new tag:
+   - Go to [Releases](https://github.com/napari/napari-metadata/releases) →
+     "Draft a new release".
+   - Choose a tag matching the new version (e.g. `v0.4.0`).
+   - Target `main`.
+   - Click "Generate release notes" to auto-populate the changelog from merged
+     PRs.
+3. **Add a summary** — write a brief note at the top describing what's
+   included, especially if it's a significant release.
+4. **Publish the release**. The tag push triggers the CI/CD workflow which
+   builds and publishes to PyPI automatically.
+
+### Release candidates
+
+If the release involves significant changes that need testing:
+
+1. Create a tag like `v0.4.0rc0` and draft a release as above.
+2. **Check the "Set as a pre-release"** checkbox before publishing.
+3. Let users test the pre-release version.
+4. When ready for the final release, create a new tag **without** the `rc`
+   suffix (e.g. `v0.4.0`).
+
 ## Code of conduct
 
 `napari` has a [Code of Conduct](https://napari.org/stable/community/code_of_conduct.html) that should be honored by everyone who participates in the `napari` community, including `napari-metadata`.
