@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 from napari.layers import Layer
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
+    QFrame,
+    QGridLayout,
     QHeaderView,
     QLabel,
     QPushButton,
@@ -17,6 +19,10 @@ from qtpy.QtWidgets import (
     QTableView,
     QVBoxLayout,
     QWidget,
+)
+
+from napari_metadata.widgets._copy_layer_labels_widget import (
+    CopyLayerLabelsToAllWidget,
 )
 
 if TYPE_CHECKING:
@@ -300,16 +306,46 @@ class DimsWidget(QWidget):
 
         self._napari_viewer = napari_viewer
 
-        self._layout: QVBoxLayout = QVBoxLayout()
+        self._layout: QGridLayout = QGridLayout()
         self.setLayout(self._layout)
-        self._layout.setSpacing(3)
+        self._layout.setVerticalSpacing(8)
         self._layout.setContentsMargins(10, 10, 10, 10)
 
         self._axis_display_widget = AxisLabelsDisplayWidget(
             self._napari_viewer
         )
 
-        self._layout.addWidget(self._axis_display_widget)
+        self._copy_layer_labels_widget = CopyLayerLabelsToAllWidget(
+            self._napari_viewer.layers, self._napari_viewer.dims, self
+        )
+
+        self._layout.addWidget(self._axis_display_widget, 0, 0)
+
+        before_separator = QWidget()
+        before_separator.setFixedHeight(2)
+        before_separator.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self._layout.addWidget(before_separator, 1, 0)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet('color: #999; background-color: #999;')
+        separator.setFixedHeight(3)
+        separator.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self._layout.addWidget(separator, 2, 0)
+
+        after_separator = QWidget()
+        after_separator.setFixedHeight(2)
+        after_separator.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self._layout.addWidget(after_separator, 3, 0)
+
+        self._layout.addWidget(self._copy_layer_labels_widget, 4, 0)
 
 
 class AxisLabelsDisplayWidget(QWidget):
@@ -350,12 +386,6 @@ class AxisLabelsDisplayWidget(QWidget):
             self._on_viewer_ndim_changed
         )
         self._on_layer_selection_changed()
-
-        self._copy_layer_labels_to_all_label = QLabel(
-            'Copy axis labels to all layers'
-        )
-        self._copy_layer_labels_to_all_label.setStyleSheet('font-weight: bold')
-        self._layout.addWidget(self._copy_layer_labels_to_all_label)
 
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
