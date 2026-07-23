@@ -11,6 +11,7 @@ from napari.layers import Layer
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
     QHeaderView,
+    QLabel,
     QPushButton,
     QSizePolicy,
     QTableView,
@@ -323,6 +324,10 @@ class AxisLabelsDisplayWidget(QWidget):
         self._layout: QVBoxLayout = QVBoxLayout()
         self.setLayout(self._layout)
 
+        self._viewer_dims_label = QLabel('Set viewer dims labels')
+        self._viewer_dims_label.setStyleSheet('font-weight: bold')
+        self._layout.addWidget(self._viewer_dims_label)
+
         self._apply_layer_dim_labels_to_viewer_button: QPushButton = (
             QPushButton('Apply layer labels to viewer', parent=self)
         )
@@ -345,6 +350,12 @@ class AxisLabelsDisplayWidget(QWidget):
             self._on_viewer_ndim_changed
         )
         self._on_layer_selection_changed()
+
+        self._copy_layer_labels_to_all_label = QLabel(
+            'Copy axis labels to all layers'
+        )
+        self._copy_layer_labels_to_all_label.setStyleSheet('font-weight: bold')
+        self._layout.addWidget(self._copy_layer_labels_to_all_label)
 
     def _apply_layer_labels_to_viewer(self) -> None:
         if self._napari_viewer.layers.selection.active is None:
