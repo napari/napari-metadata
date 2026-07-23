@@ -1,6 +1,8 @@
+from contextlib import suppress
 from dataclasses import dataclass
 
 from napari.components import Dims, LayerList
+from napari.layers import Layer
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import (
     QHBoxLayout,
@@ -194,6 +196,7 @@ class CopyLayerLabelsToAllWidget(QWidget):
         self.ll = layer_list
         self._viewer_dims = viewer_dims
         self._parent_widget = parent_widget
+        self._event_connected_layer: Layer | None = None
 
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -252,16 +255,71 @@ class CopyLayerLabelsToAllWidget(QWidget):
         self._layout.addWidget(self._label_table)
 
         self.ll.selection.events.active.connect(
-            self._on_selected_layer_changed
+            self._on_layer_selection_changed
         )
         self._viewer_dims.events.ndim.connect(self._on_viewer_ndim_changed)
-        self._on_selected_layer_changed()
+        self._on_layer_selection_changed()
 
-    def _on_selected_layer_changed(self) -> None:
-        """Update the template-layer display when active selection changes."""
+    def _on_layer_selection_changed(self) -> None:
+        """Update displays and layer-event connections after selection changes."""
+        current_layer = self.ll.selection.active
+
+        if current_layer is self._event_connected_layer:
+            self._refresh_display()
+            return
+
+        if self._event_connected_layer is not None:
+            with suppress(TypeError, ValueError, RuntimeError):
+                self._event_connected_layer.events.name.disconnect(
+                    self._on_layer_name_changed
+                )
+            with suppress(TypeError, ValueError, RuntimeError):
+                self._event_connected_layer.events.axis_labels.disconnect(
+                    self._on_layer_axis_labels_changed
+                )
+
+        self._event_connected_layer = current_layer
+
+        if current_layer is not None:
+            current_layer.events.name.connect(self._on_layer_name_changed)
+            current_layer.events.axis_labels.connect(
+                self._on_layer_axis_labels_changed
+            )
+
+        self._refresh_display()
+
+    def _refresh_display(self) -> None:
         active_layer = self.ll.selection.active
         self._layer_l.setText(active_layer.name if active_layer else '')
         self._table_model.refresh()
 
+    def _on_layer_name_changed(self) -> None:
+        self._refresh_display()
+
+    def _on_layer_axis_labels_changed(self) -> None:
+        self._table_model.refresh()
+
     def _on_viewer_ndim_changed(self) -> None:
         self._table_model.refresh()
+
+    def closeEvent(self, event) -> None:  # type: ignore
+        with suppress(TypeError, ValueError, RuntimeError):
+            self.ll.selection.events.active.disconnect(
+                self._on_layer_selection_changed
+            )
+        with suppress(TypeError, ValueError, RuntimeError):
+            self._viewer_dims.events.ndim.disconnect(
+                self._on_viewer_ndim_changed
+            )
+
+        if self._event_connected_layer is not None:
+            with suppress(TypeError, ValueError, RuntimeError):
+                self._event_connected_layer.events.name.disconnect(
+                    self._on_layer_name_changed
+                )
+            with suppress(TypeError, ValueError, RuntimeError):
+                self._event_connected_layer.events.axis_labels.disconnect(
+                    self._on_layer_axis_labels_changed
+                )
+
+        super().closeEvent(event)
