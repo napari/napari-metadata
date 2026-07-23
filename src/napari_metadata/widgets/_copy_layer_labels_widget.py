@@ -9,6 +9,7 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QTableView,
     QVBoxLayout,
@@ -50,6 +51,10 @@ class CopyAxisLabelTableModel(QAbstractTableModel):
             axis_index: list(layer_names)
             for axis_index, layer_names in self._affected_layers.items()
         }
+
+    @property
+    def rows(self) -> list[CopyAxisLabelRow]:
+        return list(self._rows)
 
     @property
     def is_setting_data(self) -> bool:
@@ -326,7 +331,7 @@ class CopyLayerLabelsToAllWidget(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self._layout)
 
-        self._copy_labels_title = QLabel('Copy layer labels to all layers')
+        self._copy_labels_title = QLabel('Set labels to all layers')
         self._copy_labels_title.setStyleSheet('font-weight: bold')
         self._layout.addWidget(self._copy_labels_title)
 
@@ -390,6 +395,24 @@ class CopyLayerLabelsToAllWidget(QWidget):
         )
         self._viewer_dims.events.ndim.connect(self._on_viewer_ndim_changed)
         self._on_layer_selection_changed()
+
+        self._copy_button = QPushButton('Set axis labels to all layers')
+        self._copy_button.clicked.connect(self._on_copy_button_clicked)
+        self._layout.addWidget(self._copy_button)
+
+    def _on_copy_button_clicked(self) -> None:
+        active_layer = self.ll.selection.active
+        if active_layer is None:
+            return
+
+        setting_labels = tuple(
+            row.setting_label for row in self._table_model.rows
+        )
+
+        for layer in self.ll:
+            layer.axis_labels = tuple(setting_labels[-layer.ndim :])
+
+        self._table_model.refresh()
 
     def _on_layer_selection_changed(self) -> None:
         """Update displays and layer-event connections after selection changes."""
