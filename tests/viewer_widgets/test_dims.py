@@ -217,14 +217,35 @@ class TestAxisLabelTableModel:
         viewer_model.layers.selection.active = layer
         model = AxisLabelTableModel(viewer_model)
 
+        # A Viewer-column edit writes straight to ``viewer.dims.axis_labels``.
+        # NOTE: napari >= 0.9.0 derives ``dims.axis_labels`` from the layers'
+        # annotations (napari#9282), so a direct dims write only lasts until
+        # the next layer change.
         viewer_result = model.setData(
             model.index(1, model.VIEWER_COLUMN),
             'depth',
         )
+        assert viewer_result is True
+        assert viewer_model.dims.axis_labels == (
+            'time',
+            'depth',
+            'row',
+            'col',
+        )
+
+        # A Layer-column edit writes to the active layer's axis labels. This
+        # change makes napari re-derive (and thereby overwrite) the earlier
+        # direct dims edit, so dims state is intentionally not asserted past
+        # this point.
         layer_result = model.setData(
             model.index(3, model.LAYER_COLUMN),
             'width',
         )
+        assert layer_result is True
+        assert layer.axis_labels == ('y', 'width')
+
+        # The derived Setting column and the padded (non-layer-backed) Layer
+        # cells reject edits.
         setting_result = model.setData(
             model.index(1, model.SETTING_COLUMN),
             'ignored',
@@ -233,18 +254,8 @@ class TestAxisLabelTableModel:
             model.index(0, model.LAYER_COLUMN),
             'ignored',
         )
-
-        assert viewer_result is True
-        assert layer_result is True
         assert setting_result is False
         assert padded_layer_result is False
-        assert viewer_model.dims.axis_labels == (
-            'time',
-            'depth',
-            'row',
-            'col',
-        )
-        assert layer.axis_labels == ('y', 'width')
 
     def test_set_data_recomputes_setting_label_after_viewer_edit(
         self, viewer_model
