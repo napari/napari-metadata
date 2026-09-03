@@ -40,6 +40,7 @@ from napari_metadata.widgets._containers import (
     HorizontalOnlyOuterScrollArea,
     Orientation,
 )
+from napari_metadata.widgets._dock_size_policy import restore_dock_size_policy
 from napari_metadata.widgets._file import FileGeneralMetadata
 from napari_metadata.widgets._inheritance import InheritanceWidget
 
@@ -135,6 +136,9 @@ class MetadataWidget(QWidget):
     # ------------------------------------------------------------------
 
     def showEvent(self, a0: QShowEvent | None) -> None:
+        # undo napari 0.9.0's (Preferred, Maximum) dock clamp
+        restore_dock_size_policy(self)
+
         if self._already_shown:
             return
 
