@@ -56,6 +56,10 @@ class AxisLabels(AxisComponentBase):
     """
 
     _label_text = 'Labels:'
+    _tooltip_text = (
+        'Labels for each of the layer dimensions.<br>Value: string.'
+    )
+    _line_edit_tooltip_text = 'Label for the axis with index '
 
     def __init__(
         self,
@@ -95,9 +99,16 @@ class AxisLabels(AxisComponentBase):
     def get_layout_entries(self, axis_index: int) -> list[LayoutEntry]:
         """Skip the empty axis-name column; span the line edit across all value cols."""
         line_edit = self._line_edits[axis_index]
-        line_edit.setToolTip(self._tooltip_text)
+        value_entries = [
+            LayoutEntry(
+                widgets=[line_edit],
+                col_span=3,
+                tooltips=[self._get_line_edit_tooltip(axis_index)],
+            )
+        ]
+        self._apply_value_entry_tooltips(value_entries)
         return [
-            LayoutEntry(widgets=[line_edit], col_span=3),
+            *value_entries,
             LayoutEntry(widgets=[self._inherit_checkboxes[axis_index]]),
         ]
 
@@ -118,6 +129,11 @@ class AxisLabels(AxisComponentBase):
         """Return current text from all label line-edits."""
         return tuple(le.text() for le in self._line_edits)
 
+    def _get_line_edit_tooltip(self, axis_index: int) -> str:
+        """Return the tooltip text for one axis-label line edit."""
+        axis_number = self._get_axis_number(axis_index)
+        return f'{self._line_edit_tooltip_text}{axis_number}.'
+
     def _on_editing_finished(self) -> None:
         """Handle editingFinished from any label QLineEdit."""
         labels = self.get_line_edit_values()
@@ -130,6 +146,12 @@ class AxisTranslations(AxisComponentBase):
     """Per-axis translation editor using ``QDoubleSpinBox`` widgets."""
 
     _label_text = 'Translate:'
+    _tooltip_text = (
+        'Translation for each of the layer dimensions.<br>Value: float.'
+    )
+    _spinbox_tooltip_text = (
+        'Translation for the axis with index {axis_number}.<br>Value: float.'
+    )
 
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
@@ -160,7 +182,16 @@ class AxisTranslations(AxisComponentBase):
                     self._spinboxes[i].setValue(value)
 
     def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
-        return [LayoutEntry(widgets=[self._spinboxes[axis_index]], col_span=2)]
+        axis_number = self._get_axis_number(axis_index)
+        return [
+            LayoutEntry(
+                widgets=[self._spinboxes[axis_index]],
+                col_span=2,
+                tooltips=[
+                    self._spinbox_tooltip_text.format(axis_number=axis_number)
+                ],
+            )
+        ]
 
     def _get_layer_values(self, layer: Layer) -> tuple:
         return tuple(layer.translate)
@@ -184,6 +215,8 @@ class AxisScales(AxisComponentBase):
     _SCALE_MINIMUM = 0.001
 
     _label_text = 'Scale:'
+    _tooltip_text = 'Scale for each of the layer dimensions.<br>Value: float.'
+    _spinbox_tooltip_text = 'Scale for the axis with index {axis_number}.<br>The value needs to be more than 0.<br>Value: float.'
 
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
@@ -217,7 +250,16 @@ class AxisScales(AxisComponentBase):
                     self._spinboxes[i].setValue(value)
 
     def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
-        return [LayoutEntry(widgets=[self._spinboxes[axis_index]], col_span=2)]
+        axis_number = self._get_axis_number(axis_index)
+        return [
+            LayoutEntry(
+                widgets=[self._spinboxes[axis_index]],
+                col_span=2,
+                tooltips=[
+                    self._spinbox_tooltip_text.format(axis_number=axis_number)
+                ],
+            )
+        ]
 
     def _get_layer_values(self, layer: Layer) -> tuple:
         return tuple(layer.scale)
@@ -251,7 +293,14 @@ class AxisUnits(AxisComponentBase):
     """
 
     _label_text = 'Units:'
-    _tooltip_text = 'The Pint unit associated with each axis.'
+    _tooltip_text = 'Units for each of the layer dimensions.<br>Unit types per dimension order in all open layers must match to apply them in rendering.'
+    _type_combobox_tooltip_text = (
+        'Unit category for the axis with index {axis_number}.'
+    )
+    _unit_combobox_tooltip_text = (
+        'Preset unit for the axis with index {axis_number}.'
+    )
+    _unit_line_edit_tooltip_text = 'Custom unit for the axis with index {axis_number}.<br>The input string must be a valid pint unit.'
 
     def __init__(self, parent_widget: QWidget) -> None:
         super().__init__(parent_widget)
@@ -326,13 +375,29 @@ class AxisUnits(AxisComponentBase):
         self._sync_visibilities()
 
     def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
+        axis_number = self._get_axis_number(axis_index)
         return [
-            LayoutEntry(widgets=[self._type_comboboxes[axis_index]]),
+            LayoutEntry(
+                widgets=[self._type_comboboxes[axis_index]],
+                tooltips=[
+                    self._type_combobox_tooltip_text.format(
+                        axis_number=axis_number
+                    )
+                ],
+            ),
             LayoutEntry(
                 widgets=[
                     self._unit_comboboxes[axis_index],
                     self._unit_line_edits[axis_index],
-                ]
+                ],
+                tooltips=[
+                    self._unit_combobox_tooltip_text.format(
+                        axis_number=axis_number
+                    ),
+                    self._unit_line_edit_tooltip_text.format(
+                        axis_number=axis_number
+                    ),
+                ],
             ),
         ]
 

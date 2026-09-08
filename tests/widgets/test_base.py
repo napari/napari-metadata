@@ -261,6 +261,17 @@ class _DummyAxisComponent(AxisComponentBase):
         layer.translate = tuple(values)
 
 
+class _DummyAxisComponentWithExplicitTooltips(_DummyAxisComponent):
+    def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
+        line_edit = self._value_line_edits[axis_index]
+        return [
+            LayoutEntry(
+                widgets=[line_edit],
+                tooltips=[f'Explicit tooltip {axis_index}.'],
+            )
+        ]
+
+
 class TestLayoutEntry:
     def test_defaults(self):
         entry = LayoutEntry(widgets=[])
@@ -338,6 +349,39 @@ class TestAxisComponentBaseLifecycle:
             for widget in entries[1].widgets:
                 assert widget.toolTip() == 'Axis tooltip.'
             assert entries[2].widgets[0].toolTip() == ''
+
+    def test_get_layout_entries_uses_explicit_entry_tooltips(
+        self, parent_widget: QWidget
+    ):
+        layer = Image(np.zeros((4, 3)))
+        component = _DummyAxisComponentWithExplicitTooltips(parent_widget)
+        component.load_entries(layer)
+
+        entries = component.get_layout_entries(1)
+
+        assert entries[1].widgets[0].toolTip() == 'Explicit tooltip 1.'
+
+    def test_get_layout_entries_raises_on_tooltip_widget_count_mismatch(
+        self, parent_widget: QWidget
+    ):
+        class _InvalidTooltipComponent(_DummyAxisComponent):
+            def _get_value_entries(self, axis_index: int) -> list[LayoutEntry]:
+                return [
+                    LayoutEntry(
+                        widgets=[self._value_line_edits[axis_index]],
+                        tooltips=['one', 'two'],
+                    )
+                ]
+
+        layer = Image(np.zeros((4, 3)))
+        component = _InvalidTooltipComponent(parent_widget)
+        component.load_entries(layer)
+
+        with pytest.raises(
+            ValueError,
+            match='LayoutEntry.tooltips must match the number of widgets.',
+        ):
+            component.get_layout_entries(0)
 
 
 class TestAxisComponentBaseHelpers:
