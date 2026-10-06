@@ -116,7 +116,7 @@ class LayerDataType(FileComponentBase):
 class FileSize(FileComponentBase):
     """Read-only file/memory size display."""
 
-    _label_text = 'File Size:'
+    _label_text = 'Layer Size:'
 
     def _get_display_text(self, layer: Layer) -> str:
         return str(generate_display_size(layer))
