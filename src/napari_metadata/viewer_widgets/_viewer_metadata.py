@@ -15,7 +15,6 @@ from qtpy.QtWidgets import (
 )
 
 from napari_metadata._layout_utils import _allocate_section_extents
-from napari_metadata.viewer_widgets._dims import DimsWidget
 from napari_metadata.viewer_widgets._scale_bar import ScaleBarWidget
 from napari_metadata.widgets._containers import (
     CollapsibleSectionContainer,
@@ -45,12 +44,9 @@ class ViewerMetadataWidget(QWidget):
         self._scroll_area: QScrollArea | None = None
 
         # Expanded states for each section
-        self._dims_expanded: bool = False
         self._scale_bar_expanded: bool = False
 
         # ── Persistent component instances ──────────────────────────
-        self._dims_instance = DimsWidget(napari_viewer, parent=self)
-
         self._scale_bar_instance = ScaleBarWidget(napari_viewer, parent=self)
 
         self._layout: QVBoxLayout = QVBoxLayout()
@@ -59,7 +55,6 @@ class ViewerMetadataWidget(QWidget):
 
         self._content_widget: QWidget | None = None
         self._content_layout: QVBoxLayout | QHBoxLayout | None = None
-        self._dims_section: CollapsibleSectionContainer | None = None
         self._scale_bar_section: CollapsibleSectionContainer | None = None
 
         self._rebuild_content(self._get_required_orientation())
@@ -170,15 +165,6 @@ class ViewerMetadataWidget(QWidget):
         self._content_layout.setContentsMargins(0, 0, 0, 0)
         self._content_layout.setSpacing(_SECTIONS_SPACING)
 
-        self._dims_section = CollapsibleSectionContainer(
-            self,
-            'Viewer dims',
-            orientation=orientation,
-            on_toggle=self._on_section_toggled,
-        )
-        self._dims_section.set_content_widget(self._dims_instance)
-        self._dims_section.setExpanded(self._dims_expanded)
-
         self._scale_bar_section = CollapsibleSectionContainer(
             self,
             'Scale bar',
@@ -188,7 +174,6 @@ class ViewerMetadataWidget(QWidget):
         self._scale_bar_section.set_content_widget(self._scale_bar_instance)
         self._scale_bar_section.setExpanded(self._scale_bar_expanded)
 
-        self._content_layout.addWidget(self._dims_section)
         self._content_layout.addWidget(self._scale_bar_section)
         self._content_layout.addStretch()
         scroll.setWidget(self._content_widget)
@@ -251,26 +236,20 @@ class ViewerMetadataWidget(QWidget):
 
     def _get_sections(
         self,
-    ) -> (
-        tuple[CollapsibleSectionContainer, CollapsibleSectionContainer] | None
-    ):
-        if self._dims_section is None or self._scale_bar_section is None:
+    ) -> tuple[CollapsibleSectionContainer] | None:
+        if self._scale_bar_section is None:
             return None
-        return (self._dims_section, self._scale_bar_section)
+        return (self._scale_bar_section,)
 
     def _teardown_content(self) -> None:
-        if self._dims_section is not None:
-            self._dims_expanded = self._dims_section.isExpanded()
         if self._scale_bar_section is not None:
             self._scale_bar_expanded = self._scale_bar_section.isExpanded()
 
-        self._dims_instance.setParent(self)
         self._scale_bar_instance.setParent(self)
         self._remove_scroll_area()
 
         self._content_widget = None
         self._content_layout = None
-        self._dims_section = None
         self._scale_bar_section = None
 
     def _remove_scroll_area(self) -> None:
