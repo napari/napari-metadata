@@ -1,0 +1,8 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Reusable workflows maintained by the napari org are trusted at a
+        # branch ref; everything else must be pinned to a commit SHA.
+        napari/*: ref-pin
+        "*": hash-pin

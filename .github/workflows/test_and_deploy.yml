@@ -18,10 +18,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   test:
     name: ${{ matrix.platform }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -30,12 +34,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: "true"
+          # This workflow also publishes to PyPI, so don't restore caches
+          # that another run could have poisoned.
+          enable-cache: false
 
       - name: Setup headless screen
         uses: pyvista/setup-headless-display-action@7d84ae825e6d9297a8e99bdbbae20d1b919a0b19 # v4.2
@@ -62,17 +71,24 @@ jobs:
 
   coverage_report:
     if: ${{ always() }}
-    secrets: inherit
     needs: [test]
+    permissions:
+      contents: read
     uses: napari/shared-workflows/.github/workflows/upload_coverage.yml@main
     with:
       artifact-pattern: 'covreport-*'
+    secrets:
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   build-and-inspect-package:
     name: Build & inspect package.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: hynek/build-and-inspect-python-package@efb823f52190ad02594531168b7a2d5790e66516 # v2.14.0
 
   deploy:
@@ -91,4 +107,4 @@ jobs:
           name: Packages
           path: dist
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # 1.13.0
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
