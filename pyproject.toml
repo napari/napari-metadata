@@ -21,17 +21,19 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy",
-    "qtpy",
-    "pint",
+    "napari>=0.5.2",
+    "numpy>=1.22.2",
+    "pint>=0.17",
+    "qtpy>=2.4.0",
     "superqt>=0.8.2",
 ]
 dynamic = ["version"]
@@ -46,12 +48,15 @@ dynamic = ["version"]
 napari-metadata = "napari_metadata:napari.yaml"
 
 [dependency-groups]
-dev = [
+test = [
     "napari[qt]",
     "npe2",
-    "pytest",
-    "coverage>7",
-    "pytest-qt",
+    "pytest>=8.0",
+    "pytest-qt>=4.4",
+    "coverage>=7.0",
+]
+dev = [
+    {include-group = "test"},
     "tox-uv",
     "prek",
 ]

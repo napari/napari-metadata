@@ -148,7 +148,7 @@ class TestApplyButton:
         widget = InheritanceWidget(viewer_model.layers, parent=parent_widget)
         qtbot.addWidget(widget)
         viewer_model.add_image(np.zeros((4, 4)), name='2d-layer')
-        viewer_model.add_image(np.zeros((3, 4, 4)), name='3d-layer')
+        viewer_model.add_image(np.zeros((3, 4, 4)), name='3d-layer', rgb=False)
         # Template = '2d-layer', inheriting (active) = '3d-layer'
         widget._template_combobox.setCurrentIndex(1)
         assert not widget._apply_button.isEnabled()
@@ -187,7 +187,7 @@ class TestApplyButton:
         )
         qtbot.addWidget(widget)
         viewer_model.add_image(np.zeros((4, 4)), name='2d')
-        viewer_model.add_image(np.zeros((3, 4, 4)), name='3d')
+        viewer_model.add_image(np.zeros((3, 4, 4)), name='3d', rgb=False)
         widget._template_combobox.setCurrentIndex(1)
         widget._apply_button.click()
         assert received == []

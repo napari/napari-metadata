@@ -106,6 +106,7 @@ class TestAxisLabelTableModel:
     ):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )
@@ -157,6 +158,7 @@ class TestAxisLabelTableModel:
     ):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )
@@ -262,6 +264,7 @@ class TestAxisLabelTableModel:
     ):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )
@@ -283,6 +286,7 @@ class TestAxisLabelTableModel:
     ):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )
@@ -322,6 +326,7 @@ class TestAxisLabelsDisplayWidget:
     def test_active_layer_change_refreshes_model(self, viewer_model, qtbot):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )
@@ -356,6 +361,7 @@ class TestAxisLabelsDisplayWidget:
     ):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )
@@ -380,6 +386,7 @@ class TestAxisLabelsDisplayWidget:
     ):
         viewer_model.add_image(
             np.zeros((2, 3, 4)),
+            rgb=False,
             axis_labels=('z', 'y', 'x'),
             name='viewer_dims_source',
         )

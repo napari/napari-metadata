@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import suppress
+from functools import cache
 from typing import TYPE_CHECKING
 
 from napari._qt.widgets.qt_color_swatch import QColorSwatchEdit
 from napari.components._viewer_constants import CanvasPosition
+from napari.components.overlays import ScaleBarOverlay
 from qtpy.QtCore import QSignalBlocker, Qt
 from qtpy.QtWidgets import (
     QCheckBox,
@@ -198,6 +200,17 @@ class ScaleBarColor(ViewerComponentBase):
         self._napari_viewer.scale_bar.color = color
 
 
+@cache
+def _supports_auto_box_color() -> bool:
+    """Whether napari chooses the scale bar box color when it is ``None``.
+
+    napari 0.7.0 made ``box_color`` optional, defaulting to ``None`` for an
+    automatic color. Older versions default to a fixed color and reject
+    ``None``.
+    """
+    return ScaleBarOverlay().box_color is None
+
+
 class ScaleBarBox(ViewerComponentBase):
     """Scale bar component to toggle the box of the scale bar and adjust its color"""
 
@@ -216,31 +229,32 @@ class ScaleBarBox(ViewerComponentBase):
             parent=parent_widget, initial_color='green'
         )
         self._color_swatch.color_changed.connect(self._on_color_changed)
-        self._auto_cb = QCheckBox('auto', parent=parent_widget)
-        self._auto_cb.toggled.connect(self._on_auto_toggled)
+        self._auto_cb: QCheckBox | None = None
+        if _supports_auto_box_color():
+            self._auto_cb = QCheckBox('auto', parent=parent_widget)
+            self._auto_cb.toggled.connect(self._on_auto_toggled)
 
     @property
     def value_widgets(self) -> list[QWidget]:
-        return [self._toggle_switch, self._color_swatch, self._auto_cb]
+        widgets: list[QWidget] = [self._toggle_switch, self._color_swatch]
+        if self._auto_cb is not None:
+            widgets.append(self._auto_cb)
+        return widgets
 
     def clear(self) -> None:
         with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(False)
 
     def _update_display(self) -> None:
+        box_color = self._napari_viewer.scale_bar.box_color
         with QSignalBlocker(self._toggle_switch):
             self._toggle_switch.setChecked(self._napari_viewer.scale_bar.box)
-        if self._napari_viewer.scale_bar.box_color is not None:
-            self._color_swatch.setColor(
-                self._napari_viewer.scale_bar.box_color
-            )
-            self._color_swatch.setEnabled(True)
+        if box_color is not None:
+            self._color_swatch.setColor(box_color)
+        self._color_swatch.setEnabled(box_color is not None)
+        if self._auto_cb is not None:
             with QSignalBlocker(self._auto_cb):
-                self._auto_cb.setChecked(False)
-        else:
-            self._color_swatch.setEnabled(False)
-            with QSignalBlocker(self._auto_cb):
-                self._auto_cb.setChecked(True)
+                self._auto_cb.setChecked(box_color is None)
 
     def _get_display_text(self) -> str:
         return str(self._napari_viewer.scale_bar.box)

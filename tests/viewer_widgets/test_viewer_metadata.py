@@ -42,6 +42,7 @@ def viewer_with_data(viewer_model: ViewerModel):
     """ViewerModel with a 3D image layer added (so dims has 3 axes)."""
     viewer_model.add_image(
         np.zeros((2, 4, 3)),
+        rgb=False,
         name='test',
         axis_labels=('z', 'y', 'x'),
     )

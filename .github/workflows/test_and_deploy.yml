@@ -20,13 +20,17 @@ concurrency:
 
 jobs:
   test:
-    name: ${{ matrix.platform }} py${{ matrix.python-version }}
+    name: ${{ matrix.platform }} py${{ matrix.python-version }}${{ matrix.min-req && ' min-req' || '' }}
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.11', '3.12', '3.13', '3.14']
+        include:
+          - platform: ubuntu-latest
+            python-version: '3.10'
+            min-req: true
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -48,14 +52,19 @@ jobs:
       # and
       # tox-conda: https://github.com/tox-dev/tox-conda
       - name: Test with tox
+        if: ${{ !matrix.min-req }}
         run: uvx --with tox-gh-actions tox
         env:
           PLATFORM: ${{ matrix.platform }}
 
+      - name: Test with minimum requirements
+        if: ${{ matrix.min-req }}
+        run: uv run --exact --no-dev --resolution lowest-direct --group test coverage run --parallel-mode -m pytest -v --color=yes
+
       - name: Upload coverage data
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: covreport-${{ matrix.platform }}-py${{ matrix.python-version }}
+          name: covreport-${{ matrix.platform }}-py${{ matrix.python-version }}${{ matrix.min-req && '-min-req' || '' }}
           include-hidden-files: true
           path: .coverage*
           if-no-files-found: error

@@ -43,7 +43,7 @@ class TestGetLayerDataDtype:
         shape_data = [np.array([[0, 0], [1, 1], [1, 0]], dtype=np.float32)]
         layer = Shapes(shape_data, shape_type='polygon')
         dtype = get_layer_data_dtype(layer)
-        assert dtype == 'float32'
+        assert dtype == layer.data[0].dtype.name
 
     def test_non_native_endian_dtype_is_human_readable(self):
         """Non-native endian dtype like '>u2' should display as 'uint16', not '>u2'."""
