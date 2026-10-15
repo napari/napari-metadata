@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Self
 
 import pint
-from typing_extensions import Self
 
 
 @dataclass(frozen=True)
