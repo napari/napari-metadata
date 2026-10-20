@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
 import pytest
 from qtpy.QtWidgets import QWidget
 
@@ -24,28 +23,13 @@ if TYPE_CHECKING:
 
 
 def _assert_section_content_available(widget: ViewerMetadataWidget) -> None:
-    assert widget._dims_section is not None
     assert widget._scale_bar_section is not None
 
-    for section in (
-        widget._dims_section,
-        widget._scale_bar_section,
-    ):
+    for section in (widget._scale_bar_section,):
         assert section._expanding_area is not None
         assert section._expanding_area.sizeHint().isValid()
         assert section.sizeHint().width() > 0
         assert section.sizeHint().height() > 0
-
-
-@pytest.fixture
-def viewer_with_data(viewer_model: ViewerModel):
-    """ViewerModel with a 3D image layer added (so dims has 3 axes)."""
-    viewer_model.add_image(
-        np.zeros((2, 4, 3)),
-        name='test',
-        axis_labels=('z', 'y', 'x'),
-    )
-    return viewer_model
 
 
 @pytest.fixture
@@ -61,11 +45,9 @@ def viewer_metadata_widget(
 
 class TestViewerMetadataWidgetConstruction:
     def test_creates_sections(self, viewer_metadata_widget):
-        assert viewer_metadata_widget._dims_section is not None
         assert viewer_metadata_widget._scale_bar_section is not None
 
     def test_sections_start_collapsed(self, viewer_metadata_widget):
-        assert not viewer_metadata_widget._dims_section.isExpanded()
         assert not viewer_metadata_widget._scale_bar_section.isExpanded()
 
     def test_initial_orientation_is_vertical(self, viewer_metadata_widget):
@@ -76,10 +58,6 @@ class TestViewerMetadataWidgetConstruction:
         assert viewer_metadata_widget.minimumSizeHint().isValid()
 
     def test_section_label_text_matches(self, viewer_metadata_widget):
-        assert (
-            'Viewer dims'
-            in viewer_metadata_widget._dims_section._button.text()
-        )
         assert (
             'Scale bar'
             in viewer_metadata_widget._scale_bar_section._button.text()
@@ -95,12 +73,10 @@ class TestRebuildContent:
     ):
         viewer_metadata_widget._rebuild_content(orientation)
         # Expand sections so content is visible
-        viewer_metadata_widget._dims_section.setExpanded(True)
         viewer_metadata_widget._scale_bar_section.setExpanded(True)
 
         assert viewer_metadata_widget._scroll_area is not None
         assert viewer_metadata_widget._content_widget is not None
-        assert viewer_metadata_widget._dims_section is not None
         assert viewer_metadata_widget._scale_bar_section is not None
         _assert_section_content_available(viewer_metadata_widget)
 
@@ -111,12 +87,10 @@ class TestRebuildContent:
         orientation: str,
     ):
         viewer_metadata_widget._rebuild_content('vertical')
-        viewer_metadata_widget._dims_section.setExpanded(True)
         viewer_metadata_widget._scale_bar_section.setExpanded(True)
 
         viewer_metadata_widget._rebuild_content(orientation)
 
-        assert viewer_metadata_widget._dims_section.isExpanded() is True
         assert viewer_metadata_widget._scale_bar_section.isExpanded() is True
 
     @pytest.mark.parametrize('orientation', ['vertical', 'horizontal'])
@@ -125,12 +99,10 @@ class TestRebuildContent:
         viewer_metadata_widget,
         orientation: str,
     ):
-        dims = viewer_metadata_widget._dims_instance
         scale_bar = viewer_metadata_widget._scale_bar_instance
 
         viewer_metadata_widget._rebuild_content(orientation)
 
-        assert viewer_metadata_widget._dims_instance is dims
         assert viewer_metadata_widget._scale_bar_instance is scale_bar
 
     def test_double_rebuild_is_idempotent(self, viewer_metadata_widget):
@@ -145,25 +117,15 @@ class TestRebuildContent:
 
 
 class TestSectionToggle:
-    def test_toggling_dims_section_triggers_size_update(
+    def test_teardown_saves_expanded_state_of_scale_bar_section(
         self, viewer_metadata_widget
     ):
         viewer_metadata_widget._rebuild_content('vertical')
-        assert not viewer_metadata_widget._dims_section.isExpanded()
-
-        viewer_metadata_widget._dims_section.setExpanded(True)
-
-        assert viewer_metadata_widget._dims_section.isExpanded() is True
-
-    def test_teardown_saves_expanded_state_of_dims_section(
-        self, viewer_metadata_widget
-    ):
-        viewer_metadata_widget._rebuild_content('vertical')
-        viewer_metadata_widget._dims_section.setExpanded(True)
+        viewer_metadata_widget._scale_bar_section.setExpanded(True)
 
         viewer_metadata_widget._teardown_content()
 
-        assert viewer_metadata_widget._dims_expanded is True
+        assert viewer_metadata_widget._scale_bar_expanded is True
 
     def test_toggling_scale_bar_section_triggers_size_update(
         self, viewer_metadata_widget
@@ -194,20 +156,13 @@ class TestOrientationSwitching:
 
     def test_same_orientation_does_not_teardown(self, viewer_metadata_widget):
         viewer_metadata_widget._rebuild_content('vertical')
-        first_sections = (
-            viewer_metadata_widget._dims_section,
-            viewer_metadata_widget._scale_bar_section,
-        )
+        first_sections = (viewer_metadata_widget._scale_bar_section,)
 
         viewer_metadata_widget._rebuild_content('vertical')
-        second_sections = (
-            viewer_metadata_widget._dims_section,
-            viewer_metadata_widget._scale_bar_section,
-        )
+        second_sections = (viewer_metadata_widget._scale_bar_section,)
 
         # Sections are recreated, so they're different objects
         assert second_sections[0] is not first_sections[0]
-        assert second_sections[1] is not first_sections[1]
 
 
 class TestTeardownContent:
@@ -218,26 +173,25 @@ class TestTeardownContent:
         viewer_metadata_widget._teardown_content()
 
         assert viewer_metadata_widget._scroll_area is None
-        assert viewer_metadata_widget._dims_section is None
         assert viewer_metadata_widget._scale_bar_section is None
 
+    # The only widget as of now is the scale bar and thus this code
+    # is duplicated from the TestSectionToggle class. For now this is kept
+    # as a reminder that new widgets need to be tested here and on the TestSectionToggle
     def test_teardown_saves_expanded_states(self, viewer_metadata_widget):
         viewer_metadata_widget._rebuild_content('vertical')
-        viewer_metadata_widget._dims_section.setExpanded(True)
+        viewer_metadata_widget._scale_bar_section.setExpanded(True)
 
         viewer_metadata_widget._teardown_content()
 
-        assert viewer_metadata_widget._dims_expanded is True
-        assert viewer_metadata_widget._scale_bar_expanded is False
+        assert viewer_metadata_widget._scale_bar_expanded is True
 
     def test_teardown_preserves_component_instances(
         self, viewer_metadata_widget
     ):
         viewer_metadata_widget._rebuild_content('vertical')
-        dims = viewer_metadata_widget._dims_instance
         scale_bar = viewer_metadata_widget._scale_bar_instance
 
         viewer_metadata_widget._teardown_content()
 
-        assert viewer_metadata_widget._dims_instance is dims
         assert viewer_metadata_widget._scale_bar_instance is scale_bar
