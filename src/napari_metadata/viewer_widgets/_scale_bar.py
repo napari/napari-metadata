@@ -202,13 +202,17 @@ class ScaleBarColor(ViewerComponentBase):
 
 @cache
 def _supports_auto_box_color() -> bool:
-    """Whether napari chooses the scale bar box color when it is ``None``.
+    """Whether napari chooses the scale bar box color when it is `None`.
 
-    napari 0.7.0 made ``box_color`` optional, defaulting to ``None`` for an
+    napari 0.7.0 made `box_color` optional, defaulting to `None` for an
     automatic color. Older versions default to a fixed color and reject
-    ``None``.
+    `None`. The field default is inspected, so no overlay is instantiated.
     """
-    return ScaleBarOverlay().box_color is None
+    # pydantic v2 exposes `model_fields`; older napari uses pydantic v1
+    fields = getattr(ScaleBarOverlay, 'model_fields', None)
+    if fields is None:
+        fields = ScaleBarOverlay.__fields__
+    return fields['box_color'].default is None
 
 
 class ScaleBarBox(ViewerComponentBase):
