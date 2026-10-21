@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from napari.components._viewer_constants import CanvasPosition
 
@@ -17,6 +19,7 @@ from napari_metadata.viewer_widgets._scale_bar import (
     ScaleBarTicks,
     ScaleBarVisible,
     _supports_auto_box_color,
+    get_scale_bar,
 )
 
 requires_auto_box_color = pytest.mark.skipif(
@@ -46,11 +49,19 @@ class _DummyScaleBarComponent(ViewerComponentBase):
         return 'dummy'
 
 
+class TestGetScaleBar:
+    def test_falls_back_to_legacy_attribute_on_old_napari(self):
+        legacy_scale_bar = object()
+        old_viewer = SimpleNamespace(scale_bar=legacy_scale_bar)
+
+        assert get_scale_bar(old_viewer) is legacy_scale_bar
+
+
 class TestScaleBarVisible:
     def test_load_entries_reflects_viewer_scale_bar_visibility(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.visible = True
+        get_scale_bar(viewer_model).visible = True
         component = ScaleBarVisible(viewer_model, parent_widget)
 
         component.load_entries()
@@ -70,16 +81,16 @@ class TestScaleBarVisible:
         )
 
     def test_toggle_writes_back_to_viewer(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.visible = False
+        get_scale_bar(viewer_model).visible = False
         component = ScaleBarVisible(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setChecked(True)
 
-        assert viewer_model.scale_bar.visible is True
+        assert get_scale_bar(viewer_model).visible is True
 
     def test_clear_turns_toggle_off(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.visible = True
+        get_scale_bar(viewer_model).visible = True
         component = ScaleBarVisible(viewer_model, parent_widget)
         component.load_entries()
 
@@ -92,7 +103,7 @@ class TestScaleBarFontSize:
     def test_load_entries_reflects_viewer_font_size(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.font_size = 14.0
+        get_scale_bar(viewer_model).font_size = 14.0
         component = ScaleBarFontSize(viewer_model, parent_widget)
 
         component.load_entries()
@@ -115,10 +126,10 @@ class TestScaleBarFontSize:
 
         component.value_widgets[0].setValue(16.0)
 
-        assert viewer_model.scale_bar.font_size == 16.0
+        assert get_scale_bar(viewer_model).font_size == 16.0
 
     def test_clear_resets_to_default(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.font_size = 24.0
+        get_scale_bar(viewer_model).font_size = 24.0
         component = ScaleBarFontSize(viewer_model, parent_widget)
         component.load_entries()
 
@@ -131,7 +142,7 @@ class TestScaleBarFixedLength:
     def test_load_entries_reflects_viewer_length(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.length = 100.0
+        get_scale_bar(viewer_model).length = 100.0
         component = ScaleBarFixedLength(viewer_model, parent_widget)
 
         component.load_entries()
@@ -141,7 +152,7 @@ class TestScaleBarFixedLength:
     def test_load_entries_checks_auto_when_length_is_none(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.length = None
+        get_scale_bar(viewer_model).length = None
         component = ScaleBarFixedLength(viewer_model, parent_widget)
 
         component.load_entries()
@@ -150,41 +161,41 @@ class TestScaleBarFixedLength:
         assert component.value_widgets[0].isEnabled() is False
 
     def test_spinbox_writes_back_to_viewer(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.length = 50.0
+        get_scale_bar(viewer_model).length = 50.0
         component = ScaleBarFixedLength(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setValue(75.0)
 
-        assert viewer_model.scale_bar.length == 75.0
+        assert get_scale_bar(viewer_model).length == 75.0
 
     def test_auto_checkbox_sets_length_to_none(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.length = 50.0
+        get_scale_bar(viewer_model).length = 50.0
         component = ScaleBarFixedLength(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[1].setChecked(True)
 
-        assert viewer_model.scale_bar.length is None
+        assert get_scale_bar(viewer_model).length is None
         assert component.value_widgets[0].isEnabled() is False
 
     def test_unchecking_auto_restores_length(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.length = None
+        get_scale_bar(viewer_model).length = None
         component = ScaleBarFixedLength(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setValue(30.0)
         component.value_widgets[1].setChecked(False)
 
-        assert viewer_model.scale_bar.length == 30.0
+        assert get_scale_bar(viewer_model).length == 30.0
         assert component.value_widgets[0].isEnabled() is True
 
     def test_clear_resets_to_default(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.length = 200.0
+        get_scale_bar(viewer_model).length = 200.0
         component = ScaleBarFixedLength(viewer_model, parent_widget)
         component.load_entries()
 
@@ -198,8 +209,8 @@ class TestScaleBarColor:
     def test_load_entries_reflects_viewer_color(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.colored = True
-        viewer_model.scale_bar.color = 'red'
+        get_scale_bar(viewer_model).colored = True
+        get_scale_bar(viewer_model).color = 'red'
         component = ScaleBarColor(viewer_model, parent_widget)
 
         component.load_entries()
@@ -209,7 +220,7 @@ class TestScaleBarColor:
     def test_load_entries_checks_auto_when_not_colored(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.colored = False
+        get_scale_bar(viewer_model).colored = False
         component = ScaleBarColor(viewer_model, parent_widget)
 
         component.load_entries()
@@ -217,27 +228,27 @@ class TestScaleBarColor:
         assert component.value_widgets[1].isChecked()
 
     def test_auto_checkbox_toggles_colored(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.colored = True
+        get_scale_bar(viewer_model).colored = True
         component = ScaleBarColor(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[1].setChecked(True)
 
-        assert viewer_model.scale_bar.colored is False
+        assert get_scale_bar(viewer_model).colored is False
 
     def test_unchecking_auto_reenables_colored(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.colored = False
+        get_scale_bar(viewer_model).colored = False
         component = ScaleBarColor(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[1].setChecked(False)
 
-        assert viewer_model.scale_bar.colored is True
+        assert get_scale_bar(viewer_model).colored is True
 
     def test_clear_resets_to_default(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.colored = False
+        get_scale_bar(viewer_model).colored = False
         component = ScaleBarColor(viewer_model, parent_widget)
         component.load_entries()
 
@@ -250,7 +261,7 @@ class TestScaleBarBox:
     def test_load_entries_reflects_box_visibility(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.box = True
+        get_scale_bar(viewer_model).box = True
         component = ScaleBarBox(viewer_model, parent_widget)
 
         component.load_entries()
@@ -261,8 +272,8 @@ class TestScaleBarBox:
     def test_load_entries_checks_auto_when_box_color_none(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.box = True
-        viewer_model.scale_bar.box_color = None
+        get_scale_bar(viewer_model).box = True
+        get_scale_bar(viewer_model).box_color = None
         component = ScaleBarBox(viewer_model, parent_widget)
 
         component.load_entries()
@@ -270,26 +281,26 @@ class TestScaleBarBox:
         assert component.value_widgets[2].isChecked() is True
 
     def test_toggle_writes_back_to_viewer(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.box = False
+        get_scale_bar(viewer_model).box = False
         component = ScaleBarBox(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setChecked(True)
 
-        assert viewer_model.scale_bar.box is True
+        assert get_scale_bar(viewer_model).box is True
 
     @requires_auto_box_color
     def test_auto_checkbox_sets_box_color_to_none(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.box = True
-        viewer_model.scale_bar.box_color = 'red'
+        get_scale_bar(viewer_model).box = True
+        get_scale_bar(viewer_model).box_color = 'red'
         component = ScaleBarBox(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[2].setChecked(True)
 
-        assert viewer_model.scale_bar.box_color is None
+        assert get_scale_bar(viewer_model).box_color is None
 
     def test_no_auto_checkbox_without_napari_support(
         self, viewer_model, parent_widget, monkeypatch
@@ -304,7 +315,7 @@ class TestScaleBarBox:
         assert len(component.value_widgets) == 2
 
     def test_clear_resets_toggle_to_off(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.box = True
+        get_scale_bar(viewer_model).box = True
         component = ScaleBarBox(viewer_model, parent_widget)
         component.load_entries()
 
@@ -317,7 +328,7 @@ class TestScaleBarTicks:
     def test_load_entries_reflects_viewer_ticks(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.ticks = True
+        get_scale_bar(viewer_model).ticks = True
         component = ScaleBarTicks(viewer_model, parent_widget)
 
         component.load_entries()
@@ -335,16 +346,16 @@ class TestScaleBarTicks:
         )
 
     def test_toggle_writes_back_to_viewer(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.ticks = False
+        get_scale_bar(viewer_model).ticks = False
         component = ScaleBarTicks(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setChecked(True)
 
-        assert viewer_model.scale_bar.ticks is True
+        assert get_scale_bar(viewer_model).ticks is True
 
     def test_clear_turns_toggle_off(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.ticks = True
+        get_scale_bar(viewer_model).ticks = True
         component = ScaleBarTicks(viewer_model, parent_widget)
         component.load_entries()
 
@@ -357,7 +368,7 @@ class TestScaleBarOpacity:
     def test_load_entries_reflects_viewer_opacity(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.opacity = 0.5
+        get_scale_bar(viewer_model).opacity = 0.5
         component = ScaleBarOpacity(viewer_model, parent_widget)
 
         component.load_entries()
@@ -376,22 +387,22 @@ class TestScaleBarOpacity:
         )
 
     def test_slider_writes_back_to_viewer(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.opacity = 1.0
+        get_scale_bar(viewer_model).opacity = 1.0
         component = ScaleBarOpacity(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setValue(0.3)
 
-        assert viewer_model.scale_bar.opacity == 0.3
+        assert get_scale_bar(viewer_model).opacity == 0.3
 
     def test_spinbox_writes_back_to_viewer(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.opacity = 1.0
+        get_scale_bar(viewer_model).opacity = 1.0
         component = ScaleBarOpacity(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[1].setValue(0.7)
 
-        assert viewer_model.scale_bar.opacity == 0.7
+        assert get_scale_bar(viewer_model).opacity == 0.7
 
     def test_slider_and_spinbox_stay_synced(self, viewer_model, parent_widget):
         component = ScaleBarOpacity(viewer_model, parent_widget)
@@ -402,7 +413,7 @@ class TestScaleBarOpacity:
         assert component.value_widgets[1].value() == 0.25
 
     def test_clear_resets_to_one(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.opacity = 0.3
+        get_scale_bar(viewer_model).opacity = 0.3
         component = ScaleBarOpacity(viewer_model, parent_widget)
         component.load_entries()
 
@@ -416,7 +427,7 @@ class TestScaleBarPosition:
     def test_load_entries_reflects_viewer_position(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.position = CanvasPosition.TOP_LEFT
+        get_scale_bar(viewer_model).position = CanvasPosition.TOP_LEFT
         component = ScaleBarPosition(viewer_model, parent_widget)
 
         component.load_entries()
@@ -438,16 +449,16 @@ class TestScaleBarPosition:
     def test_position_change_writes_back_to_viewer(
         self, viewer_model, parent_widget
     ):
-        viewer_model.scale_bar.position = CanvasPosition.BOTTOM_RIGHT
+        get_scale_bar(viewer_model).position = CanvasPosition.BOTTOM_RIGHT
         component = ScaleBarPosition(viewer_model, parent_widget)
         component.load_entries()
 
         component.value_widgets[0].setCurrentEnum(CanvasPosition.TOP_LEFT)
 
-        assert viewer_model.scale_bar.position == CanvasPosition.TOP_LEFT
+        assert get_scale_bar(viewer_model).position == CanvasPosition.TOP_LEFT
 
     def test_clear_resets_to_bottom_right(self, viewer_model, parent_widget):
-        viewer_model.scale_bar.position = CanvasPosition.TOP_LEFT
+        get_scale_bar(viewer_model).position = CanvasPosition.TOP_LEFT
         component = ScaleBarPosition(viewer_model, parent_widget)
         component.load_entries()
 
@@ -514,12 +525,13 @@ class TestScaleBarMetadata:
         visibility_component = coordinator._scale_bar_visible
         initial_checked = visibility_component.value_widgets[0].isChecked()
 
-        viewer_model.scale_bar.visible = not viewer_model.scale_bar.visible
+        scale_bar = get_scale_bar(viewer_model)
+        scale_bar.visible = not scale_bar.visible
 
         assert (
             visibility_component.value_widgets[0].isChecked()
             is not initial_checked
         )
         assert visibility_component.value_widgets[0].isChecked() is (
-            viewer_model.scale_bar.visible
+            scale_bar.visible
         )

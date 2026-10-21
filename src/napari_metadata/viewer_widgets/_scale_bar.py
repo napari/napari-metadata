@@ -27,7 +27,34 @@ if TYPE_CHECKING:
     from napari.components import ViewerModel
 
 
-class ScaleBarVisible(ViewerComponentBase):
+def get_scale_bar(viewer: ViewerModel) -> ScaleBarOverlay:
+    """Return the scale bar overlay model of `viewer`.
+
+    napari 0.9.0 moved the scale bar to `viewer.canvas.overlays.scale_bar`
+    and deprecated `viewer.scale_bar`. Older napari versions have no
+    `viewer.canvas`, so fall back to the legacy attribute there.
+    """
+    canvas = getattr(viewer, 'canvas', None)
+    if canvas is None:
+        return viewer.scale_bar
+    return canvas.overlays.scale_bar
+
+
+class ScaleBarComponentBase(ViewerComponentBase):
+    """Base for components that read and write the viewer scale bar.
+
+    Components access the overlay through `scale_bar`, which mirrors
+    `viewer.scale_bar` but resolves to the right location for the installed
+    napari version (see `get_scale_bar`).
+    """
+
+    @property
+    def scale_bar(self) -> ScaleBarOverlay:
+        """The scale bar overlay model of the viewer."""
+        return get_scale_bar(self._napari_viewer)
+
+
+class ScaleBarVisible(ScaleBarComponentBase):
     """Toggle component controlling scale bar visibility."""
 
     _label_text = 'Visible:'
@@ -52,18 +79,16 @@ class ScaleBarVisible(ViewerComponentBase):
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._toggle_switch):
-            self._toggle_switch.setChecked(
-                self._napari_viewer.scale_bar.visible
-            )
+            self._toggle_switch.setChecked(self.scale_bar.visible)
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.visible)
+        return str(self.scale_bar.visible)
 
     def _on_toggled(self, checked: bool) -> None:
-        self._napari_viewer.scale_bar.visible = checked
+        self.scale_bar.visible = checked
 
 
-class ScaleBarFontSize(ViewerComponentBase):
+class ScaleBarFontSize(ScaleBarComponentBase):
     """Scale bar component to set the font size of the units"""
 
     _label_text = 'Font size:'
@@ -92,20 +117,16 @@ class ScaleBarFontSize(ViewerComponentBase):
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._font_size_spinbox):
-            self._font_size_spinbox.setValue(
-                self._napari_viewer.scale_bar.font_size
-            )
+            self._font_size_spinbox.setValue(self.scale_bar.font_size)
 
     def _get_display_text(self) -> str:
         return str(self._font_size_spinbox.value())
 
     def _on_value_changed(self) -> None:
-        self._napari_viewer.scale_bar.font_size = (
-            self._font_size_spinbox.value()
-        )
+        self.scale_bar.font_size = self._font_size_spinbox.value()
 
 
-class ScaleBarFixedLength(ViewerComponentBase):
+class ScaleBarFixedLength(ScaleBarComponentBase):
     """Scale bar component to set a fixed length to the scale bar."""
 
     _label_text = 'Fixed length:'
@@ -132,7 +153,7 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self._length_spinbox.setValue(50)
 
     def _update_display(self) -> None:
-        length = self._napari_viewer.scale_bar.length
+        length = self.scale_bar.length
         with QSignalBlocker(self._auto_cb):
             self._auto_cb.setChecked(length is None)
         with QSignalBlocker(self._length_spinbox):
@@ -141,7 +162,7 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self._length_spinbox.setEnabled(not self._auto_cb.isChecked())
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.length)
+        return str(self.scale_bar.length)
 
     def _solve_fixed_length(self) -> None:
         if not self._auto_cb.isChecked():
@@ -151,10 +172,10 @@ class ScaleBarFixedLength(ViewerComponentBase):
         self._length_spinbox.setEnabled(not self._auto_cb.isChecked())
 
     def _set_fixed_length(self, value: float | None) -> None:
-        self._napari_viewer.scale_bar.length = value
+        self.scale_bar.length = value
 
 
-class ScaleBarColor(ViewerComponentBase):
+class ScaleBarColor(ScaleBarComponentBase):
     """Scale bar component to toggle color mode and pick the color"""
 
     _label_text = 'Custom color:'
@@ -185,19 +206,19 @@ class ScaleBarColor(ViewerComponentBase):
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._auto_cb):
-            self._auto_cb.setChecked(not self._napari_viewer.scale_bar.colored)
-        self._color_swatch.setEnabled(self._napari_viewer.scale_bar.colored)
-        self._color_swatch.setColor(self._napari_viewer.scale_bar.color)
+            self._auto_cb.setChecked(not self.scale_bar.colored)
+        self._color_swatch.setEnabled(self.scale_bar.colored)
+        self._color_swatch.setColor(self.scale_bar.color)
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.color)
+        return str(self.scale_bar.color)
 
     def _on_toggled(self, checked: bool) -> None:
-        self._napari_viewer.scale_bar.colored = not checked
+        self.scale_bar.colored = not checked
         self._color_swatch.setEnabled(not checked)
 
     def _on_color_changed(self, color) -> None:
-        self._napari_viewer.scale_bar.color = color
+        self.scale_bar.color = color
 
 
 @cache
@@ -217,7 +238,7 @@ def _supports_auto_box_color() -> bool:
     return ScaleBarOverlay.__fields__['box_color'].allow_none
 
 
-class ScaleBarBox(ViewerComponentBase):
+class ScaleBarBox(ScaleBarComponentBase):
     """Scale bar component to toggle the box of the scale bar and adjust its color"""
 
     _label_text = 'Box:'
@@ -252,9 +273,9 @@ class ScaleBarBox(ViewerComponentBase):
             self._toggle_switch.setChecked(False)
 
     def _update_display(self) -> None:
-        box_color = self._napari_viewer.scale_bar.box_color
+        box_color = self.scale_bar.box_color
         with QSignalBlocker(self._toggle_switch):
-            self._toggle_switch.setChecked(self._napari_viewer.scale_bar.box)
+            self._toggle_switch.setChecked(self.scale_bar.box)
         if box_color is not None:
             self._color_swatch.setColor(box_color)
         self._color_swatch.setEnabled(box_color is not None)
@@ -263,22 +284,22 @@ class ScaleBarBox(ViewerComponentBase):
                 self._auto_cb.setChecked(box_color is None)
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.box)
+        return str(self.scale_bar.box)
 
     def _on_toggled(self, checked: bool) -> None:
-        self._napari_viewer.scale_bar.box = checked
+        self.scale_bar.box = checked
 
     def _on_color_changed(self, color) -> None:
-        self._napari_viewer.scale_bar.box_color = color
+        self.scale_bar.box_color = color
 
     def _on_auto_toggled(self, checked: bool) -> None:
-        self._napari_viewer.scale_bar.box_color = (
+        self.scale_bar.box_color = (
             None if checked else self._color_swatch.color
         )
         self._color_swatch.setEnabled(not checked)
 
 
-class ScaleBarTicks(ViewerComponentBase):
+class ScaleBarTicks(ScaleBarComponentBase):
     """Toggle component controlling scale bar ticks visibility."""
 
     _label_text = 'Ticks:'
@@ -303,16 +324,16 @@ class ScaleBarTicks(ViewerComponentBase):
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._toggle_switch):
-            self._toggle_switch.setChecked(self._napari_viewer.scale_bar.ticks)
+            self._toggle_switch.setChecked(self.scale_bar.ticks)
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.ticks)
+        return str(self.scale_bar.ticks)
 
     def _on_toggled(self, checked: bool) -> None:
-        self._napari_viewer.scale_bar.ticks = checked
+        self.scale_bar.ticks = checked
 
 
-class ScaleBarOpacity(ViewerComponentBase):
+class ScaleBarOpacity(ScaleBarComponentBase):
     _label_text = 'Opacity:'
     _tooltip_text = 'Set the opacity of the scale bar.'
 
@@ -343,7 +364,7 @@ class ScaleBarOpacity(ViewerComponentBase):
         self._spin_box.setValue(1)
 
     def _update_display(self) -> None:
-        value = self._napari_viewer.scale_bar.opacity
+        value = self.scale_bar.opacity
         if self._slider.value() != value:
             with QSignalBlocker(self._slider):
                 self._slider.setValue(value)
@@ -352,7 +373,7 @@ class ScaleBarOpacity(ViewerComponentBase):
                 self._spin_box.setValue(value)
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.opacity)
+        return str(self.scale_bar.opacity)
 
     def _opacity_changed(self, value: float) -> None:
         if self._slider.value() != value:
@@ -361,10 +382,10 @@ class ScaleBarOpacity(ViewerComponentBase):
         if self._spin_box.value() != value:
             with QSignalBlocker(self._spin_box):
                 self._spin_box.setValue(value)
-        self._napari_viewer.scale_bar.opacity = value
+        self.scale_bar.opacity = value
 
 
-class ScaleBarPosition(ViewerComponentBase):
+class ScaleBarPosition(ScaleBarComponentBase):
     """Component that controls the scale bar position."""
 
     _label_text = 'Position:'
@@ -392,17 +413,13 @@ class ScaleBarPosition(ViewerComponentBase):
 
     def _update_display(self) -> None:
         with QSignalBlocker(self._position_combobox):
-            self._position_combobox.setCurrentEnum(
-                self._napari_viewer.scale_bar.position
-            )
+            self._position_combobox.setCurrentEnum(self.scale_bar.position)
 
     def _get_display_text(self) -> str:
-        return str(self._napari_viewer.scale_bar.position)
+        return str(self.scale_bar.position)
 
     def _on_position_changed(self) -> None:
-        self._napari_viewer.scale_bar.position = (
-            self._position_combobox.currentEnum()
-        )
+        self.scale_bar.position = self._position_combobox.currentEnum()
 
 
 class ScaleBarMetadata:
@@ -458,13 +475,13 @@ class ScaleBarMetadata:
             component.load_entries(self._napari_viewer)
 
     def _connect_scale_bar_events(self) -> None:
-        self._napari_viewer.scale_bar.events.connect(
+        get_scale_bar(self._napari_viewer).events.connect(
             self._on_scale_bar_changed
         )
 
     def _disconnect_scale_bar_events(self) -> None:
         with suppress(TypeError, ValueError, RuntimeError):
-            self._napari_viewer.scale_bar.events.disconnect(
+            get_scale_bar(self._napari_viewer).events.disconnect(
                 self._on_scale_bar_changed
             )
 
